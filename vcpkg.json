@@ -1,0 +1,46 @@
+{
+  "name": "vulkancompute",
+  "version-semver": "0.10.0",
+  "description": "Vulkan repo",
+
+  "dependencies": [
+        {
+            "name": "stb",
+            "version>=":"2021-09-10"
+        },
+        {
+            "name": "vulkan-headers"
+        },
+        {
+            "name": "glfw3"
+        },
+        {
+            "name": "glm"
+        },
+        {
+            "name": "plog"
+        },
+        {
+            "name": "stb",
+            "version>=":"2021-09-10"
+        },
+        {
+            "name": "imgui",
+            "default-features": false,
+            "features": ["vulkan-binding"]
+        },
+        {
+            "name": "tinygltf"
+        },
+        {
+            "name": "ktx"
+        },
+        {
+            "name": "taskflow"
+        },
+        {
+            "name": "flecs"
+        }
+  ],
+  "builtin-baseline": "ac7af7424cbaf9057cb246b620f455303dccd6ed"
+}

@@ -1,0 +1,162 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+// std430 + UBO 
+#extension GL_EXT_scalar_block_layout : enable 
+
+#define WIDTH 32 //1024
+#define HEIGHT 32 //1024
+#define WORKGROUP_SIZE 32
+#define MAX_NEIGHBOURS 12
+
+struct Point
+{
+    vec4 m_currentPosition;
+    vec4 m_previousPosition;
+    vec4 m_velocity;
+    vec4 m_ranNormal;
+    int m_effectiveNeighbours[MAX_NEIGHBOURS];
+};
+
+layout(std430, set = 0, binding = 0) buffer PointInfo
+{
+    Point points[WIDTH * HEIGHT];
+}pointInfo;
+
+layout(std430, set = 0, binding = 1) writeonly buffer Position
+{
+    vec4 positions[WIDTH * HEIGHT];
+};
+
+
+layout(std430, push_constant) uniform Registers
+{
+    //vec4 windDirection;
+    //float deltaTime;
+    uint changeScene;
+    float windIntensity;
+} registers;
+
+
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = WORKGROUP_SIZE, local_size_z = 1 ) in;
+
+vec4 CalculateSpringForce(uint index, uint neighbourIndex, float restLength, float springConstant)
+{
+    vec4 pos = pointInfo.points[index].m_currentPosition;
+    vec4 neighbourPos = pointInfo.points[neighbourIndex].m_currentPosition;
+
+    vec4 pullDirection = pos - neighbourPos;
+    vec4 relativePullDirection = pullDirection - ( normalize( pullDirection ) * restLength );
+    vec4 springForce = relativePullDirection * springConstant;
+
+    vec4 deltaPos = pos - neighbourPos;
+    vec4 deltaVel = pointInfo.points[index].m_velocity - pointInfo.points[neighbourIndex].m_velocity;
+    float kd = 0.25f;
+    vec4 extraForce = (dot(deltaVel, deltaPos)/length(deltaPos)) * normalize(deltaPos);
+
+    //springForce -= extraForce;
+    return springForce;
+}
+
+
+void main()
+{
+    /*
+    In order to fit the work into workgroups, some unnecessary threads are launched.
+    We terminate those threads here. 
+    */
+    if(gl_GlobalInvocationID.x >= WIDTH || gl_GlobalInvocationID.y >= HEIGHT)
+        return;
+
+    uint sim_steps = uint( 5 );
+    float deltaTime = 1.0f / ( 60.0 * float( sim_steps ) );
+
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+
+    uint index = x * WIDTH + y;
+    
+    const float springDamping = 4.0f;
+
+    const vec4 windDirection = vec4(0, 0, 1.0f, 0);
+    //const float windIntensity = 5.0f;
+
+    // Calculate the new position after deltaTime
+    const float mass = 0.0005f;
+    const vec4 gravity = vec4(0,-9.8f, 0, 0);
+
+    if(index <= WIDTH - 1)
+    {
+        positions[index] = pointInfo.points[index].m_currentPosition;
+        return;
+    }
+
+    for ( uint s = 0; s < sim_steps; ++s )
+    {
+        vec4 force = gravity * mass;
+        vec4 springForce = vec4(0.0f);
+
+        // Structural
+        for(uint i = 0; i < 4; i++)
+        {
+            int neighbourIndex = pointInfo.points[index].m_effectiveNeighbours[i];
+            if(neighbourIndex != -1)
+            {
+                const float springConstant = 50.0f;
+                const float springRestLength = 0.5f;
+                springForce += CalculateSpringForce(index, neighbourIndex, springRestLength, springConstant);
+            }
+        }
+
+        // Shear
+        for(uint i = 4; i < 8; i++)
+        {
+            int neighbourIndex = pointInfo.points[index].m_effectiveNeighbours[i];
+            if(neighbourIndex != -1)
+            {
+                const float springConstant = 50.0f;
+                const float springRestLength = 0.707f;
+                springForce += CalculateSpringForce(index, neighbourIndex, springRestLength, springConstant);
+            }
+        }
+
+        // Bend
+        for(uint i = 8; i < 12; i++)
+        {
+            int neighbourIndex = pointInfo.points[index].m_effectiveNeighbours[i];
+            if(neighbourIndex != -1)
+            {
+                const float springConstant = 50.0f;
+                const float springRestLength = 1.0f;
+                springForce += CalculateSpringForce(index, neighbourIndex, springRestLength, springConstant);
+            }
+        }
+
+        vec4 viscousDamping = pointInfo.points[index].m_velocity * -springDamping;
+
+        force -= springForce;
+        force += viscousDamping;
+
+        {
+            float airDensity = 1.f;
+            vec4 normal = pointInfo.points[index].m_ranNormal;
+            vec4 viscousVelocity = windDirection - pointInfo.points[index].m_velocity;
+            viscousVelocity = normal * dot( normal, viscousVelocity ) * airDensity * registers.windIntensity;
+            force += viscousVelocity;
+        }
+        
+        memoryBarrier();
+        barrier();
+        
+        // update both buffer
+        
+        vec4 oldPos = pointInfo.points[index].m_currentPosition;
+        pointInfo.points[index].m_currentPosition = 2.0f * pointInfo.points[index].m_currentPosition - pointInfo.points[index].m_previousPosition + force * deltaTime * deltaTime;
+        pointInfo.points[index].m_previousPosition = oldPos;
+        pointInfo.points[index].m_velocity = pointInfo.points[index].m_currentPosition - oldPos;
+    }
+
+    memoryBarrier();
+    barrier();
+
+    positions[index] = pointInfo.points[index].m_currentPosition;
+}

@@ -13,8 +13,11 @@
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 
+
 #include <optional>
 #include <memory>
+
+
 
 #define TIMELINE_STAGE_OVERRIDE
 enum TimelineStages
@@ -32,7 +35,7 @@ enum TimelineStages
 int main()
 {
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
-    plog::init(plog::verbose, &consoleAppender);
+    plog::init(plog::debug, &consoleAppender);
 
     //tf::Executor executor;
     //tf::Taskflow taskflow;
@@ -64,8 +67,8 @@ int main()
     std::unique_ptr<VulkanManager> vulkanManager = std::make_unique<VulkanManager>(screenWidth, screenHeight);
     vulkanManager->Init(windowManagerObj->glfwWindow);
 
-    sceneManager.Initialise(vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
-        vulkanManager->GetQueueFamilyIndex());
+    //sceneManager.Initialise(vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
+    //    vulkanManager->GetQueueFamilyIndex());
 
     uint32_t maxFramesInFlight = vulkanManager->GetMaxFramesInFlight();
 

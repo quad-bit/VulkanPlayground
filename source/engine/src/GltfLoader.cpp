@@ -2,19 +2,30 @@
 //#define STB_IMAGE_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 
-#include "GltfLoader.h"
-#include "Utils.h"
 #include <plog/Log.h>
-#include <iostream>
+#include "Utils.h"
 #include <glm/gtx/quaternion.hpp>
-#include <Mesh.h>
+#include <filesystem>
+
+#include "GltfLoader.h"
 
 namespace
 {
+    void iterate_tree(flecs::entity e) {
+        // Print hierarchical name of entity & the entity type
+        PLOGD << e.path() << " [" << e.type().str() << "]";
+
+        // Iterate children recursively
+        e.children([&](flecs::entity child) {
+            iterate_tree(child);
+        });
+    }
+
+
     //https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfscenerendering/gltfscenerendering.cpp
     // vertex and index buffers
     void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input,
-        Common::SceneManager& sceneManager, const Common::SceneNode& parent,
+        Common::SceneManager& sceneManager, const flecs::entity& parent,
         std::vector<Common::Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer)
     {
         float scaleFactor = 1.0f;
@@ -47,17 +58,15 @@ namespace
         }
 
         transform.m_modelMat = matrix;
-
-        //PLOGD << inputNode.name;
-        Common::SceneNode& node = sceneManager.CreateNode(inputNode.name, transform, parent);
+        auto e = sceneManager.m_world.entity(inputNode.name.c_str()).child_of(parent);
+        e.emplace<Common::Transform>(transform);
 
         // Load node's children
         if (inputNode.children.size() > 0)
         {
-            node.m_hasChildren = true;
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNode(input.nodes[inputNode.children[i]], input, sceneManager, node, vertexBuffer, indexBuffer);
+                LoadNode(input.nodes[inputNode.children[i]], input, sceneManager, e, vertexBuffer, indexBuffer);
             }
         }
 
@@ -65,8 +74,8 @@ namespace
         // In glTF this is done via accessors and buffer views
         if (inputNode.mesh > -1)
         {
-            node.m_hasMesh = true;
-            Common::Mesh& meshObj = sceneManager.CreateMesh(node, vertexBuffer, indexBuffer);
+            //Common::Mesh& meshObj = sceneManager.CreateMesh(node, vertexBuffer, indexBuffer);
+            Common::Mesh meshObj;
             const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
             // Iterate through all primitives of this node's mesh
             for (size_t i = 0; i < mesh.primitives.size(); i++)
@@ -165,16 +174,19 @@ namespace
                         break;
                     }
                     default:
-                        std::cerr << "Index component type " << accessor.componentType << " not supported!" << std::endl;
+                        PLOGD << "Index component type " << accessor.componentType << " not supported!";
+                        assert(0);
                         return;
                     }
                 }
+
                 Common::MeshView view{};
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
                 //view.materialIndex = glTFPrimitive.material;
                 meshObj.m_meshViews.push_back(view);
             }
+            e.emplace<Common::Mesh>(meshObj);
         }
     }
 }
@@ -194,11 +206,22 @@ void Common::LoadGltf(const std::string_view& assetPath, Common::SceneManager& s
     //LoadTextures(glTFInput);
     //LoadMaterials(glTFInput);
 
-    auto& sceneRoot = sceneManager.GetSceneRootNode();
+    std::filesystem::path filePath(assetPath.data());
+
+    //Extract filename without extension
+    const std::string& filenameWithoutExt = filePath.stem().string();
+
+    flecs::entity modelParent = sceneManager.m_world.entity(filenameWithoutExt.c_str());
+    Common::Transform t{};
+    modelParent.emplace<Common::Transform>(t);
+
+    sceneManager.AddParentEntity(modelParent);
     const tinygltf::Scene& scene = glTFInput.scenes[0];
     for (size_t i = 0; i < scene.nodes.size(); i++) 
     {
         const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-        LoadNode(node, glTFInput, sceneManager, sceneRoot, vertexBuffer, indexBuffer);
+        LoadNode(node, glTFInput, sceneManager, modelParent, vertexBuffer, indexBuffer);
     }
+
+    iterate_tree(modelParent);
 }

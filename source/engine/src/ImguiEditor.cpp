@@ -1,14 +1,17 @@
 #include "ImguiEditor.h"
 #include "plog/Log.h"
+#include <string>
+#include "Components.h"
 
 Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager) : cm_utilObj(utilObj), cm_sceneManager(sceneManager)
 {
+    m_selectedNodeIndex = cm_sceneManager.GetParentList()[0].id();
+
     auto CreateSceneHierarchyPanel = [this]() -> void
     {
         bool oneTimeCheck = false;
-        auto CreateSceneTree = [this, &oneTimeCheck](auto self, const SceneNode& node) -> void
+        auto CreateSceneTrees = [this, &oneTimeCheck](auto self, const flecs::entity& e) -> void
         {
-
             ImGuiTreeNodeFlags base_flags = ImGuiTreeNodeFlags_OpenOnArrow |
                 ImGuiTreeNodeFlags_OpenOnDoubleClick |
                 ImGuiTreeNodeFlags_SpanAvailWidth;
@@ -20,47 +23,47 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
                 oneTimeCheck = true;
             }
 
-            if(node.GetIndex() == m_selectedNodeIndex)
-                base_flags = base_flags | ImGuiTreeNodeFlags_Selected;
+            {
+                if (e.id() == m_selectedNodeIndex)
+                    base_flags = base_flags | ImGuiTreeNodeFlags_Selected;
+            }
 
-            if (!node.m_hasChildren)
+            if (!Common::HasChildren(e))
                 base_flags = base_flags | ImGuiTreeNodeFlags_Leaf;
 
-            if (ImGui::TreeNodeEx((void*)(&node), base_flags, "%s", node.m_name.data()))
+            if (ImGui::TreeNodeEx((std::to_string(e.id())).c_str(), base_flags, "%s", e.name().c_str()))
             {
                 if (ImGui::IsItemClicked())
                 {
-                    PLOGD << node.m_name.data();
-                    m_selectedNodeIndex = node.GetIndex();
+                    PLOGD << e.name();
+                    m_selectedNodeIndex = e.id();
                 }
 
-                if (node.m_hasChildren)
+                // Iterate children recursively
+                e.children([&](const flecs::entity& child)
                 {
-                    auto& result = cm_sceneManager.GetChildIndicies(node);
-
-                    for (auto i = 0; i < std::get<1>(result); i++)
-                    {
-                        auto& node = cm_sceneManager.GetNode(std::get<0>(result).at(i));
-                        self(self, node);
-                    }
-                }
+                    self(self, child);
+                });
 
                 ImGui::TreePop();
             }
         };
 
         ImGui::Begin("Scene");
-        CreateSceneTree(CreateSceneTree, cm_sceneManager.GetSceneRootNode());
+        for(auto& parent : cm_sceneManager.GetParentList())
+            CreateSceneTrees(CreateSceneTrees, parent);
         ImGui::End();
     };
 
     auto CreateTransformPanel = [this]() -> void
     {
-        auto& node = cm_sceneManager.GetNode(m_selectedNodeIndex);
-        auto mat = node.m_transform.m_modelMat;
-        glm::vec3 position = node.m_transform.m_position;
-        glm::vec3 scale = node.m_transform.m_scale;
-        glm::vec3 angles = node.m_transform.m_eulerAngles;
+        auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
+
+        auto t = e.get<Common::Transform>();
+        auto mat = t.m_modelMat;
+        glm::vec3 position = t.m_position;
+        glm::vec3 scale = t.m_scale;
+        glm::vec3 angles = t.m_eulerAngles;
 
         ImGui::Begin("Transform");
 
@@ -127,11 +130,11 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
 
     auto CreateMeshPanel = [this]()
     {
-        auto& node = cm_sceneManager.GetNode(m_selectedNodeIndex);
-        if (node.m_hasMesh)
+        auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
+        if (e.has<Common::Mesh>())
         {
             ImGui::Begin("Mesh");
-            auto& mesh = cm_sceneManager.GetMesh(node);
+            auto& mesh = e.get<Common::Mesh>();
             for (auto& view : mesh.m_meshViews)
             {
                 ImGui::Text("Index count : %d", view.m_indexCount);

@@ -6,7 +6,6 @@ set(CORE_FILES
     inc/Utils.h
     inc/WindowManager.h
     inc/ValidationManager.h
-    inc/Common.h
     inc/Timer.h
     inc/ImguiUtil.h
     inc/ImguiGlfwHelper.h
@@ -18,6 +17,7 @@ set(CORE_FILES
     inc/TimelineSemaphore.h
     inc/WireFrameTask.h
     inc/Camera.h
+    inc/Components.h
 
     src/VulkanManager.cpp
     src/ValidationManager.cpp

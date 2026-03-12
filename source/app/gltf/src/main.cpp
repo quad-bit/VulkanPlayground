@@ -56,16 +56,20 @@ int main()
     //auto path = std::string{ ASSETS_PATH } + "models/Suzanne/Suzanne.gltf";
     Common::SceneManager sceneManager{path};
 
-    constexpr uint32_t screenWidth = 1024;
-    constexpr uint32_t screenHeight = 1024;
+    constexpr uint32_t windowWidth = 1920; 
+    constexpr uint32_t windowHeight = 1920;
+
+    uint32_t screenWidth = 1920;
+    uint32_t screenHeight = 1920;
+
 
     Timer timer(60);
 
-    std::unique_ptr<WindowManager> windowManagerObj = std::make_unique<WindowManager>(screenWidth, screenHeight);
+    std::unique_ptr<WindowManager> windowManagerObj = std::make_unique<WindowManager>(windowWidth, windowHeight);
     windowManagerObj->Init();
 
     std::unique_ptr<VulkanManager> vulkanManager = std::make_unique<VulkanManager>(screenWidth, screenHeight);
-    vulkanManager->Init(windowManagerObj->glfwWindow);
+    std::tie(screenWidth, screenHeight) = vulkanManager->Init(windowManagerObj->glfwWindow);
 
     //sceneManager.Initialise(vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
     //    vulkanManager->GetQueueFamilyIndex());

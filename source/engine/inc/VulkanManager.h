@@ -62,7 +62,7 @@ public:
     ~VulkanManager();
     VulkanManager(const uint32_t& screenWidth, const uint32_t& screenHeight);
 
-    void Init(GLFWwindow* glfwWindow);
+    std::tuple<uint32_t, uint32_t> Init(GLFWwindow* glfwWindow);
 
     void DeInit();
     void Update(uint32_t currentFrameIndex);

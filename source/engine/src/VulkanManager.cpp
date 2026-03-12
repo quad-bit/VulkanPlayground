@@ -285,7 +285,7 @@ VulkanManager::VulkanManager(const uint32_t& screenWidth, const uint32_t& screen
     m_validationManagerObj = std::make_unique<ValidationManager>();
 }
 
-void VulkanManager::Init(GLFWwindow* glfwWindow)
+std::tuple<uint32_t, uint32_t> VulkanManager::Init(GLFWwindow* glfwWindow)
 {
     CreateInstance();
     AcquirePhysicalDevice();
@@ -379,6 +379,8 @@ void VulkanManager::Init(GLFWwindow* glfwWindow)
         ChangeImageLayout(m_logicalDevice, m_colorAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
+
+    return { m_surfaceWidth, m_surfaceHeight };
 }
 
 void VulkanManager::DeInit()

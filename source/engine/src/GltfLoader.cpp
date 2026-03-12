@@ -223,5 +223,5 @@ void Common::LoadGltf(const std::string_view& assetPath, Common::SceneManager& s
         LoadNode(node, glTFInput, sceneManager, modelParent, vertexBuffer, indexBuffer);
     }
 
-    iterate_tree(modelParent);
+    //iterate_tree(modelParent);
 }

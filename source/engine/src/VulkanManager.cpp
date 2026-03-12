@@ -304,7 +304,7 @@ void VulkanManager::Init(GLFWwindow* glfwWindow)
     MakeSwapchainImagesPresentable(m_logicalDevice, m_swapchainImageList, m_graphicsQueue, m_queueFamilyIndex);
 
     {
-        for (uint32_t i = 0; i < m_maxFrameInFlight; i++)
+        for (uint32_t i = 0; i < m_swapchainImageCount; i++)
         {
             VkSemaphoreCreateInfo semInfo{};
             semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -399,7 +399,7 @@ void VulkanManager::DeInit()
         vkDestroyImage(m_logicalDevice, m_depthAttachments[i], nullptr);
     }
 
-    for (uint32_t i = 0; i < m_maxFrameInFlight; i++)
+    for (uint32_t i = 0; i < m_swapchainImageCount; i++)
     {
         vkDestroySemaphore(m_logicalDevice, m_renderingCompletedSignalSemaphore[i], nullptr);
     }
@@ -571,7 +571,7 @@ void VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& 
     ErrorCheck(vkEndCommandBuffer(m_commandBuffers[m_frameInFlightIndex]));
 
     VkSemaphoreSubmitInfo signalInfo[2]{
-        {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, m_renderingCompletedSignalSemaphore[m_frameInFlightIndex], 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0},
+        {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, m_renderingCompletedSignalSemaphore[m_currentSwpachainIndex], 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0},
         {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, semaphore, signalValue, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0}
     };
     
@@ -598,7 +598,7 @@ void VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& 
     VkPresentInfoKHR presentInfo{};
     presentInfo.pImageIndices = &m_currentSwpachainIndex;
     presentInfo.pSwapchains = &m_swapchainObj;
-    presentInfo.pWaitSemaphores = &m_renderingCompletedSignalSemaphore[m_frameInFlightIndex];
+    presentInfo.pWaitSemaphores = &m_renderingCompletedSignalSemaphore[m_currentSwpachainIndex];
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.swapchainCount = 1;
     presentInfo.waitSemaphoreCount = 1;

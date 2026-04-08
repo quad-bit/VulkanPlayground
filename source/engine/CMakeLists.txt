@@ -18,6 +18,10 @@ set(CORE_FILES
     inc/WireFrameTask.h
     inc/Camera.h
     inc/Components.h
+    inc/RenderData.h
+    inc/Defines.h
+    inc/BoundsManager.h
+    inc/VulkanWrappers.h
 
     src/VulkanManager.cpp
     src/ValidationManager.cpp
@@ -30,6 +34,7 @@ set(CORE_FILES
     src/ImguiEditor.cpp
     src/WireFrameTask.cpp
     src/Camera.cpp
+    src/BoundsManager.cpp
 )
 
 #create library
@@ -66,7 +71,7 @@ add_custom_command(
     TARGET generateShaderBinaries
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SPV_PATH}
 
-    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
+    COMMAND glslangvalidator -V -I${CMAKE_CURRENT_SOURCE_DIR}/inc ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.frag -o ${SPV_PATH}/UnlitColorFrag.spv
 
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/ClothSim.comp -o ${SPV_PATH}/ClothSim.spv

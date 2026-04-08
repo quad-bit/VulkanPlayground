@@ -3,7 +3,7 @@
 #include "SceneNode.h"
 #include <memory>
 
-void Common::WireFrameTask::BuildCommandBuffers(const uint32_t& frameInFlight, bool changeImageLayout)
+void Common::WireFrameTask::BuildCommandBuffers(const uint32_t& frameInFlight, const Common::RenderData& renderData, const Common::SceneManager& sceneManager)
 {
     VkViewport viewport = { 0.0f, static_cast<float>(m_screenHeight), static_cast<float>(m_screenWidth), -static_cast<float>(m_screenHeight), 0.0f, 1.0f };
     VkRect2D   scissor = { {0, 0}, {m_screenWidth, m_screenHeight} };
@@ -16,29 +16,68 @@ void Common::WireFrameTask::BuildCommandBuffers(const uint32_t& frameInFlight, b
 
     ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
-    if (changeImageLayout)
-    {
-        //VkImageMemoryBarrier image_barrier2{};
-        //image_barrier2.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        //image_barrier2.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        //image_barrier2.dstAccessMask = 0;
-        //image_barrier2.image = m_colorAttachments[frameInFlight];
-        //image_barrier2.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-        //image_barrier2.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        //image_barrier2.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        //// The semaphore takes care of srcStageMask.
-        //vkCmdPipelineBarrier(m_commandBuffers[frameInFlight],
-        //    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        //    0, 0, nullptr, 0, nullptr, 1, &image_barrier2);
-    }
-
     vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
     {
         vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
         vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
 
-        //vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+        vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+        // Bind descriptor sets
+        // View set 0
+        // Transform set 1
+        VkDescriptorSet set[2]{ m_viewSet[0], m_transformSets[frameInFlight] };
+        VkBindDescriptorSetsInfo bindInfo = {};
+        bindInfo.descriptorSetCount = 2;
+        bindInfo.firstSet = 0;
+        bindInfo.layout = m_pipelineLayout;
+        bindInfo.pDescriptorSets = set;
+        bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+        bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
+        bindInfo.dynamicOffsetCount = 0;
+        bindInfo.pDynamicOffsets = nullptr;
+        //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
+        vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
+
+        int boundVertexBuffer = -1, boundIndexBuffer = -1;
+        for (uint32_t i = 0; i < renderData.m_drawableCount; i++)
+        {
+            const Common::Drawable& drawable = renderData.m_drawables[i];
+
+            // Bind vertex and index buffer
+            if (boundVertexBuffer != drawable.m_vertexBufferId || boundIndexBuffer != drawable.m_indexBufferId)
+            {
+                boundVertexBuffer = drawable.m_vertexBufferId;
+                boundIndexBuffer = drawable.m_indexBufferId;
+                auto& vertexBuffer = sceneManager.GetVertexBuffer(drawable.m_vertexBufferId);
+                auto& indexBuffer = sceneManager.GetIndexBuffer(drawable.m_indexBufferId);
+
+                VkDeviceSize offset{ 0 };
+                vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 1, &vertexBuffer, &offset);
+                vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+            }
+
+            // Push Constant 
+            uint32_t matIndex = drawable.m_matIndex;
+            VkPushConstantsInfo info{};
+            info.layout = m_pipelineLayout;
+            info.offset = 0;
+            info.pValues = &matIndex;
+            info.size = sizeof(matIndex);
+            info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+            info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
+            //vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
+            vkCmdPushConstants(m_commandBuffers[frameInFlight], m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(matIndex), &matIndex);
+
+            // Launch draw
+            for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
+            {
+                const Common::MeshView & meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
+                uint32_t numIndicies = meshView.m_indexCount;
+                uint32_t firstIndex = meshView.m_firstIndex;
+                vkCmdDrawIndexed(m_commandBuffers[frameInFlight], numIndicies, 1, firstIndex, 0, 0);
+            }
+        }
 
         //std::array<VkBuffer, 2> vertexBuffs{ m_vertexBuffers[frameInFlight], m_uvBuffer };
         //std::array<VkDeviceSize, 2> offsets{ 0, 0 };
@@ -58,9 +97,10 @@ void Common::WireFrameTask::BuildCommandBuffers(const uint32_t& frameInFlight, b
 
 Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue,
     uint32_t queueFamilyIndex, uint32_t maxFrameInFlight, uint32_t screenWidth, uint32_t screenHeight, const VkFormat& depthFormat,
-    const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews, std::shared_ptr<Camera> pCamera) :
-    m_device(device), m_physicalDevice(physicalDevice), m_graphicsQueue(graphicsQueue), m_pCamera(pCamera), m_colorAttachmentViews(colorViews),
-    m_depthAttachmentViews(depthViews), m_screenWidth(screenWidth), m_screenHeight(screenHeight), m_maxFrameInFlights(maxFrameInFlight)
+    const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews, const uint32_t& maxEntities, std::shared_ptr<Camera> pCamera) :
+    m_device(device), m_physicalDevice(physicalDevice), m_graphicsQueue(graphicsQueue), cm_maxEntities(maxEntities), m_pCamera(pCamera),
+    m_colorAttachmentViews(colorViews), m_depthAttachmentViews(depthViews), m_screenWidth(screenWidth), m_screenHeight(screenHeight),
+    m_maxFrameInFlights(maxFrameInFlight)
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -79,25 +119,42 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
     ErrorCheck(vkAllocateCommandBuffers(device, &alloc_info, &m_commandBuffers[0]));
 
     {
-        VkDescriptorSetLayoutBinding bindings[1]
+        // set 0 for camera, set 1 for transform
+        m_setLayouts.resize(2);
         {
-            {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
-        };
+            VkDescriptorSetLayoutBinding bindings[1]
+            {
+                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
+            };
 
-        VkDescriptorSetLayoutCreateInfo createInfo{};
-        createInfo.bindingCount = 1;
-        createInfo.pBindings = &bindings[0];
-        createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        ErrorCheck(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_viewSetLayout));
+            VkDescriptorSetLayoutCreateInfo createInfo{};
+            createInfo.bindingCount = 1;
+            createInfo.pBindings = &bindings[0];
+            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            ErrorCheck(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
+        }
 
+        {
+            VkDescriptorSetLayoutBinding bindings[1]
+            {
+                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
+            };
+
+            VkDescriptorSetLayoutCreateInfo createInfo{};
+            createInfo.bindingCount = 1;
+            createInfo.pBindings = &bindings[0];
+            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            ErrorCheck(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
+        }
+        
         VkDescriptorPoolSize pool_sizes[1] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * maxFrameInFlight},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * maxFrameInFlight},
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 1 * maxFrameInFlight;
+        poolInfo.maxSets = 3 * maxFrameInFlight; //camera 1, transforms 2
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -106,59 +163,17 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
 
     VkPushConstantRange range{};
     range.offset = 0;
-    range.size = sizeof(glm::mat4);
+    range.size = sizeof(uint32_t);
     range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
     pipelineLayoutCreateInfo.pPushConstantRanges = &range;
-    pipelineLayoutCreateInfo.pSetLayouts = &m_viewSetLayout;
+    pipelineLayoutCreateInfo.pSetLayouts = m_setLayouts.data();
     pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    pipelineLayoutCreateInfo.setLayoutCount = 1;
+    pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
     ErrorCheck(vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
-
-    //// Render pass attachments
-    //m_colorAttachmentViews.resize(maxFrameInFlight);
-    //for (int i = 0; i < maxFrameInFlight; ++i)
-    //{
-    //    auto [image, memory] = CreateImage(device, physicalDevice, screenWidth, screenHeight, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-    //    m_colorAttachments.push_back(std::move(image));
-    //    m_colorAttachmentMemory.push_back(std::move(memory));
-
-    //    VkImageViewCreateInfo createInfo{};
-    //    createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
-    //    createInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
-    //    createInfo.image = m_colorAttachments[i];
-    //    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    //    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    //    createInfo.subresourceRange.baseArrayLayer = 0;
-    //    createInfo.subresourceRange.baseMipLevel = 0;
-    //    createInfo.subresourceRange.layerCount = 1;
-    //    createInfo.subresourceRange.levelCount = 1;
-    //    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-
-    //    ErrorCheck(vkCreateImageView(device, &createInfo, nullptr, &m_colorAttachmentViews[i]));
-    //    ChangeImageLayout(m_device, m_colorAttachments, m_graphicsQueue, queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    //}
-
-    ////Depth
-    //{
-    //    std::tie(m_depthAttachment, m_depthAttachmentMemory) = CreateImage(device, physicalDevice, screenWidth, screenHeight, depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
-    //    VkImageViewCreateInfo createInfo{};
-    //    createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
-    //    createInfo.format = depthFormat;
-    //    createInfo.image = m_depthAttachment;
-    //    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    //    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    //    createInfo.subresourceRange.baseArrayLayer = 0;
-    //    createInfo.subresourceRange.baseMipLevel = 0;
-    //    createInfo.subresourceRange.layerCount = 1;
-    //    createInfo.subresourceRange.levelCount = 1;
-    //    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-
-    //    ErrorCheck(vkCreateImageView(device, &createInfo, nullptr, &m_depthAttachmentViews));
-    //}
 
     //Render pass
     VkClearValue clearValues{ VkClearColorValue{0.6033f, 0.6073f, 0.6133f, 1.0f} };
@@ -183,7 +198,6 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
         depthInfoList[i].loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
         depthInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
         depthInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-
     }
 
     for (uint32_t i = 0; i < maxFrameInFlight; i++)
@@ -218,7 +232,7 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
 
     // Describe the vertex input, i.e. two vertex input attributes in our case:
     VkVertexInputBindingDescription vertexBindings{ 0, sizeof(Common::Vertex), VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX };
-    VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Common::Vertex, Common::Vertex::m_position) };
+    VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Common::Vertex, Common::Vertex::m_position) };
 
     pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = &attributeDescriptions;
     pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindings;
@@ -227,7 +241,7 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
 
     VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {};
     pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
 
     VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
@@ -254,13 +268,12 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
     pipelineDepthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
     pipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_TRUE;
     pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
-    /*pipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP;
+    pipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP;
     pipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
     pipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP;
     pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_GREATER;
     pipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE;
     pipelineDepthStencilStateCreateInfo.front = pipelineDepthStencilStateCreateInfo.back;
-    */
 
     VkPipelineViewportStateCreateInfo pipelineViewportStateCreateInfo = {};
     pipelineViewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -316,7 +329,10 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
     {
         if (!m_pCamera)
         {
-            Common::Transform camTransform(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+            Common::Transform camTransform;
+            //camTransform.m_position = glm::vec3(-65, 20, 0);
+            //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
+            camTransform.m_position = glm::vec3(0, 0, -3);
             m_pCamera = std::make_unique<Common::Camera>(camTransform, screenWidth / (float)screenHeight);
         }
 
@@ -343,7 +359,7 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
             VkDescriptorSetAllocateInfo setAllocInfo{};
             setAllocInfo.descriptorPool = m_descriptorPool;
             setAllocInfo.descriptorSetCount = numUniforms;
-            setAllocInfo.pSetLayouts = &m_viewSetLayout;
+            setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
             setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
             ErrorCheck(vkAllocateDescriptorSets(device, &setAllocInfo, m_viewSet.data()));
@@ -359,11 +375,51 @@ Common::WireFrameTask::WireFrameTask(const VkDevice& device, const VkPhysicalDev
             }
         }
     }
+
+    // Transform Uniform
+    {
+        const uint16_t numUniforms = maxFrameInFlight;
+
+        const size_t dataSizePerFrame = sizeof(glm::mat4) * cm_maxEntities;
+
+        CreateBufferAndMemory(physicalDevice, device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
+            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+        /*void* pData;
+        ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
+        memcpy(pData, uniformArray.data(), sizeof(SceneUniform) * numUniforms);
+        vkUnmapMemory(m_device, m_cameraUniformMemory);*/
+
+        {
+            m_transformSets.resize(numUniforms);
+            
+            for (uint16_t i = 0; i < numUniforms; i++)
+            {
+                VkDescriptorSetAllocateInfo setAllocInfo{};
+                setAllocInfo.descriptorPool = m_descriptorPool;
+                setAllocInfo.descriptorSetCount = 1;
+                setAllocInfo.pSetLayouts = &m_setLayouts[TRANSFORM_SET];
+                setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+                ErrorCheck(vkAllocateDescriptorSets(device, &setAllocInfo, &m_transformSets[i]));
+
+                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                const VkWriteDescriptorSet writes
+                {
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
+                };
+                vkUpdateDescriptorSets(device, 1, &writes, 0, nullptr);
+            }
+        }
+    }
+
 }
 
 Common::WireFrameTask::~WireFrameTask()
 {
     {
+        vkFreeMemory(m_device, m_transformUniformMemory, nullptr);
+        vkDestroyBuffer(m_device, m_transformBuffer, nullptr);
         vkFreeMemory(m_device, m_cameraUniformMemory, nullptr);
         vkDestroyBuffer(m_device, m_cameraUniforms, nullptr);
     }
@@ -372,31 +428,25 @@ Common::WireFrameTask::~WireFrameTask()
     vkDestroyShaderModule(m_device, m_vertexShaderModule, nullptr);
     vkDestroyShaderModule(m_device, m_fragmentShaderModule, nullptr);
 
-    //for (uint32_t i = 0; i < m_colorAttachments.size(); i++)
-    //{
-    //    vkDestroyImageView(m_device, m_colorAttachmentViews[i], nullptr);
-    //    vkFreeMemory(m_device, m_colorAttachmentMemory[i], nullptr);
-    //    vkDestroyImage(m_device, m_colorAttachments[i], nullptr);
-    //}
-
-    //vkDestroyImageView(m_device, m_depthAttachmentViews, nullptr);
-    //vkFreeMemory(m_device, m_depthAttachmentMemory, nullptr);
-    //vkDestroyImage(m_device, m_depthAttachment, nullptr);
-
     vkDestroyPipelineLayout(m_device, m_pipelineLayout, nullptr);
-    vkDestroyDescriptorSetLayout(m_device, m_viewSetLayout, nullptr);
+    for(auto& layout : m_setLayouts)
+        vkDestroyDescriptorSetLayout(m_device, layout, nullptr);
+
     vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
 
     vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 }
 
 void Common::WireFrameTask::Update(const uint64_t& frameIndex, const uint32_t& frameInFlight, const VkSemaphore& timelineSem,
-    uint64_t signalValue, std::optional<uint64_t> waitValue)
+    uint64_t signalValue, std::optional<uint64_t> waitValue, const Common::RenderData& renderData, const Common::SceneManager& sceneManager)
 {
-    /*if (frameIndex > 1)
-        BuildCommandBuffers(frameInFlight, true);
-    else*/
-        BuildCommandBuffers(frameInFlight, false);
+
+    void* pData;
+    ErrorCheck(vkMapMemory(m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * cm_maxEntities, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
+    memcpy(pData, renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
+    vkUnmapMemory(m_device, m_transformUniformMemory);
+
+    BuildCommandBuffers(frameInFlight, renderData, sceneManager);
 
     VkSemaphoreSubmitInfo waitInfo{};
     if (waitValue.has_value())

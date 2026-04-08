@@ -6,7 +6,7 @@
 #include "Utils.h"
 #include <glm/gtx/quaternion.hpp>
 #include <filesystem>
-
+#include <limits>
 #include "GltfLoader.h"
 
 namespace
@@ -24,17 +24,16 @@ namespace
 
     //https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfscenerendering/gltfscenerendering.cpp
     // vertex and index buffers
-    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input,
+    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world,
         Common::SceneManager& sceneManager, const flecs::entity& parent,
-        std::vector<Common::Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer)
+        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor)
     {
-        float scaleFactor = 1.0f;
         Common::Transform transform{};
 
         glm::mat4 matrix = glm::mat4(1.0f);
         if (inputNode.translation.size() == 3)
         {
-            transform.m_position = glm::vec3(glm::make_vec3(inputNode.translation.data()));
+            transform.m_position = glm::vec3(glm::make_vec3(inputNode.translation.data())) * scaleFactor;
             matrix = glm::translate(matrix, transform.m_position);
         }
         if (inputNode.rotation.size() == 4)
@@ -58,7 +57,7 @@ namespace
         }
 
         transform.m_modelMat = matrix;
-        auto e = sceneManager.m_world.entity(inputNode.name.c_str()).child_of(parent);
+        auto e = world.entity(inputNode.name.c_str()).child_of(parent);
         e.emplace<Common::Transform>(transform);
 
         // Load node's children
@@ -66,7 +65,7 @@ namespace
         {
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNode(input.nodes[inputNode.children[i]], input, sceneManager, e, vertexBuffer, indexBuffer);
+                LoadNode(input.nodes[inputNode.children[i]], input, world, sceneManager, e, vertexBuffer, indexBuffer, scaleFactor);
             }
         }
 
@@ -76,13 +75,18 @@ namespace
         {
             //Common::Mesh& meshObj = sceneManager.CreateMesh(node, vertexBuffer, indexBuffer);
             Common::Mesh meshObj;
+            meshObj.m_vertexBufferIndex = vertexBuffer.m_index;
+            meshObj.m_indexBufferIndex = indexBuffer.m_index;
+
             const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
             // Iterate through all primitives of this node's mesh
             for (size_t i = 0; i < mesh.primitives.size(); i++)
             {
+                glm::vec3 max{ std::numeric_limits<float>::lowest() }, min{ std::numeric_limits<float>::max() };
+
                 const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
-                uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.size());
-                uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.size());
+                uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.m_indexList.size());
+                uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.m_vertexList.size());
                 uint32_t indexCount = 0;
                 // Vertices
                 {
@@ -127,13 +131,18 @@ namespace
                     for (size_t v = 0; v < vertexCount; v++)
                     {
                         Common::Vertex vert{};
-                        vert.m_position = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]), 1.0f);
+                        vert.m_position = glm::vec3(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor);
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
-                        //vert.color = glm::vec3(1.0f);
+                        ////vert.color = glm::vec3(1.0f);
                         vert.m_tangent = tangentsBuffer ? glm::make_vec4(&tangentsBuffer[v * 4]) : glm::vec4(0.0f);
-                        vertexBuffer.push_back(vert);
+                        vertexBuffer.m_vertexList.push_back(vert);
+
+                        min = glm::vec3(std::min(min.x, vert.m_position.x), std::min(min.y, vert.m_position.y), std::min(min.z, vert.m_position.z));
+                        max = glm::vec3(std::max(max.x, vert.m_position.x), std::max(max.y, vert.m_position.y), std::max(max.z, vert.m_position.z));
                     }
+
+                    
                 }
                 // Indices
                 {
@@ -151,7 +160,7 @@ namespace
                         const uint32_t* buf = reinterpret_cast<const uint32_t*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++)
                         {
-                            indexBuffer.push_back(buf[index] + vertexStart);
+                            indexBuffer.m_indexList.push_back(buf[index] + vertexStart);
                         }
                         break;
                     }
@@ -160,7 +169,7 @@ namespace
                         const uint16_t* buf = reinterpret_cast<const uint16_t*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++)
                         {
-                            indexBuffer.push_back(buf[index] + vertexStart);
+                            indexBuffer.m_indexList.push_back(buf[index] + vertexStart);
                         }
                         break;
                     }
@@ -169,7 +178,7 @@ namespace
                         const uint8_t* buf = reinterpret_cast<const uint8_t*>(&buffer.data[accessor.byteOffset + bufferView.byteOffset]);
                         for (size_t index = 0; index < accessor.count; index++)
                         {
-                            indexBuffer.push_back(buf[index] + vertexStart);
+                            indexBuffer.m_indexList.push_back(buf[index] + vertexStart);
                         }
                         break;
                     }
@@ -180,11 +189,16 @@ namespace
                     }
                 }
 
-                Common::MeshView view{};
+                Common::MeshView& view = sceneManager.GetMeshView(e, meshObj);
+                assert(meshObj.m_meshViewCount < MAX_MESH_VIEWS_PER_MESH);
+
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
                 //view.materialIndex = glTFPrimitive.material;
-                meshObj.m_meshViews.push_back(view);
+
+                {
+                    sceneManager.CreateBounds(min, max, &transform.m_modelMatGlobal, view.m_viewIndex, e.id());
+                }
             }
             e.emplace<Common::Mesh>(meshObj);
         }
@@ -192,8 +206,8 @@ namespace
 }
 
 
-void Common::LoadGltf(const std::string_view& assetPath, Common::SceneManager& sceneManager,
-    std::vector<Common::Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer)
+flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
+    Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor)
 {
     tinygltf::Model glTFInput;
     tinygltf::TinyGLTF gltfContext;
@@ -209,19 +223,18 @@ void Common::LoadGltf(const std::string_view& assetPath, Common::SceneManager& s
     std::filesystem::path filePath(assetPath.data());
 
     //Extract filename without extension
-    const std::string& filenameWithoutExt = filePath.stem().string();
+    const std::string& filenameWithoutExt = filePath.stem().string() + "_Parent";
 
-    flecs::entity modelParent = sceneManager.m_world.entity(filenameWithoutExt.c_str());
+    flecs::entity modelParent = world.entity(filenameWithoutExt.c_str());
     Common::Transform t{};
     modelParent.emplace<Common::Transform>(t);
 
-    sceneManager.AddParentEntity(modelParent);
     const tinygltf::Scene& scene = glTFInput.scenes[0];
     for (size_t i = 0; i < scene.nodes.size(); i++) 
     {
         const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-        LoadNode(node, glTFInput, sceneManager, modelParent, vertexBuffer, indexBuffer);
+        LoadNode(node, glTFInput, world, sceneManager, modelParent, vertexBuffer, indexBuffer, scaleFactor);
     }
 
-    //iterate_tree(modelParent);
+    return modelParent;
 }

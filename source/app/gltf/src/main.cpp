@@ -13,11 +13,9 @@
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 
-
+#include "Defines.h"
 #include <optional>
 #include <memory>
-
-
 
 #define TIMELINE_STAGE_OVERRIDE
 enum TimelineStages
@@ -52,16 +50,19 @@ int main()
 
     //executor.run(taskflow).wait();
 
-    auto path = std::string{ ASSETS_PATH } + "/models/ABeautifulGame/glTF/ABeautifulGame.gltf";
-    //auto path = std::string{ ASSETS_PATH } + "models/Suzanne/Suzanne.gltf";
-    Common::SceneManager sceneManager{path};
+    auto chessPath = std::string{ ASSETS_PATH } + "/models/ABeautifulGame/glTF/ABeautifulGame.gltf";
+    auto suzzanePath = std::string{ ASSETS_PATH } + "/models/Suzanne/Suzanne.gltf";
 
-    constexpr uint32_t windowWidth = 1920; 
-    constexpr uint32_t windowHeight = 1920;
+    std::vector<Common::ModelLoadInfo> infos;
+    infos.push_back({ 100.0f, chessPath.c_str() });
+//    infos.push_back({ 1.0f, suzzanePath.c_str() });
+    Common::SceneManager sceneManager(infos, MAX_ENTITIES);
 
-    uint32_t screenWidth = 1920;
-    uint32_t screenHeight = 1920;
+    constexpr uint32_t windowWidth = 1280; 
+    constexpr uint32_t windowHeight = 720;
 
+    uint32_t screenWidth = windowWidth;
+    uint32_t screenHeight = windowHeight;
 
     Timer timer(60);
 
@@ -71,8 +72,8 @@ int main()
     std::unique_ptr<VulkanManager> vulkanManager = std::make_unique<VulkanManager>(screenWidth, screenHeight);
     std::tie(screenWidth, screenHeight) = vulkanManager->Init(windowManagerObj->glfwWindow);
 
-    //sceneManager.Initialise(vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
-    //    vulkanManager->GetQueueFamilyIndex());
+    sceneManager.Initialise(vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
+        vulkanManager->GetQueueFamilyIndex(), vulkanManager->GetMaxFramesInFlight());
 
     uint32_t maxFramesInFlight = vulkanManager->GetMaxFramesInFlight();
 
@@ -96,7 +97,7 @@ int main()
     std::unique_ptr<Common::WireFrameTask> pWireframeTask = std::make_unique<Common::WireFrameTask>(
         vulkanManager->GetLogicalDevice(), vulkanManager->GetPhysicalDevice(), vulkanManager->GetGraphicsQueue(),
         vulkanManager->GetQueueFamilyIndex(), vulkanManager->GetMaxFramesInFlight(), screenWidth, screenHeight,
-        vulkanManager->GetDepthFormat(), vulkanManager->GetDefaultColorImageView(), vulkanManager->GetDefaultDepthImageView());
+        vulkanManager->GetDepthFormat(), vulkanManager->GetDefaultColorImageView(), vulkanManager->GetDefaultDepthImageView(), MAX_ENTITIES);
 
     // imgui
     std::unique_ptr<Common::ImguiUtil > imguiUtil = std::make_unique<Common::ImguiUtil >(
@@ -109,8 +110,6 @@ int main()
 
     uint64_t frameIndex = 0;
 
-    //timer.Sleep(10);
-
     while (windowManagerObj->Update())
     {
         timer.StartFrame();
@@ -118,6 +117,10 @@ int main()
         auto currentFrameInFlight = vulkanManager->GetFrameInFlightIndex();
 
         imguiUtil->NewFrame();
+
+        sceneManager.Update(currentFrameInFlight);
+
+        sceneManager.Prepare(currentFrameInFlight);
 
         if (timelineSemaphores[currentFrameInFlight]->GetFrameIndex() > 0)
         {
@@ -138,7 +141,8 @@ int main()
         // Trigger graphics tasks
         {
             uint64_t signalValue = timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::WIREFRAME_FINISHED);
-            pWireframeTask->Update(frameIndex, currentFrameInFlight, timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, std::nullopt);
+            pWireframeTask->Update(frameIndex, currentFrameInFlight, timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
+                signalValue, std::nullopt, sceneManager.GetRenderData(currentFrameInFlight), sceneManager);
         }
 
         // Trigger imgui

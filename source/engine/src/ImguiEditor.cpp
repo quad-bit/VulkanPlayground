@@ -59,7 +59,7 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
     {
         auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
 
-        auto t = e.get<Common::Transform>();
+        auto& t = e.get<Common::Transform>();
         auto mat = t.m_modelMat;
         glm::vec3 position = t.m_position;
         glm::vec3 scale = t.m_scale;
@@ -135,8 +135,9 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
         {
             ImGui::Begin("Mesh");
             auto& mesh = e.get<Common::Mesh>();
-            for (auto& view : mesh.m_meshViews)
+            for (uint32_t i = 0; i<mesh.m_meshViewCount; i++)
             {
+                const Common::MeshView& view = mesh.m_meshViews[i];
                 ImGui::Text("Index count : %d", view.m_indexCount);
                 ImGui::Text("Triangle count : %d", view.m_indexCount/3);
             }

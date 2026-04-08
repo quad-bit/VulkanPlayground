@@ -65,6 +65,9 @@ void ErrorCheck(VkResult result)
         case VK_ERROR_VALIDATION_FAILED_EXT:
             std::cout << "VK_ERROR_VALIDATION_FAILED_EXT" << std::endl;
             break;
+        case VK_ERROR_OUT_OF_POOL_MEMORY:
+            std::cout << "VK_ERROR_OUT_OF_POOL_MEMORY" << std::endl;
+            break;
         default:
             break;
         }

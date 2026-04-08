@@ -3,6 +3,8 @@
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_GOOGLE_include_directive : enable
 
+#include "Defines.h"
+
 layout (std140, set = 0, binding = 0) uniform View
 {
     mat4 view;
@@ -10,14 +12,20 @@ layout (std140, set = 0, binding = 0) uniform View
     vec3 cameraPos;
 } view;
 
+layout(std140, set = 1, binding = 0) uniform Transform
+{
+    mat4 mats[MAX_ENTITIES];
+}transforms;
+
 layout(push_constant) uniform PushConsts
 {
-    mat4 model;
-} transform;
+    int transformIndex;
+};
 
-layout (location = 0) in vec4 pos;
+layout (location = 0) in vec3 pos;
 
 void main()
 {
-   gl_Position = view.projection * view.view * transform.model * vec4(pos.xyz, 1.0);
+   mat4 modelMat = transforms.mats[transformIndex];
+   gl_Position = view.projection * view.view * modelMat * vec4(pos.xyz, 1.0);
 }

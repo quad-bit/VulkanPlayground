@@ -5,11 +5,12 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "SceneManager.h"
+#include "VulkanWrappers.h"
 #include "Components.h"
 
 
 namespace Common
 {
-    void LoadGltf(const std::string_view& assetPath, Common::SceneManager& sceneManager,
-        std::vector<Common::Vertex>& vertexBuffer, std::vector<uint32_t>& indexBuffer);
+    flecs::entity LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
+        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor = 1.0f);
 }

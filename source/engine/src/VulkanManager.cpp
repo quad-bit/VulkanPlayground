@@ -380,7 +380,7 @@ std::tuple<uint32_t, uint32_t> VulkanManager::Init(GLFWwindow* glfwWindow)
         ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
-    return { m_surfaceWidth, m_surfaceHeight };
+    return std::tuple<uint32_t, uint32_t>{ (uint32_t)m_surfaceWidth, (uint32_t)m_surfaceHeight };
 }
 
 void VulkanManager::DeInit()

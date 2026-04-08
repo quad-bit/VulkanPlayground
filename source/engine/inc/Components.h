@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Utils.h"
+#include "Defines.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -21,22 +22,26 @@ namespace Common
     // ============= MESH ===============
     struct Vertex
     {
-        glm::vec4 m_position;
+        glm::vec3 m_position;
         glm::vec4 m_tangent;
         glm::vec3 m_normal;
         glm::vec2 m_uv;
     };
 
     // one or more per object with a mesh (more in case of submesh)
-    struct MeshView
+    struct alignas(4) MeshView
     {
         uint32_t m_firstIndex, m_indexCount;
+        uint32_t m_viewIndex;
     };
 
-    // Multiple object or submeshes in one
+    // Multiple submeshes or primitives in one
     struct Mesh
     {
-        std::vector<MeshView> m_meshViews;
+        MeshView m_meshViews[MAX_MESH_VIEWS_PER_MESH];
+        uint16_t m_meshViewCount = 0;
+        // ids of Vulkan wrappers
+        uint16_t m_vertexBufferIndex, m_indexBufferIndex;
     };
     // ============= MESH ===============
 

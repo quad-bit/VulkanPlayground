@@ -24,8 +24,8 @@ namespace Common
         glm::mat4 m_viewMat;
         glm::mat4 m_projectionMat;
 
-        float fov;
-        float m_aspect;
+        float m_fov = 60.0f;
+        float m_aspect = 1.0f;
         float m_zNear = 0.20f, m_zFar = 1500.0f;
         CameraType m_projectionType;
 

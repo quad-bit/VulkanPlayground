@@ -4,16 +4,125 @@
 #include "GltfLoader.h"
 #include "Components.h"
 #include <plog/Log.h>
+#include <stack>
+
+uint32_t meshViewCount = 0;
+
+bool Common::HasChildren(flecs::entity e)
+{
+    bool found = false;
+    e.children([&](flecs::entity child) {
+        found = true;
+        return found; // Stop after finding the first child
+        });
+    return found;
+};
 
 void Common::SceneManager::Update(uint32_t frameIndex)
 {
+    std::stack<glm::mat4> matrixStack;
+    matrixStack.push(glm::mat4(1.0));
+
+    auto UpdateGlobalMatrix = [&matrixStack](auto self, const flecs::entity& e) -> void
+    {
+        Transform& t = e.get_mut<Common::Transform>();
+        {
+            auto translationMat = glm::translate(t.m_position);
+            auto scaleMat = glm::scale(t.m_scale);
+
+            glm::mat4 rotXMat = glm::rotate(t.m_eulerAngles.x, glm::vec3(1, 0, 0));
+            glm::mat4 rotYMat = glm::rotate(t.m_eulerAngles.y, glm::vec3(0, 1, 0));
+            glm::mat4 rotZMat = glm::rotate(t.m_eulerAngles.z, glm::vec3(0, 0, 1));
+
+            auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+            t.m_modelMat = translationMat * rotationMat * scaleMat;
+        }
+
+        t.m_modelMatGlobal = matrixStack.top() * t.m_modelMat;
+        matrixStack.push(t.m_modelMatGlobal);
+
+        e.children([&](const flecs::entity& child)
+        {
+            self(self, child);
+        });
+
+        matrixStack.pop();
+    };
+
+    for (auto& parent : m_parentEntities)
+    {
+        UpdateGlobalMatrix(UpdateGlobalMatrix, parent);
+    }
 }
 
 void Common::SceneManager::Prepare(uint32_t frameIndex)
 {
+    m_boundManager.Update(frameIndex);
+
+    RenderData& renderData = m_renderDataList[frameIndex];
+    renderData.m_drawableCount = 0;
+    renderData.m_viewCount = 0;
+
+    auto AddAllEntities = [&renderData, this](auto self, const flecs::entity& e)-> void
+    {
+        if (e.has<Common::Mesh>())
+        {
+            Mesh m = e.get<Common::Mesh>();
+            if (m.m_meshViewCount > 0)
+            {
+                auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
+                auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
+                drawable.m_matIndex = renderData.m_drawableCount++;
+                assert(renderData.m_drawableCount < MAX_ENTITIES);
+
+                // resetting
+                drawable.m_numOfViews = 0;
+
+                mat = e.get<Common::Transform>().m_modelMatGlobal;
+                drawable.m_viewStartIndex = renderData.m_viewCount;
+                drawable.m_vertexBufferId = m.m_vertexBufferIndex;
+                drawable.m_indexBufferId = m.m_indexBufferIndex;
+
+                for (int i = 0; i < m.m_meshViewCount; i++)
+                {
+                    auto& view = m.m_meshViews[i];
+                    renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
+                    assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
+                }
+                renderData.m_viewCount += drawable.m_numOfViews;
+
+                // REMOVE THIS ONLY FOR DEBUGGING
+                drawable.m_name = e.name();
+            }
+        }
+
+        e.children([&](const flecs::entity& child)
+        {
+            self(self, child);
+        });
+    };
+
+    for (auto& parent : m_parentEntities)
+    {
+        AddAllEntities(AddAllEntities, parent);
+    }
 }
 
-Common::SceneManager::SceneManager(const std::string_view& assetPath)
+Common::MeshView& Common::SceneManager::GetMeshView(flecs::entity& entity, Common::Mesh& mesh)
+{
+    auto& view = mesh.m_meshViews[mesh.m_meshViewCount++]; 
+    view.m_viewIndex = meshViewCount++;
+    assert(meshViewCount <= MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH);
+    return view;
+}
+
+void Common::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+{
+    m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
+}
+
+Common::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
 {
     {
         //m_world.set_entity_range(0, MAX_ENTITES);
@@ -22,10 +131,44 @@ Common::SceneManager::SceneManager(const std::string_view& assetPath)
         m_world.component<Transform>();
         m_world.component<Mesh>();
 
-        m_parentEntities.reserve(MAX_ENTITES);
+        m_parentEntities.reserve(cm_maxEntities);
     }
 
-    LoadGltf(assetPath, *this, m_vertexList, m_indexList);
+    VertexBuffer& vertBufWrapper = m_vertexBufferWrappers[m_vertexBufferWrapperCount];
+    vertBufWrapper.m_index = m_vertexBufferWrapperCount++;
+    assert(m_vertexBufferWrapperCount < MAX_WRAPPERS);
+
+    IndexBuffer& indBufWrapper = m_indexBufferWrappers[m_indexBufferWrapperCount];
+    indBufWrapper.m_index = m_indexBufferWrapperCount++;
+    assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
+
+    m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper));
+}
+
+Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
+{
+    {
+        //m_world.set_entity_range(0, MAX_ENTITES);
+        //m_world.enable_range_check();
+
+        m_world.component<Transform>();
+        m_world.component<Mesh>();
+
+        m_parentEntities.reserve(cm_maxEntities);
+    }
+
+    for (auto& info : infos)
+    {
+        VertexBuffer& vertBufWrapper = m_vertexBufferWrappers[m_vertexBufferWrapperCount];
+        vertBufWrapper.m_index = m_vertexBufferWrapperCount++;
+        assert(m_vertexBufferWrapperCount < MAX_WRAPPERS);
+
+        IndexBuffer& indBufWrapper = m_indexBufferWrappers[m_indexBufferWrapperCount];
+        indBufWrapper.m_index = m_indexBufferWrapperCount++;
+        assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
+
+        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, vertBufWrapper, indBufWrapper, info.m_scale));
+    }
 }
 
 Common::SceneManager::~SceneManager()
@@ -34,17 +177,19 @@ Common::SceneManager::~SceneManager()
 }
 
 void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice,
-    const VkQueue& graphicsQueue, uint32_t queueFamilyIndex)
+    const VkQueue& graphicsQueue, uint32_t queueFamilyIndex, uint32_t maxFrameInFlights)
 {
     m_device = device;
     m_physicalDevice = physicalDevice;
     m_graphicsQueue = graphicsQueue;
     m_queueFamilyIndex = queueFamilyIndex;
+    m_maxFrameInFlights = maxFrameInFlights;
+    m_renderDataList.resize(maxFrameInFlights);
 
     auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
     {
-        CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize,
-            usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // copy data into vertex and index buffer
 
@@ -64,19 +209,28 @@ void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDe
         FreeMemory(m_device, stagingMemory);
     };
 
-    const size_t verticiesDataSize = sizeof(Vertex) * m_vertexList.size();
-    const size_t indiciesDataSize = sizeof(uint32_t) * m_indexList.size();
+    assert(m_vertexBufferWrapperCount == m_indexBufferWrapperCount);
+    for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
+    {
+        const size_t verticiesDataSize = sizeof(Vertex) * m_vertexBufferWrappers[i].m_vertexList.size();
+        CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer, 
+            m_vertexBufferWrappers[i].m_vertexBufferMemory, m_vertexBufferWrappers[i].m_vertexList.data());
 
-    CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBuffer, m_vertexBufferMemory, m_vertexList.data());
-    CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBuffer, m_indexBufferMemory, m_indexList.data());
+        const size_t indiciesDataSize = sizeof(uint32_t) * m_indexBufferWrappers[i].m_indexList.size();
+        CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
+            m_indexBufferWrappers[i].m_indexBufferMemory, m_indexBufferWrappers[i].m_indexList.data());
+    }
 }
 
 void Common::SceneManager::DeInitialise()
 {
-    DestroyBuffer(m_device, m_vertexBuffer);
-    DestroyBuffer(m_device, m_indexBuffer);
-    FreeMemory(m_device, m_vertexBufferMemory);
-    FreeMemory(m_device, m_indexBufferMemory);
+    for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
+    {
+        DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
+        DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
+        FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
+        FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
+    }
 }
 
 void Common::SceneManager::AddParentEntity(flecs::entity e)
@@ -89,13 +243,21 @@ const std::vector<flecs::entity>& Common::SceneManager::GetParentList() const
     return m_parentEntities;
 }
 
-bool Common::HasChildren(flecs::entity e)
+const Common::RenderData& Common::SceneManager::GetRenderData(uint32_t frameIndex)
 {
-    bool found = false;
-    e.children([&](flecs::entity child) {
-        found = true;
-        return; // Stop after finding the first child
-    });
-    return found;
-};
+    return m_renderDataList[frameIndex];
+}
+
+const VkBuffer& Common::SceneManager::GetVertexBuffer(uint32_t id) const
+{
+    assert(id < m_vertexBufferWrapperCount);
+    return m_vertexBufferWrappers[id].m_vkVertexBuffer;
+}
+
+const VkBuffer& Common::SceneManager::GetIndexBuffer(uint32_t id) const
+{
+    assert(id < m_indexBufferWrapperCount);
+    return m_indexBufferWrappers[id].m_vkIndexBuffer;
+}
+
 

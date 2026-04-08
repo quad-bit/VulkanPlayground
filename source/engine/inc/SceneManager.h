@@ -1,15 +1,24 @@
 #pragma once
 #include "Utils.h"
 #include "Components.h"
+#include "RenderData.h"
+#include "BoundsManager.h"
+#include "VulkanWrappers.h"
+
 #include <flecs.h>
 
 namespace Common
 {
-    constexpr uint32_t MAX_ENTITES = 1000;
+    //constexpr uint32_t MAX_ENTITES = 1000;
+    const uint16_t MAX_WRAPPERS = 10; // one for an entire gltf
 
     bool HasChildren(flecs::entity e);
 
-    class SceneManager;
+    struct ModelLoadInfo
+    {
+        float m_scale = 1.0f;
+        const char* m_path;
+    };
 
     class SceneManager
     {
@@ -20,8 +29,11 @@ namespace Common
         //=================   FLECS ================================
 
         //TODO: temporary
-        std::vector<Common::Vertex> m_vertexList;
-        std::vector<uint32_t> m_indexList;
+        //std::vector<Common::Vertex> m_vertexList;
+        //std::vector<uint32_t> m_indexList;
+        Common::VertexBuffer m_vertexBufferWrappers[MAX_WRAPPERS];
+        Common::IndexBuffer m_indexBufferWrappers[MAX_WRAPPERS];
+        uint32_t m_vertexBufferWrapperCount = 0, m_indexBufferWrapperCount = 0;
 
         // Vulkan specific
         VkDevice m_device = VK_NULL_HANDLE;
@@ -29,19 +41,31 @@ namespace Common
         VkQueue m_graphicsQueue = VK_NULL_HANDLE;
         uint32_t m_queueFamilyIndex = 0;
 
-        VkBuffer m_vertexBuffer, m_indexBuffer;
-        VkDeviceMemory m_vertexBufferMemory, m_indexBufferMemory;
+        //VkBuffer m_vertexBuffer, m_indexBuffer;
+        //VkDeviceMemory m_vertexBufferMemory, m_indexBufferMemory;
+
+        const uint32_t cm_maxEntities;
+        uint32_t m_maxFrameInFlights = 0;
+
+        std::vector<Common::RenderData> m_renderDataList;
+
+        Common::BoundsManager m_boundManager;
 
     public:
 
         flecs::world m_world;
 
-        SceneManager(const std::string_view& assetPath);
+        SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities);
+        SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities);
+
         ~SceneManager();
 
         // Separates the loading of mesh and vulkan object creation hence multi threading can be achieved
-        void Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue, uint32_t queueFamilyIndex);
+        void Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue,
+            uint32_t queueFamilyIndex, uint32_t maxFrameInFlights);
         void DeInitialise();
+
+        MeshView& GetMeshView(flecs::entity& entity, Mesh& meshObj);
 
         void AddParentEntity(flecs::entity e);
         const std::vector<flecs::entity>& GetParentList() const;
@@ -51,5 +75,12 @@ namespace Common
 
         // prepare the rendering data maybe do culling and sorting
         void Prepare(uint32_t frameIndex);
+
+        void CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
+
+        const RenderData& GetRenderData(uint32_t frameIndex);
+
+        const VkBuffer& GetVertexBuffer(uint32_t id) const;
+        const VkBuffer& GetIndexBuffer(uint32_t id) const;
     };
 }

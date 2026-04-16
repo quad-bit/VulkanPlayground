@@ -3,6 +3,7 @@
 #include <string>
 #include "Components.h"
 
+
 Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager) : cm_utilObj(utilObj), cm_sceneManager(sceneManager)
 {
     m_selectedNodeIndex = cm_sceneManager.GetParentList()[0].id();
@@ -28,7 +29,7 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
                     base_flags = base_flags | ImGuiTreeNodeFlags_Selected;
             }
 
-            if (!Common::HasChildren(e))
+            if (!HasChildren(e))
                 base_flags = base_flags | ImGuiTreeNodeFlags_Leaf;
 
             if (ImGui::TreeNodeEx((std::to_string(e.id())).c_str(), base_flags, "%s", e.name().c_str()))
@@ -149,3 +150,4 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
     cm_utilObj.AddPersistentDrawCalls(CreateTransformPanel);
     cm_utilObj.AddPersistentDrawCalls(CreateMeshPanel);
 }
+

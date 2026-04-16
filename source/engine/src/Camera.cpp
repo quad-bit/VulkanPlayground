@@ -1,7 +1,7 @@
 #include "Camera.h"
 
 Common::Camera::Camera(const Common::Transform& transform, float aspectRatio,
-    glm::vec3 up, CameraType projectionType) : m_transform(transform), m_aspect(aspectRatio)
+    glm::vec3 up, CameraType projectionType) : m_transform(transform), m_aspect(aspectRatio), m_projectionType(projectionType)
 {
     // FOR NOW CAMERA DOESN'T HAS A PARENT
     auto translationMat = glm::translate(m_transform.m_position);

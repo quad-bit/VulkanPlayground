@@ -20,7 +20,7 @@ private:
 
 public:
     ~WindowManager() {}
-    WindowManager(const uint32_t& screenWidth, const uint32_t& screenHeight);
+    WindowManager(uint32_t screenWidth, uint32_t screenHeight);
     void                                Init();
     void                                DeInit();
     void                                Close();

@@ -7,6 +7,16 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
+bool HasChildren(flecs::entity e)
+{
+    bool found = false;
+    e.children([&](flecs::entity child) {
+        found = true;
+        return found; // Stop after finding the first child
+        });
+    return found;
+};
+
 void ErrorCheck(VkResult result)
 {
 #ifdef _DEBUG

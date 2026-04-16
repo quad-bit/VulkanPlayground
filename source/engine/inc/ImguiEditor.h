@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "ImguiUtil.h"
 #include "SceneManager.h"
+#include<flecs.h>
 
 namespace Common
 {
@@ -16,6 +17,5 @@ namespace Common
 
     public:
         ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager);
-
     };
 }

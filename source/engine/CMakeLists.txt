@@ -15,13 +15,18 @@ set(CORE_FILES
     inc/Mesh.h
     inc/ImguiEditor.h
     inc/TimelineSemaphore.h
-    inc/WireFrameTask.h
     inc/Camera.h
     inc/Components.h
     inc/RenderData.h
     inc/Defines.h
     inc/BoundsManager.h
     inc/VulkanWrappers.h
+    inc/EngineManager.h
+    inc/tasks/WireFrameTask.h
+    inc/tasks/ColorUnlitTask.h
+    inc/tasks/Task.h
+    inc/pipelines/Pipeline.h
+    inc/pipelines/WireframePipeline.h
 
     src/VulkanManager.cpp
     src/ValidationManager.cpp
@@ -32,9 +37,14 @@ set(CORE_FILES
     src/SceneNode.cpp
     src/SceneManager.cpp
     src/ImguiEditor.cpp
-    src/WireFrameTask.cpp
     src/Camera.cpp
     src/BoundsManager.cpp
+    src/EngineManager.cpp
+    src/tasks/WireFrameTask.cpp
+    src/tasks/ColorUnlitTask.cpp
+    src/tasks/Task.cpp
+    src/pipelines/Pipeline.cpp
+    src/pipelines/WireframePipeline.cpp
 )
 
 #create library

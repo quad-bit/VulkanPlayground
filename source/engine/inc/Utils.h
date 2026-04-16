@@ -21,6 +21,16 @@ We need to configure it to use the Vulkan range of 0.0 to 1.0 using the GLM_FORC
 #define Vec3ToVec4_1(a) glm::vec4(a.x, a.y, a.z, 1.0f)
 #define Vec3ToVec4_0(a) glm::vec4(a.x, a.y, a.z, 0.0f)
 
+#include <flecs.h>
+
+
+struct Dimension
+{
+    uint32_t m_width = 100;
+    uint32_t m_height = 100;
+};
+
+bool HasChildren(flecs::entity e);
 
 void ErrorCheck(VkResult result);
 

@@ -8,17 +8,7 @@
 
 uint32_t meshViewCount = 0;
 
-bool Common::HasChildren(flecs::entity e)
-{
-    bool found = false;
-    e.children([&](flecs::entity child) {
-        found = true;
-        return found; // Stop after finding the first child
-        });
-    return found;
-};
-
-void Common::SceneManager::Update(uint32_t frameIndex)
+void Common::SceneManager::Update(uint32_t currentFrameInFlight)
 {
     std::stack<glm::mat4> matrixStack;
     matrixStack.push(glm::mat4(1.0));
@@ -56,11 +46,11 @@ void Common::SceneManager::Update(uint32_t frameIndex)
     }
 }
 
-void Common::SceneManager::Prepare(uint32_t frameIndex)
+void Common::SceneManager::Prepare(uint32_t currentFrameInFlight)
 {
-    m_boundManager.Update(frameIndex);
+    m_boundManager.Update(currentFrameInFlight);
 
-    RenderData& renderData = m_renderDataList[frameIndex];
+    RenderData& renderData = m_renderDataList[currentFrameInFlight];
     renderData.m_drawableCount = 0;
     renderData.m_viewCount = 0;
 
@@ -173,11 +163,11 @@ Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, cons
 
 Common::SceneManager::~SceneManager()
 {
-
+    m_mainCamera.reset();
 }
 
 void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice,
-    const VkQueue& graphicsQueue, uint32_t queueFamilyIndex, uint32_t maxFrameInFlights)
+    const VkQueue& graphicsQueue, uint32_t queueFamilyIndex, uint32_t maxFrameInFlights, const Dimension& screenDimension, const Dimension& designDimension)
 {
     m_device = device;
     m_physicalDevice = physicalDevice;
@@ -220,10 +210,18 @@ void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDe
         CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
             m_indexBufferWrappers[i].m_indexBufferMemory, m_indexBufferWrappers[i].m_indexList.data());
     }
+
+
+    Common::Transform camTransform;
+    //camTransform.m_position = glm::vec3(-65, 20, 0);
+    //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
+    camTransform.m_position = glm::vec3(0, 0, -3);
+    m_mainCamera = std::make_unique<Common::Camera>(camTransform, designDimension.m_width / (float)designDimension.m_height);
 }
 
 void Common::SceneManager::DeInitialise()
 {
+    m_mainCamera.reset();
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
         DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
@@ -258,6 +256,11 @@ const VkBuffer& Common::SceneManager::GetIndexBuffer(uint32_t id) const
 {
     assert(id < m_indexBufferWrapperCount);
     return m_indexBufferWrappers[id].m_vkIndexBuffer;
+}
+
+std::unique_ptr<Common::Camera>& Common::SceneManager::GetMainCamera()
+{
+    return m_mainCamera;
 }
 
 

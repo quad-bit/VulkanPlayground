@@ -1,7 +1,7 @@
 #include "WindowManager.h"
 #include <assert.h>
 
-WindowManager::WindowManager(const uint32_t& screenWidth, const uint32_t& screenHeight) :
+WindowManager::WindowManager(uint32_t screenWidth, uint32_t screenHeight) :
     m_screenWidth(screenWidth), m_screenHeight(screenHeight)
 {
 }

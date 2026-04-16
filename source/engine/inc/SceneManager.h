@@ -4,15 +4,17 @@
 #include "RenderData.h"
 #include "BoundsManager.h"
 #include "VulkanWrappers.h"
+#include "Camera.h"
 
 #include <flecs.h>
+#include <memory>
 
 namespace Common
 {
     //constexpr uint32_t MAX_ENTITES = 1000;
     const uint16_t MAX_WRAPPERS = 10; // one for an entire gltf
 
-    bool HasChildren(flecs::entity e);
+    //bool HasChildren(flecs::entity e);
 
     struct ModelLoadInfo
     {
@@ -50,6 +52,7 @@ namespace Common
         std::vector<Common::RenderData> m_renderDataList;
 
         Common::BoundsManager m_boundManager;
+        std::unique_ptr<Camera> m_mainCamera;
 
     public:
 
@@ -62,7 +65,7 @@ namespace Common
 
         // Separates the loading of mesh and vulkan object creation hence multi threading can be achieved
         void Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue,
-            uint32_t queueFamilyIndex, uint32_t maxFrameInFlights);
+            uint32_t queueFamilyIndex, uint32_t maxFrameInFlights, const Dimension& screenDimension, const Dimension& designDimension);
         void DeInitialise();
 
         MeshView& GetMeshView(flecs::entity& entity, Mesh& meshObj);
@@ -71,10 +74,10 @@ namespace Common
         const std::vector<flecs::entity>& GetParentList() const;
 
         // update the matricies
-        void Update(uint32_t frameIndex);
+        void Update(uint32_t currentFrameInFlight);
 
         // prepare the rendering data maybe do culling and sorting
-        void Prepare(uint32_t frameIndex);
+        void Prepare(uint32_t currentFrameInFlight);
 
         void CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
 
@@ -82,5 +85,7 @@ namespace Common
 
         const VkBuffer& GetVertexBuffer(uint32_t id) const;
         const VkBuffer& GetIndexBuffer(uint32_t id) const;
+
+        std::unique_ptr<Camera>& GetMainCamera();
     };
 }

@@ -6,7 +6,7 @@
 #include "VulkanManager.h"
 #include <memory>
 
-namespace Common
+namespace Common::Tasking
 {
     struct PipelineInfo
     {
@@ -30,10 +30,9 @@ namespace Common
         std::vector<std::unique_ptr<TimelineSemaphore>> m_timelineSemaphores;
 
         PipelineInfo m_info;
-        std::shared_ptr<VulkanManager> m_pVulkanManager;
 
     public:
-        Pipeline(const PipelineInfo& info, std::shared_ptr<VulkanManager> pVulkanManager);
+        Pipeline(const PipelineInfo& info);
         ~Pipeline();
     };
 }

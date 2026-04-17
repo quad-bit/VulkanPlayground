@@ -168,7 +168,7 @@ namespace
     // ================= new debug utils Ends
 }
 
-void ValidationManager::AddRequiredPlatformInstanceExtensions(std::vector<const char*>* instance_extensions)
+void Common::ValidationManager::AddRequiredPlatformInstanceExtensions(std::vector<const char*>* instance_extensions)
 {
 #if defined(GLFW_ENABLED)
     uint32_t instance_extension_count = 0;
@@ -185,13 +185,13 @@ void ValidationManager::AddRequiredPlatformInstanceExtensions(std::vector<const 
 #endif
 }
 
-ValidationManager::ValidationManager()
+Common::ValidationManager::ValidationManager()
 {
     SetupLayersAndExtensions();
     SetupDebug();
 }
 
-ValidationManager::~ValidationManager()
+Common::ValidationManager::~ValidationManager()
 {
     vulkanInstanceRef = nullptr;
     pAllocatorRef = nullptr;
@@ -199,7 +199,7 @@ ValidationManager::~ValidationManager()
 
 //================================================  DEBUGGING
 
-void ValidationManager::SetupDebug()
+void Common::ValidationManager::SetupDebug()
 {
 #if _DEBUG
 
@@ -225,7 +225,7 @@ PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXTCall = nullptr;
 PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXTCall = nullptr;
 PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXTCall = nullptr;
 
-void ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocationCallbacks* pAllocator)
+void Common::ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocationCallbacks* pAllocator)
 {
 #if _DEBUG
     vulkanInstanceRef = vulkanInstance;
@@ -262,14 +262,14 @@ void ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocationCallb
 #endif
 }
 
-void ValidationManager::DeinitDebug()
+void Common::ValidationManager::DeinitDebug()
 {
 #if _DEBUG    //vkDestroyDebugReportCallbackEXTObj(*vulkanInstanceRef, debugReport, pAllocatorRef);
     DestroyDebugUtilsMessengerEXT(*vulkanInstanceRef, dbg_messenger, NULL);
 #endif
 }
 
-void ValidationManager::SetupLayersAndExtensions()
+void Common::ValidationManager::SetupLayersAndExtensions()
 {
     instanceExtensionNameList.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
     instanceExtensionNameList.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);

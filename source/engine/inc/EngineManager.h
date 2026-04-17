@@ -27,17 +27,17 @@ namespace Common
     class EngineManager
     {
         private:
-            std::shared_ptr<Common::SceneManager> m_pSceneManager;
+            std::unique_ptr<Common::SceneManager> m_pSceneManager;
             std::unique_ptr<Common::BoundsManager> m_pBoundsManager;
             std::unique_ptr<WindowManager> m_pWindowManagerObj;
-            std::shared_ptr<VulkanManager> m_pVulkanManager;
-            std::shared_ptr<Common::ImguiUtil > m_pImguiUtil;
+            std::unique_ptr<VulkanManager> m_pVulkanManager;
+            std::unique_ptr<Common::ImguiUtil > m_pImguiUtil;
             std::unique_ptr<Common::ImguiEditor> m_pEditor;
 
             uint32_t m_maxFramesInFlight;
-            std::shared_ptr<Timer> m_pTimer;
+            std::unique_ptr<Timer> m_pTimer;
 
-            std::unique_ptr<WireframePipeline> m_pWireframePipeline;
+            std::unique_ptr<Tasking::WireframePipeline> m_pWireframePipeline;
 
         public:
             EngineManager(const EngineInfo& info);

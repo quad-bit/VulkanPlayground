@@ -7,7 +7,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-bool HasChildren(flecs::entity e)
+bool Common::HasChildren(flecs::entity e)
 {
     bool found = false;
     e.children([&](flecs::entity child) {
@@ -17,7 +17,7 @@ bool HasChildren(flecs::entity e)
     return found;
 };
 
-void ErrorCheck(VkResult result)
+void Common::VkUtils::ErrorCheck(VkResult result)
 {
 #ifdef _DEBUG
     if (result < 0)
@@ -87,7 +87,7 @@ void ErrorCheck(VkResult result)
 #endif
 }
 
-size_t GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice & device, const size_t & dataSize)
+size_t Common::VkUtils::GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice & device, const size_t & dataSize)
 {
     size_t alignedDataSize = dataSize;
     VkPhysicalDeviceProperties physicalDeviceProps;
@@ -98,7 +98,7 @@ size_t GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice & device, const 
     return alignedDataSize;
 }
 
-VkCommandBuffer AllocateCommandBuffer(const VkDevice & device, const VkCommandPool & commandPool)
+VkCommandBuffer Common::VkUtils::AllocateCommandBuffer(const VkDevice & device, const VkCommandPool & commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.commandBufferCount = 1;
@@ -109,7 +109,7 @@ VkCommandBuffer AllocateCommandBuffer(const VkDevice & device, const VkCommandPo
     return cmdBuffer;
 }
 
-void FreeCommandBuffer(const VkDevice & device, const VkCommandPool & commandPool, VkCommandBuffer* commandBuffer)
+void Common::VkUtils::FreeCommandBuffer(const VkDevice & device, const VkCommandPool & commandPool, VkCommandBuffer* commandBuffer)
 {
     vkFreeCommandBuffers(device, commandPool, 1, commandBuffer);
 }
@@ -150,16 +150,16 @@ VkDeviceMemory AllocateHostCoherentMemory(const VkPhysicalDevice & physicalDevic
     memoryAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 
     VkDeviceMemory memory = VK_NULL_HANDLE;
-    ErrorCheck(vkAllocateMemory(device, &memoryAllocInfo, nullptr, &memory));
+    Common::VkUtils::ErrorCheck(vkAllocateMemory(device, &memoryAllocInfo, nullptr, &memory));
 
     return memory;
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> LoadImageDataIntoStagingBuffer(const VkPhysicalDevice& physicalDevice, const VkDevice& device, const unsigned char* data, const size_t& dataSize)
+std::tuple<VkBuffer, VkDeviceMemory> Common::VkUtils::LoadImageDataIntoStagingBuffer(const VkPhysicalDevice& physicalDevice, const VkDevice& device, const unsigned char* data, const size_t& dataSize)
 {
     VkBuffer buffer;
     VkDeviceMemory bufferMemory;
-    CreateBufferAndMemory(physicalDevice, device, buffer, bufferMemory, static_cast<VkDeviceSize>(dataSize),
+    Common::VkUtils::CreateBufferAndMemory(physicalDevice, device, buffer, bufferMemory, static_cast<VkDeviceSize>(dataSize),
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     // Copy the image's data into the buffer
@@ -172,7 +172,7 @@ std::tuple<VkBuffer, VkDeviceMemory> LoadImageDataIntoStagingBuffer(const VkPhys
 }
 
 
-std::tuple<VkBuffer, VkDeviceMemory, int, int> LoadImageIntoHostCoherentMemory(const VkPhysicalDevice & physicalDevice, const VkDevice & device, const std::string & pathToImageFile)
+std::tuple<VkBuffer, VkDeviceMemory, int, int> Common::VkUtils::LoadImageIntoHostCoherentMemory(const VkPhysicalDevice & physicalDevice, const VkDevice & device, const std::string & pathToImageFile)
 {
     const int desiredColorChannels = STBI_rgb_alpha;
     int width, height, channelsInFile;
@@ -189,7 +189,7 @@ std::tuple<VkBuffer, VkDeviceMemory, int, int> LoadImageIntoHostCoherentMemory(c
 
     VkBuffer buffer;
     VkDeviceMemory bufferMemory;
-    CreateBufferAndMemory(physicalDevice, device, buffer, bufferMemory, static_cast<VkDeviceSize>(imageDataSize), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    Common::VkUtils::CreateBufferAndMemory(physicalDevice, device, buffer, bufferMemory, static_cast<VkDeviceSize>(imageDataSize), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
     // Copy the image's data into the buffer
     void* pData;
@@ -201,23 +201,23 @@ std::tuple<VkBuffer, VkDeviceMemory, int, int> LoadImageIntoHostCoherentMemory(c
 
     return std::make_tuple(buffer, bufferMemory, width, height);
 }
-void FreeMemory(const VkDevice & device, const VkDeviceMemory& memory)
+void Common::VkUtils::FreeMemory(const VkDevice & device, const VkDeviceMemory& memory)
 {
     vkFreeMemory(device, memory, nullptr);
 }
 
-void CreateBufferAndMemory(const VkPhysicalDevice & physicalDevice, const VkDevice & device,
+void Common::VkUtils::CreateBufferAndMemory(const VkPhysicalDevice & physicalDevice, const VkDevice & device,
     VkBuffer & buffer, VkDeviceMemory & memory, const size_t & dataSize,
     const VkBufferUsageFlags & usage, const VkMemoryPropertyFlags & memProps)
 {
-    auto alignedSize = GetMemoryAlignedDataSizeForBuffer(physicalDevice, dataSize);
+    auto alignedSize = Common::VkUtils::GetMemoryAlignedDataSizeForBuffer(physicalDevice, dataSize);
 
     VkBufferCreateInfo info{};
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     info.size = alignedSize;
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     info.usage = usage;
-    ErrorCheck(vkCreateBuffer(device, &info, nullptr, &buffer));
+    Common::VkUtils::ErrorCheck(vkCreateBuffer(device, &info, nullptr, &buffer));
 
     // Get memory types supported by the physical device:
     VkPhysicalDeviceMemoryProperties memoryProperties;
@@ -260,12 +260,12 @@ void CreateBufferAndMemory(const VkPhysicalDevice & physicalDevice, const VkDevi
     ErrorCheck(vkBindBufferMemory(device, buffer, memory, 0));
 }
 
-void DestroyBuffer(const VkDevice & device, const VkBuffer& buffer)
+void Common::VkUtils::DestroyBuffer(const VkDevice & device, const VkBuffer& buffer)
 {
     vkDestroyBuffer(device, buffer, nullptr);
 }
 
-void ChangeImageLayoutWithBarriers(const VkCommandBuffer & commandBuffer, const VkPipelineStageFlags & srcPipelineStage, const VkPipelineStageFlags & dstPipelineStage, const VkAccessFlags & srcAccessMask, const VkAccessFlags & dstAccessMask, const VkImage & image, const VkImageLayout & oldLayout, const VkImageLayout & newLayout)
+void Common::VkUtils::ChangeImageLayoutWithBarriers(const VkCommandBuffer & commandBuffer, const VkPipelineStageFlags & srcPipelineStage, const VkPipelineStageFlags & dstPipelineStage, const VkAccessFlags & srcAccessMask, const VkAccessFlags & dstAccessMask, const VkImage & image, const VkImageLayout & oldLayout, const VkImageLayout & newLayout)
 {
     VkImageMemoryBarrier imageMemoryBarrier = {};
     imageMemoryBarrier.srcAccessMask = srcAccessMask;
@@ -282,7 +282,7 @@ void ChangeImageLayoutWithBarriers(const VkCommandBuffer & commandBuffer, const 
    );
 }
 
-void CopyBufferToImage(const VkCommandBuffer & commandBuffer, const VkBuffer & buffer, const VkImage & image, const uint32_t width, const uint32_t height)
+void Common::VkUtils::CopyBufferToImage(const VkCommandBuffer & commandBuffer, const VkBuffer & buffer, const VkImage & image, const uint32_t width, const uint32_t height)
 {
     VkBufferImageCopy bufImagCopy{
                 0, width, height,
@@ -291,7 +291,7 @@ void CopyBufferToImage(const VkCommandBuffer & commandBuffer, const VkBuffer & b
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bufImagCopy);
 }
 
-std::tuple<VkImage, VkDeviceMemory> CreateImage(const VkDevice & device, const VkPhysicalDevice & physicalDevice, const uint32_t width, const uint32_t height, const VkFormat & format, const VkImageUsageFlags & usageFlags)
+std::tuple<VkImage, VkDeviceMemory> Common::VkUtils::CreateImage(const VkDevice & device, const VkPhysicalDevice & physicalDevice, const uint32_t width, const uint32_t height, const VkFormat & format, const VkImageUsageFlags & usageFlags)
 {
     VkImage image = VK_NULL_HANDLE;
     VkImageCreateInfo createInfo = {};
@@ -350,12 +350,12 @@ std::tuple<VkImage, VkDeviceMemory> CreateImage(const VkDevice & device, const V
     return std::make_tuple(image, memory);
 }
 
-void DestroyImage(const VkDevice & device, VkImage image)
+void Common::VkUtils::DestroyImage(const VkDevice & device, VkImage image)
 {
     vkDestroyImage(device, image, nullptr);
 }
 
-VkImageView CreateImageView(const VkDevice & device, const VkPhysicalDevice & physicalDevice, const VkImage & image, const VkFormat & format, const VkImageAspectFlags & imageAspectFlags)
+VkImageView Common::VkUtils::CreateImageView(const VkDevice & device, const VkPhysicalDevice & physicalDevice, const VkImage & image, const VkFormat & format, const VkImageAspectFlags & imageAspectFlags)
 {
     VkImageViewCreateInfo createInfo = {};
     createInfo.image = image;
@@ -370,12 +370,12 @@ VkImageView CreateImageView(const VkDevice & device, const VkPhysicalDevice & ph
     return view;
 }
 
-void DestroyImageView(const VkDevice & device, VkImageView imageView)
+void Common::VkUtils::DestroyImageView(const VkDevice & device, VkImageView imageView)
 {
     vkDestroyImageView(device, imageView, nullptr);
 }
 
-std::tuple<VkShaderModule, VkPipelineShaderStageCreateInfo> CreateShaderModule(const VkDevice & device, const std::string & path, const VkShaderStageFlagBits & shaderStage)
+std::tuple<VkShaderModule, VkPipelineShaderStageCreateInfo> Common::VkUtils::CreateShaderModule(const VkDevice & device, const std::string & path, const VkShaderStageFlagBits & shaderStage)
 {
     std::ifstream file(path, std::ios::ate | std::ios::binary);
 
@@ -408,16 +408,16 @@ std::tuple<VkShaderModule, VkPipelineShaderStageCreateInfo> CreateShaderModule(c
     return std::make_tuple(shaderModule, shaderStageCreateInfo);
 }
 
-void DestroyShaderModule(const VkDevice & device, VkShaderModule shaderModule)
+void Common::VkUtils::DestroyShaderModule(const VkDevice & device, VkShaderModule shaderModule)
 {
     vkDestroyShaderModule(device, shaderModule, nullptr);
 }
 
-void CopyDataIntoHostCoherentMemory(const VkDevice & device, const size_t & dataSize, const void * data, VkDeviceMemory & memory)
+void Common::VkUtils::CopyDataIntoHostCoherentMemory(const VkDevice & device, const size_t & dataSize, const void * data, VkDeviceMemory & memory)
 {
 }
 
-void ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
+void Common::VkUtils::ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
     uint32_t queueFamilyIndex, VkImageLayout oldLayout, VkImageLayout newLayout)
 {
     VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -503,7 +503,7 @@ void ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, 
     vkDestroyCommandPool(device, pool, nullptr);
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(uint32_t dataSize, const VkPhysicalDevice& physicalDevice, const VkDevice& device)
+std::tuple<VkBuffer, VkDeviceMemory> Common::VkUtils::CreateStagingBuffer(uint32_t dataSize, const VkPhysicalDevice& physicalDevice, const VkDevice& device)
 {
     auto alignedSize = GetMemoryAlignedDataSizeForBuffer(physicalDevice, dataSize);
 
@@ -559,7 +559,7 @@ std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(uint32_t dataSize, cons
     return std::tuple<VkBuffer, VkDeviceMemory>(buffer, memory);
 }
 
-void CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const VkBuffer& targetBuffer,
+void Common::VkUtils::CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const VkBuffer& targetBuffer,
     uint32_t dataSize, const VkDevice& device, const VkQueue& queue, uint32_t queueFamilyIndex)
 {
     VkCommandPool pool = VK_NULL_HANDLE;

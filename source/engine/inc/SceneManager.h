@@ -1,4 +1,7 @@
-#pragma once
+#ifndef SCENE_MANAGER_H
+#define SCENE_MANAGER_H
+
+
 #include "Utils.h"
 #include "Components.h"
 #include "RenderData.h"
@@ -47,6 +50,9 @@ namespace Common
         //VkDeviceMemory m_vertexBufferMemory, m_indexBufferMemory;
 
         const uint32_t cm_maxEntities;
+        uint32_t m_maxEntities = 0;
+        uint32_t m_maxMeshViewsPerMesh = 0;
+
         uint32_t m_maxFrameInFlights = 0;
 
         std::vector<Common::RenderData> m_renderDataList;
@@ -81,7 +87,7 @@ namespace Common
 
         void CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
 
-        const RenderData& GetRenderData(uint32_t frameIndex);
+        const RenderData& GetRenderData(uint32_t frameIndex) const;
 
         const VkBuffer& GetVertexBuffer(uint32_t id) const;
         const VkBuffer& GetIndexBuffer(uint32_t id) const;
@@ -89,3 +95,5 @@ namespace Common
         std::unique_ptr<Camera>& GetMainCamera();
     };
 }
+
+#endif // !SCENE_MANAGER_H

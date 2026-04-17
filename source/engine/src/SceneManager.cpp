@@ -132,7 +132,7 @@ Common::SceneManager::SceneManager(const std::string_view& assetPath, const uint
     indBufWrapper.m_index = m_indexBufferWrapperCount++;
     assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
-    m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper));
+    m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh));
 }
 
 Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
@@ -157,7 +157,7 @@ Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, cons
         indBufWrapper.m_index = m_indexBufferWrapperCount++;
         assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
-        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, vertBufWrapper, indBufWrapper, info.m_scale));
+        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh, info.m_scale));
     }
 }
 
@@ -178,25 +178,25 @@ void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDe
 
     auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
     {
-        CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        Common::VkUtils::CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // copy data into vertex and index buffer
 
-        auto [stagingBuffer, stagingMemory] = CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
+        auto [stagingBuffer, stagingMemory] = Common::VkUtils::CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
 
         {
             // map and copy 
             void* pData;
-            ErrorCheck(vkMapMemory(m_device, stagingMemory, 0, dataSize, 0, &pData));
+            Common::VkUtils::ErrorCheck(vkMapMemory(m_device, stagingMemory, 0, dataSize, 0, &pData));
             memcpy(pData, data, dataSize);
             vkUnmapMemory(m_device, stagingMemory);
         }
 
-        CopyFromStagingBuffer(stagingBuffer, buffer, dataSize, m_device, m_graphicsQueue, m_queueFamilyIndex);
+        Common::VkUtils::CopyFromStagingBuffer(stagingBuffer, buffer, dataSize, m_device, m_graphicsQueue, m_queueFamilyIndex);
 
-        DestroyBuffer(m_device, stagingBuffer);
-        FreeMemory(m_device, stagingMemory);
+        Common::VkUtils::DestroyBuffer(m_device, stagingBuffer);
+        Common::VkUtils::FreeMemory(m_device, stagingMemory);
     };
 
     assert(m_vertexBufferWrapperCount == m_indexBufferWrapperCount);
@@ -224,10 +224,10 @@ void Common::SceneManager::DeInitialise()
     m_mainCamera.reset();
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
-        DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
-        DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
-        FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
-        FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
+        Common::VkUtils::DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
+        Common::VkUtils::DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
+        Common::VkUtils::FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
+        Common::VkUtils::FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
     }
 }
 
@@ -241,7 +241,7 @@ const std::vector<flecs::entity>& Common::SceneManager::GetParentList() const
     return m_parentEntities;
 }
 
-const Common::RenderData& Common::SceneManager::GetRenderData(uint32_t frameIndex)
+const Common::RenderData& Common::SceneManager::GetRenderData(uint32_t frameIndex) const
 {
     return m_renderDataList[frameIndex];
 }

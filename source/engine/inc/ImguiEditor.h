@@ -1,4 +1,5 @@
-#pragma once
+#ifndef IMGUI_EDITOR_H
+#define IMGUI_EDITOR_H
 
 #include "imgui.h"
 #include "ImguiUtil.h"
@@ -19,3 +20,5 @@ namespace Common
         ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager);
     };
 }
+
+#endif // !IMGUI_EDITOR_H

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef COMPONENTS_H
+#define COMPONENTS_H
 
 #include "Utils.h"
 #include "Defines.h"
@@ -46,3 +47,5 @@ namespace Common
     // ============= MESH ===============
 
 }
+
+#endif

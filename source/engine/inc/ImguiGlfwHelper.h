@@ -1,4 +1,5 @@
-#pragma once
+#ifndef IMGUI_GLFW_H
+#define IMGUI_GLFW_H
 
 #include <imgui.h>
 #include <GLFW/glfw3.h>
@@ -171,3 +172,5 @@ ImGuiKey KeyToImGuiKey(int keycode, int scancode)
     default: return ImGuiKey_None;
     }
 }
+
+#endif // !IMGUI_GLFW_H

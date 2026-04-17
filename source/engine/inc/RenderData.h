@@ -1,4 +1,5 @@
-#pragma once
+#ifndef RENDER_DATA_H
+#define RENDER_DATA_H
 
 #include <vector>
 #include "Defines.h"
@@ -26,3 +27,5 @@ namespace Common
         uint32_t m_viewCount = 0;
     };
 }
+
+#endif // !RENDER_DATA_H

@@ -33,9 +33,9 @@ int main()
     constexpr uint32_t windowHeight = 720;
 
     Common::EngineInfo info{};
-    info.m_designSize = Dimension(windowWidth, windowHeight);
+    info.m_designSize = Common::Dimension(windowWidth, windowHeight);
     info.m_gltfInfos = gltfInfo;
-    info.m_screenSize = Dimension(windowWidth, windowHeight);
+    info.m_screenSize = Common::Dimension(windowWidth, windowHeight);
 
     Common::EngineManager engineManager(info);
 

@@ -1,6 +1,6 @@
 #include "pipelines/Pipeline.h"
 
-Common::Pipeline::Pipeline(const PipelineInfo& info, std::shared_ptr<VulkanManager> pVulkanManager) : m_info(info), m_pVulkanManager(pVulkanManager)
+Common::Tasking::Pipeline::Pipeline(const PipelineInfo& info) : m_info(info)
 {
     for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
     {
@@ -8,7 +8,7 @@ Common::Pipeline::Pipeline(const PipelineInfo& info, std::shared_ptr<VulkanManag
         info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
         VkSemaphore semaphore;
-        ErrorCheck(vkCreateSemaphore(m_info.m_device, &info, nullptr, &semaphore));
+        Common::VkUtils::ErrorCheck(vkCreateSemaphore(m_info.m_device, &info, nullptr, &semaphore));
         m_swapchainImageAcquiredSemaphores.push_back(semaphore);
     }
 
@@ -19,7 +19,7 @@ Common::Pipeline::Pipeline(const PipelineInfo& info, std::shared_ptr<VulkanManag
     }*/
 }
 
-Common::Pipeline::~Pipeline()
+Common::Tasking::Pipeline::~Pipeline()
 {
     for (auto& sem : m_swapchainImageAcquiredSemaphores)
         vkDestroySemaphore(m_info.m_device, sem, nullptr);

@@ -7,16 +7,19 @@
 #include <glm/gtx/quaternion.hpp>
 #include <filesystem>
 #include <limits>
+#include <algorithm>
 #include "GltfLoader.h"
 
 namespace
 {
-    void iterate_tree(flecs::entity e) {
+    void iterate_tree(flecs::entity e)
+    {
         // Print hierarchical name of entity & the entity type
         PLOGD << e.path() << " [" << e.type().str() << "]";
 
         // Iterate children recursively
-        e.children([&](flecs::entity child) {
+        e.children([&](flecs::entity child)
+        {
             iterate_tree(child);
         });
     }
@@ -26,7 +29,7 @@ namespace
     // vertex and index buffers
     void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world,
         Common::SceneManager& sceneManager, const flecs::entity& parent,
-        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor)
+        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
     {
         Common::Transform transform{};
 
@@ -60,12 +63,14 @@ namespace
         auto e = world.entity(inputNode.name.c_str()).child_of(parent);
         e.emplace<Common::Transform>(transform);
 
+        numEntities++;
+
         // Load node's children
         if (inputNode.children.size() > 0)
         {
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNode(input.nodes[inputNode.children[i]], input, world, sceneManager, e, vertexBuffer, indexBuffer, scaleFactor);
+                LoadNode(input.nodes[inputNode.children[i]], input, world, sceneManager, e, vertexBuffer, indexBuffer, numEntities, maxMeshViewsPerMesh, scaleFactor);
             }
         }
 
@@ -79,6 +84,7 @@ namespace
             meshObj.m_indexBufferIndex = indexBuffer.m_index;
 
             const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
+            maxMeshViewsPerMesh = std::max(maxMeshViewsPerMesh, (uint32_t)mesh.primitives.size());
             // Iterate through all primitives of this node's mesh
             for (size_t i = 0; i < mesh.primitives.size(); i++)
             {
@@ -190,7 +196,7 @@ namespace
                 }
 
                 Common::MeshView& view = sceneManager.GetMeshView(e, meshObj);
-                assert(meshObj.m_meshViewCount < MAX_MESH_VIEWS_PER_MESH);
+                assert(meshObj.m_meshViewCount < Common::MAX_MESH_VIEWS_PER_MESH);
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
@@ -207,7 +213,7 @@ namespace
 
 
 flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
-    Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor)
+    Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
 {
     tinygltf::Model glTFInput;
     tinygltf::TinyGLTF gltfContext;
@@ -228,12 +234,13 @@ flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& 
     flecs::entity modelParent = world.entity(filenameWithoutExt.c_str());
     Common::Transform t{};
     modelParent.emplace<Common::Transform>(t);
+    numEntities++;
 
     const tinygltf::Scene& scene = glTFInput.scenes[0];
     for (size_t i = 0; i < scene.nodes.size(); i++) 
     {
         const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-        LoadNode(node, glTFInput, world, sceneManager, modelParent, vertexBuffer, indexBuffer, scaleFactor);
+        LoadNode(node, glTFInput, world, sceneManager, modelParent, vertexBuffer, indexBuffer, numEntities, maxMeshViewsPerMesh, scaleFactor);
     }
 
     return modelParent;

@@ -1,28 +1,29 @@
+#include <memory>
+
 #include "tasks/ColorUnlitTask.h"
 
-
-Common::ColorUnlitTask::ColorUnlitTask(const char* name, const GraphicsTaskInfo& info, std::shared_ptr<Common::Camera> pCamera) :
-    GraphicsTask(name, info), m_pCamera(pCamera)
+Common::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::unique_ptr<Common::Camera>& pCamera) :
+    GraphicsTask("WireframeTask", info), m_pCamera(pCamera)
 {
     CreateAttachments();
     Init();
 }
 
-Common::ColorUnlitTask::ColorUnlitTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat, std::shared_ptr<Common::Camera> pCamera) :
-    GraphicsTask(name, info, colorViews, depthViews, colorFormat, depthFormat), m_pCamera(pCamera)
+Common::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
+    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat, const std::unique_ptr<Common::Camera>& pCamera) :
+    GraphicsTask("WireframeTask", info, colorViews, depthViews, colorFormat, depthFormat), m_pCamera(pCamera)
 {
     Init();
 }
 
-void Common::ColorUnlitTask::Init()
+void Common::Tasking::ColorUnlitTask::Init()
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     createInfo.queueFamilyIndex = m_info.m_queueFamilyIndex;
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-    ErrorCheck(vkCreateCommandPool(m_info.m_device, &createInfo, nullptr, &m_commandPool));
+    Common::VkUtils::ErrorCheck(vkCreateCommandPool(m_info.m_device, &createInfo, nullptr, &m_commandPool));
 
     m_commandBuffers.resize(m_info.m_maxFrameInFlights);
     VkCommandBufferAllocateInfo alloc_info{};
@@ -31,7 +32,7 @@ void Common::ColorUnlitTask::Init()
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-    ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
+    Common::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
 
     {
         // set 0 for camera, set 1 for transform
@@ -46,7 +47,7 @@ void Common::ColorUnlitTask::Init()
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
+            Common::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
         }
 
         {
@@ -59,7 +60,7 @@ void Common::ColorUnlitTask::Init()
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
+            Common::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
         }
 
         VkDescriptorPoolSize pool_sizes[1] =
@@ -73,7 +74,7 @@ void Common::ColorUnlitTask::Init()
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
+        Common::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
     }
 
     VkPushConstantRange range{};
@@ -88,7 +89,7 @@ void Common::ColorUnlitTask::Init()
     pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+    Common::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
 
     //Render pass
     VkClearValue clearValues{ VkClearColorValue{0.6033f, 0.6073f, 0.6133f, 1.0f} };
@@ -139,8 +140,8 @@ void Common::ColorUnlitTask::Init()
         std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitColorFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
-        std::tie(m_vertexShaderModule, vertShaderStage) = CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
-        std::tie(m_fragmentShaderModule, fragShaderStage) = CreateShaderModule(m_info.m_device, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+        std::tie(m_vertexShaderModule, vertShaderStage) = Common::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
+        std::tie(m_fragmentShaderModule, fragShaderStage) = Common::VkUtils::CreateShaderModule(m_info.m_device, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -156,13 +157,13 @@ void Common::ColorUnlitTask::Init()
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {};
         pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
         pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
 
         VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
         pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
-        pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+        pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
+        pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE;
         pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
         pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
@@ -210,11 +211,23 @@ void Common::ColorUnlitTask::Init()
         dynamicStateCreateInfo.dynamicStateCount = 2;
         dynamicStateCreateInfo.pDynamicStates = dynamicStates;
 
+        std::array<VkSpecializationMapEntry, 1> specializationMapEntries;
+        specializationMapEntries[0].constantID = 0;
+        specializationMapEntries[0].size = sizeof(MAX_ENTITIES);
+        specializationMapEntries[0].offset = 0;
+
+        VkSpecializationInfo specializationInfo{};
+        specializationInfo.dataSize = sizeof(MAX_ENTITIES);
+        specializationInfo.mapEntryCount = specializationMapEntries.size();
+        specializationInfo.pData = &MAX_ENTITIES;
+        specializationInfo.pMapEntries = specializationMapEntries.data();
+
         VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {};
         pipelineShaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineShaderStageCreateInfos[0].module = m_vertexShaderModule;
         pipelineShaderStageCreateInfos[0].pName = "main";
         pipelineShaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+        pipelineShaderStageCreateInfos[0].pSpecializationInfo = &specializationInfo;
 
         pipelineShaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineShaderStageCreateInfos[1].module = m_fragmentShaderModule;
@@ -237,7 +250,7 @@ void Common::ColorUnlitTask::Init()
         graphicsPipelineCreateInfo.stageCount = 2;
         graphicsPipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-        ErrorCheck(vkCreateGraphicsPipelines(m_info.m_device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+        Common::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_info.m_device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
             nullptr, &m_pipeline));
     }
 
@@ -254,19 +267,20 @@ void Common::ColorUnlitTask::Init()
 
         const uint16_t numUniforms = 1;//maxFrameInFlight if camera is moving
 
-        CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_cameraUniforms, m_cameraUniformMemory, sizeof(SceneUniform)* numUniforms,
+        Common::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_cameraUniforms, m_cameraUniformMemory, sizeof(SceneUniform)* numUniforms,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         std::array<SceneUniform, numUniforms> uniformArray{};
         for (auto& uniform : uniformArray)
         {
+            assert(m_pCamera != nullptr);
             uniform.cameraPos = m_pCamera->GetPosition();
             uniform.projectionMat = m_pCamera->GetProjectionMat();
             uniform.viewMat = m_pCamera->GetViewMatrix();
         }
 
         void* pData;
-        ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
+        Common::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
         memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
         vkUnmapMemory(m_info.m_device, m_cameraUniformMemory);
 
@@ -278,7 +292,7 @@ void Common::ColorUnlitTask::Init()
             setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
             setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-            ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, m_viewSet.data()));
+            Common::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, m_viewSet.data()));
 
             for (uint16_t i = 0; i < numUniforms; i++)
             {
@@ -298,11 +312,11 @@ void Common::ColorUnlitTask::Init()
 
         const size_t dataSizePerFrame = sizeof(glm::mat4) * MAX_ENTITIES;
 
-        CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
+        Common::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         /*void* pData;
-        ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
+        Common::VkUtils::ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
         memcpy(pData, uniformArray.data(), sizeof(SceneUniform) * numUniforms);
         vkUnmapMemory(m_device, m_cameraUniformMemory);*/
 
@@ -317,7 +331,7 @@ void Common::ColorUnlitTask::Init()
                 setAllocInfo.pSetLayouts = &m_setLayouts[TRANSFORM_SET];
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
+                Common::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
 
                 VkDescriptorBufferInfo bufferInfo{ m_transformBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
@@ -330,11 +344,11 @@ void Common::ColorUnlitTask::Init()
     }
 }
 
-void Common::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
+void Common::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
     const Common::RenderData& renderData, const Common::SceneManager& sceneManager)
 {
     void* pData;
-    ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_ENTITIES, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
+    Common::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_ENTITIES, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
     memcpy(pData, renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
     vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
 
@@ -343,13 +357,13 @@ void Common::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemap
         VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
         VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
 
-        ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
+        Common::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-        ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
+        Common::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
         vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
         {
@@ -427,13 +441,13 @@ void Common::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemap
         }
         vkCmdEndRendering(m_commandBuffers[frameInFlight]);
 
-        ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
+        Common::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
     }
 
     Submit(frameInFlight, timelineSem, signalValue, waitValue);
 }
 
-Common::ColorUnlitTask::~ColorUnlitTask()
+Common::Tasking::ColorUnlitTask::~ColorUnlitTask()
 {
     vkFreeMemory(m_info.m_device, m_transformUniformMemory, nullptr);
     vkDestroyBuffer(m_info.m_device, m_transformBuffer, nullptr);

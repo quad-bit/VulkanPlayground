@@ -23,133 +23,137 @@ We need to configure it to use the Vulkan range of 0.0 to 1.0 using the GLM_FORC
 
 #include <flecs.h>
 
-
-struct Dimension
+namespace Common
 {
-    uint32_t m_width = 100;
-    uint32_t m_height = 100;
-};
+    struct Dimension
+    {
+        uint32_t m_width = 100;
+        uint32_t m_height = 100;
+    };
 
-bool HasChildren(flecs::entity e);
+    bool HasChildren(flecs::entity e);
 
-void ErrorCheck(VkResult result);
+    namespace VkUtils
+    {
+        void ErrorCheck(VkResult result);
 
-size_t GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice& device, const size_t& dataSize);
+        size_t GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice& device, const size_t& dataSize);
+
+        VkCommandBuffer AllocateCommandBuffer(
+            const VkDevice& device,
+            const VkCommandPool& commandPool
+        );
+
+        void FreeCommandBuffer(
+            const VkDevice& device,
+            const VkCommandPool& commandPool,
+            VkCommandBuffer* commandBuffer
+        );
+
+        VkDeviceMemory AllocateHostCoherentMemory(
+            const VkPhysicalDevice& physicalDevice,
+            const VkDevice& device,
+            const VkDeviceSize& bufferSize,
+            const VkMemoryRequirements& memoryRequirements
+        );
+
+        std::tuple<VkBuffer, VkDeviceMemory> LoadImageDataIntoStagingBuffer(
+            const VkPhysicalDevice& physicalDevice,
+            const VkDevice& device,
+            const unsigned char* data, const size_t& dataSize
+        );
 
 
-VkCommandBuffer AllocateCommandBuffer(
-    const VkDevice& device,
-    const VkCommandPool& commandPool
-);
+        // Load an image from a file, and copy it into a newly created buffer (backed with memory already):
+        // Returns a tuple with: <0> the buffer handle, <1> the memory handle, <2> width, <3> height
+        std::tuple<VkBuffer, VkDeviceMemory, int, int> LoadImageIntoHostCoherentMemory(
+            const VkPhysicalDevice& physicalDevice,
+            const VkDevice& device,
+            const std::string& pathToImageFile
+        );
 
-void FreeCommandBuffer(
-    const VkDevice& device,
-    const VkCommandPool& commandPool,
-    VkCommandBuffer* commandBuffer
-);
+        // Free memory that has been allocated with AllocateHostCoherentMemoryForBuffer
+        void FreeMemory(
+            const VkDevice& device,
+            const VkDeviceMemory& memory
+        );
 
-VkDeviceMemory AllocateHostCoherentMemory(
-    const VkPhysicalDevice& physicalDevice,
-    const VkDevice& device,
-    const VkDeviceSize& bufferSize,
-    const VkMemoryRequirements& memoryRequirements
-);
+        void CreateBufferAndMemory(
+            const VkPhysicalDevice& physicalDevice, const VkDevice& device,
+            VkBuffer& buffer, VkDeviceMemory& memory, const size_t& dataSize,
+            const VkBufferUsageFlags& usage, const VkMemoryPropertyFlags& memProps
+        );
 
-std::tuple<VkBuffer, VkDeviceMemory> LoadImageDataIntoStagingBuffer(
-    const VkPhysicalDevice& physicalDevice,
-    const VkDevice& device,
-    const unsigned char* data, const size_t& dataSize
-);
+        void DestroyBuffer(
+            const VkDevice& device,
+            const VkBuffer& buffer
+        );
 
+        void ChangeImageLayoutWithBarriers(
+            const VkCommandBuffer& commandBuffer,
+            const VkPipelineStageFlags& srcPipelineStage, const VkPipelineStageFlags& dstPipelineStage,
+            const VkAccessFlags& srcAccessMask, const VkAccessFlags& dstAccessMask,
+            const VkImage& image,
+            const VkImageLayout& oldLayout, const VkImageLayout& newLayout
+        );
 
-// Load an image from a file, and copy it into a newly created buffer (backed with memory already):
-// Returns a tuple with: <0> the buffer handle, <1> the memory handle, <2> width, <3> height
-std::tuple<VkBuffer, VkDeviceMemory, int, int> LoadImageIntoHostCoherentMemory(
-    const VkPhysicalDevice& physicalDevice,
-    const VkDevice& device,
-    const std::string& pathToImageFile
-);
+        void CopyBufferToImage(
+            const VkCommandBuffer& commandBuffer,
+            const VkBuffer& buffer,
+            const VkImage& image, const uint32_t width, const uint32_t height
+        );
 
-// Free memory that has been allocated with AllocateHostCoherentMemoryForBuffer
-void FreeMemory(
-    const VkDevice& device,
-    const VkDeviceMemory& memory
-);
+        std::tuple<VkImage, VkDeviceMemory> CreateImage(
+            const VkDevice& device,
+            const VkPhysicalDevice& physicalDevice,
+            const uint32_t width, const uint32_t height,
+            const VkFormat& format, const VkImageUsageFlags& usageFlags
+        );
 
-void CreateBufferAndMemory(
-    const VkPhysicalDevice& physicalDevice, const VkDevice& device,
-    VkBuffer& buffer, VkDeviceMemory& memory, const size_t& dataSize,
-    const VkBufferUsageFlags& usage, const VkMemoryPropertyFlags& memProps
-);
+        // Destroy an image that has been created using the helper functions
+        void DestroyImage(
+            const VkDevice& device,
+            VkImage image
+        );
 
-void DestroyBuffer(
-    const VkDevice& device,
-    const VkBuffer& buffer
-);
+        // Create an image view to an image
+        VkImageView CreateImageView(
+            const VkDevice& device,
+            const VkPhysicalDevice& physicalDevice,
+            const VkImage& image, const VkFormat& format, const VkImageAspectFlags& imageAspectFlags
+        );
 
-void ChangeImageLayoutWithBarriers(
-    const VkCommandBuffer& commandBuffer,
-    const VkPipelineStageFlags& srcPipelineStage, const VkPipelineStageFlags& dstPipelineStage,
-    const VkAccessFlags& srcAccessMask, const VkAccessFlags& dstAccessMask,
-    const VkImage& image,
-    const VkImageLayout& oldLayout, const VkImageLayout& newLayout
-);
+        // Destroy an image view that has been created using the helper functions
+        void DestroyImageView(
+            const VkDevice& device,
+            VkImageView imageView
+        );
 
-void CopyBufferToImage(
-    const VkCommandBuffer& commandBuffer,
-    const VkBuffer& buffer,
-    const VkImage& image, const uint32_t width, const uint32_t height
-);
+        std::tuple<VkShaderModule, VkPipelineShaderStageCreateInfo> CreateShaderModule(
+            const VkDevice& device,
+            const std::string& path,
+            const VkShaderStageFlagBits& shaderStage
+        );
 
-std::tuple<VkImage, VkDeviceMemory> CreateImage(
-    const VkDevice& device,
-    const VkPhysicalDevice& physicalDevice,
-    const uint32_t width, const uint32_t height,
-    const VkFormat& format, const VkImageUsageFlags& usageFlags
-);
+        void DestroyShaderModule(
+            const VkDevice& device,
+            VkShaderModule shaderModule
+        );
 
-// Destroy an image that has been created using the helper functions
-void DestroyImage(
-    const VkDevice& device,
-    VkImage image
-);
+        // Copy data of the gifen size into the buffer
+        void CopyDataIntoHostCoherentMemory(
+            const VkDevice& device,
+            const size_t& dataSize,
+            const void* data,
+            VkDeviceMemory& memory
+        );
 
-// Create an image view to an image
-VkImageView CreateImageView(
-    const VkDevice& device,
-    const VkPhysicalDevice& physicalDevice,
-    const VkImage& image, const VkFormat& format, const VkImageAspectFlags& imageAspectFlags
-);
+        void ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
+            uint32_t queueFamilyIndex, VkImageLayout oldLayout, VkImageLayout newLayout);
 
-// Destroy an image view that has been created using the helper functions
-void DestroyImageView(
-    const VkDevice& device,
-    VkImageView imageView
-);
+        std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(uint32_t dataSize, const VkPhysicalDevice& physicalDevice, const VkDevice& device);
 
-std::tuple<VkShaderModule, VkPipelineShaderStageCreateInfo> CreateShaderModule(
-    const VkDevice& device,
-    const std::string& path,
-    const VkShaderStageFlagBits& shaderStage
-);
-
-void DestroyShaderModule(
-    const VkDevice& device,
-    VkShaderModule shaderModule
-);
-
-// Copy data of the gifen size into the buffer
-void CopyDataIntoHostCoherentMemory(
-    const VkDevice& device,
-    const size_t& dataSize,
-    const void* data,
-    VkDeviceMemory& memory
-);
-
-void ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
-    uint32_t queueFamilyIndex, VkImageLayout oldLayout, VkImageLayout newLayout);
-
-std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(uint32_t dataSize, const VkPhysicalDevice& physicalDevice, const VkDevice& device);
-
-void CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const VkBuffer& targetBuffer, uint32_t dataSize,
-    const VkDevice& device, const VkQueue& queue, uint32_t queueFamilyIndex);
+        void CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const VkBuffer& targetBuffer, uint32_t dataSize,
+            const VkDevice& device, const VkQueue& queue, uint32_t queueFamilyIndex);
+    }
+}

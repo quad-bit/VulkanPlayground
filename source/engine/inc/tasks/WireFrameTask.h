@@ -1,4 +1,6 @@
-#pragma once
+#ifndef WIREFRAME_TASK_H
+#define WIREFRAME_TASK_H
+
 #include "Utils.h"
 #include "Camera.h"
 #include "RenderData.h"
@@ -8,7 +10,7 @@
 #include <optional>
 #include <memory>
 
-namespace Common
+namespace Common::Tasking
 {
     class WireFrameTask : public GraphicsTask
     {
@@ -39,3 +41,5 @@ namespace Common
         ~WireFrameTask();
     };
 }
+
+#endif // !WIREFRAME_TASK_H

@@ -11,14 +11,14 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
     plog::init(plog::debug, &consoleAppender);
 
-    m_pTimer = std::make_shared<Timer>(60);
+    m_pTimer = std::make_unique<Timer>(60);
 
-    m_pSceneManager = std::make_shared<Common::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
+    m_pSceneManager = std::make_unique<Common::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
 
     m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     m_pWindowManagerObj->Init();
 
-    m_pVulkanManager = std::make_shared<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
+    m_pVulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = m_pVulkanManager->Init(m_pWindowManagerObj->glfwWindow);
 
     assert(std::get<0>(dim) == info.m_screenSize.m_width);
@@ -31,7 +31,7 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
 
     // pipeline creation
     {
-        PipelineInfo pipelineInfo{};
+        Tasking::PipelineInfo pipelineInfo{};
         pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
         pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
         pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
@@ -42,11 +42,11 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
         pipelineInfo.m_screenDimensions = info.m_screenSize;
         pipelineInfo.m_designDimensions = info.m_designSize;
 
-        m_pWireframePipeline = std::make_unique<WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+        m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
     }
 
     // imgui
-    m_pImguiUtil = std::make_shared<Common::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
+    m_pImguiUtil = std::make_unique<Common::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
         m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
         m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height, m_pVulkanManager->GetDepthFormat(),
         VK_FORMAT_B8G8R8A8_UNORM, m_pVulkanManager->GetDefaultColorImageView());
@@ -110,7 +110,7 @@ const Common::SceneManager& Common::EngineManager::GetSceneManager() const
     return *m_pSceneManager;
 }
 
-const VulkanManager& Common::EngineManager::GetVulkanManager() const
+const Common::VulkanManager& Common::EngineManager::GetVulkanManager() const
 {
     return *m_pVulkanManager;
 }

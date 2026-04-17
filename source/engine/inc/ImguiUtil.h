@@ -1,4 +1,5 @@
-#pragma once
+#ifndef IMGUI_UTIL_H
+#define IMGUI_UTIL_H
 
 #include <vulkan/vulkan.h>
 #include <imgui.h>
@@ -194,3 +195,4 @@ namespace Common
         }
     };
 }
+#endif

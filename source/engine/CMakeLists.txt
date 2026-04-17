@@ -10,9 +10,7 @@ set(CORE_FILES
     inc/ImguiUtil.h
     inc/ImguiGlfwHelper.h
     inc/GltfLoader.h
-    inc/SceneNode.h
     inc/SceneManager.h
-    inc/Mesh.h
     inc/ImguiEditor.h
     inc/TimelineSemaphore.h
     inc/Camera.h
@@ -34,7 +32,6 @@ set(CORE_FILES
     src/Utils.cpp
     src/ImguiUtil.cpp
     src/GltfLoader.cpp
-    src/SceneNode.cpp
     src/SceneManager.cpp
     src/ImguiEditor.cpp
     src/Camera.cpp
@@ -81,7 +78,9 @@ add_custom_command(
     TARGET generateShaderBinaries
     COMMAND ${CMAKE_COMMAND} -E make_directory ${SPV_PATH}
 
-    COMMAND glslangvalidator -V -I${CMAKE_CURRENT_SOURCE_DIR}/inc ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
+    # COMMAND glslangvalidator -V -I${CMAKE_CURRENT_SOURCE_DIR}/inc ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
+
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.frag -o ${SPV_PATH}/UnlitColorFrag.spv
 
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/ClothSim.comp -o ${SPV_PATH}/ClothSim.spv

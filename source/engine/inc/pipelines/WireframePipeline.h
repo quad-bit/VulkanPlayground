@@ -9,7 +9,7 @@
 #include "tasks/WireFrameTask.h"
 #include <memory>
 
-namespace Common
+namespace Common::Tasking
 {
     class WireframePipeline: public Pipeline
     {
@@ -27,11 +27,11 @@ namespace Common
     protected:
 
     public:
-        WireframePipeline(const PipelineInfo& info, std::shared_ptr<VulkanManager> pVulkanManager, std::unique_ptr<Common::Camera>& pCamera);
+        WireframePipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, std::unique_ptr<Common::Camera>& pCamera);
         virtual ~WireframePipeline();
 
-        void Update(uint32_t currentFrameInFlight, std::shared_ptr<Common::SceneManager> sceneManager, std::shared_ptr < VulkanManager> vulkanManager,
-            const std::shared_ptr<Common::ImguiUtil>& imguiUtil);
+        void Update(uint32_t currentFrameInFlight, const std::unique_ptr<SceneManager>& sceneManager,
+            const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<ImguiUtil>& imguiUtil);
     };
 }
 

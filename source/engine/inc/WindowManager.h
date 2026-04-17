@@ -1,45 +1,51 @@
-#pragma once
+#ifndef WINDOW_MANAGER_H
+#define WINDOW_MANAGER_H
 
 #if defined(GLFW_ENABLED)
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #endif
 
-class WindowManager
+namespace Common
 {
-private:
-    void                                InitOSWindow();
-    void                                DeInitOSWindow();
-    void                                UpdateOSWindow();
+    class WindowManager
+    {
+    private:
+        void                                InitOSWindow();
+        void                                DeInitOSWindow();
+        void                                UpdateOSWindow();
 
-    WindowManager() = delete;
-    WindowManager(WindowManager const&) = delete;
-    WindowManager const& operator= (WindowManager const&) = delete;
+        WindowManager() = delete;
+        WindowManager(WindowManager const&) = delete;
+        WindowManager const& operator= (WindowManager const&) = delete;
 
-    uint32_t m_screenWidth, m_screenHeight;
+        uint32_t m_screenWidth, m_screenHeight;
 
-public:
-    ~WindowManager() {}
-    WindowManager(uint32_t screenWidth, uint32_t screenHeight);
-    void                                Init();
-    void                                DeInit();
-    void                                Close();
-    bool                                Update();
+    public:
+        ~WindowManager() {}
+        WindowManager(uint32_t screenWidth, uint32_t screenHeight);
+        void                                Init();
+        void                                DeInit();
+        void                                Close();
+        bool                                Update();
 
-    bool                                windowShouldRun = true;
+        bool                                windowShouldRun = true;
 
 #if defined(GLFW_ENABLED) 
-    GLFWwindow* glfwWindow = nullptr;
+        GLFWwindow* glfwWindow = nullptr;
 #elif VK_USE_PLATFORM_WIN32_KHR
-    HINSTANCE                            win32Instance = NULL;
-    HWND                                win32Window = NULL;
-    std::string                            win32ClassName;
-    static uint64_t                        win32ClassIdCounter;
+        HINSTANCE                            win32Instance = NULL;
+        HWND                                win32Window = NULL;
+        std::string                            win32ClassName;
+        static uint64_t                        win32ClassIdCounter;
 #elif VK_USE_PLATFORM_XCB_KHR
-    xcb_connection_t* xcbConnection = nullptr;
-    xcb_screen_t* xcbScreen = nullptr;
-    xcb_window_t                        xcbWindow = 0;
-    xcb_intern_atom_reply_t* xcbAtomWindowReply = nullptr;
+        xcb_connection_t* xcbConnection = nullptr;
+        xcb_screen_t* xcbScreen = nullptr;
+        xcb_window_t                        xcbWindow = 0;
+        xcb_intern_atom_reply_t* xcbAtomWindowReply = nullptr;
 #endif
 
-};
+    };
+}
+
+#endif // !WINDOW_MANAGER_H

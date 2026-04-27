@@ -20,11 +20,18 @@ set(CORE_FILES
     inc/BoundsManager.h
     inc/VulkanWrappers.h
     inc/EngineManager.h
+    inc/Assertion.h
+
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
+
+    inc/memory/MemoryManager.h
+    inc/memory/MemoryUtils.h
+    inc/memory/LinearPoolAllocator.h
+    inc/memory/StackPoolAllocator.h
 
     src/VulkanManager.cpp
     src/ValidationManager.cpp
@@ -37,11 +44,17 @@ set(CORE_FILES
     src/Camera.cpp
     src/BoundsManager.cpp
     src/EngineManager.cpp
+    src/Assertion.cpp
+    
     src/tasks/WireFrameTask.cpp
     src/tasks/ColorUnlitTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
+
+    src/memory/MemoryManager.cpp
+    src/memory/LinearPoolAllocator.cpp
+    src/memory/StackPoolAllocator.cpp
 )
 
 #create library
@@ -53,13 +66,15 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE 
         Vulkan::Vulkan glfw  
     PUBLIC 
-        glm::glm plog::plog imgui::imgui Taskflow::Taskflow flecs::flecs
+        glm::glm plog::plog imgui::imgui Taskflow::Taskflow flecs::flecs rapidjson
 )
 
 target_include_directories(${TARGET_NAME}
     PUBLIC
         $<INSTALL_INTERFACE:inc>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc>
+        # $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc/memory>
+        # $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/inc/pipelines>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
     )

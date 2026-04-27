@@ -36,6 +36,9 @@
             "name": "ktx"
         },
         {
+            "name": "rapidjson"
+        },
+        {
             "name": "taskflow"
         },
         {

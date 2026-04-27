@@ -11,7 +11,7 @@ Common::AABB Common::Union(const Common::AABB& b1, const Common::AABB& b2)
     return bound;
 }
 
-void Common::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+void Common::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
 {
     AABB& bound = m_bounds[m_primitiveBoundCount];
     bound.m_boundIndex = m_primitiveBoundCount;

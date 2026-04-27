@@ -21,7 +21,7 @@ namespace Common
         uint32_t m_boundIndex;
         uint32_t m_entityId;
         uint32_t m_submeshId;
-        glm::mat4* pm_globalMat;
+        const glm::mat4* pm_globalMat;
     };
 
     AABB Union(const AABB& b1, const AABB& b2);
@@ -40,7 +40,7 @@ namespace Common
         void CalculateSceneBound();
 
     public:
-        void AddBound(const glm::vec3& min, const glm::vec3& max, glm::mat4* pm_globalMat, uint32_t m_submeshId, uint32_t m_entityId);
+        void AddBound(const glm::vec3& min, const glm::vec3& max, const glm::mat4* pm_globalMat, uint32_t m_submeshId, uint32_t m_entityId);
         void Update(uint32_t currentFrameInFlight);
     };
 }

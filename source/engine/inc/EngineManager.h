@@ -5,6 +5,8 @@
 #include "BoundsManager.h"
 #include "VulkanManager.h"
 #include "WindowManager.h"
+#include "memory/MemoryManager.h"
+
 #include "ImguiUtil.h"
 #include "Utils.h"
 #include "pipelines/WireframePipeline.h"
@@ -33,6 +35,7 @@ namespace Common
             std::unique_ptr<VulkanManager> m_pVulkanManager;
             std::unique_ptr<Common::ImguiUtil > m_pImguiUtil;
             std::unique_ptr<Common::ImguiEditor> m_pEditor;
+            std::unique_ptr<Common::Memory::MemoryManager> m_pMemoryManager;
 
             uint32_t m_maxFramesInFlight;
             std::unique_ptr<Timer> m_pTimer;

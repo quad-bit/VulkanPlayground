@@ -19,10 +19,19 @@ namespace Common
 
     //bool HasChildren(flecs::entity e);
 
+    struct ModelMetadata
+    {
+        uint32_t m_numEntities = 0;
+        uint64_t m_numVerticies = 0;
+        uint64_t m_numIndicies = 0;
+        uint32_t m_maxMeshViewsPerMesh = 0;
+    };
+
     struct ModelLoadInfo
     {
         float m_scale = 1.0f;
         const char* m_path;
+        //std::optional<ModelMetadata> m_metaData = std::nullopt;
     };
 
     class SceneManager
@@ -85,7 +94,7 @@ namespace Common
         // prepare the rendering data maybe do culling and sorting
         void Prepare(uint32_t currentFrameInFlight);
 
-        void CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
+        void CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
 
         const RenderData& GetRenderData(uint32_t frameIndex) const;
 

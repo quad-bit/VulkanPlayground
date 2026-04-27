@@ -107,7 +107,7 @@ Common::MeshView& Common::SceneManager::GetMeshView(flecs::entity& entity, Commo
     return view;
 }
 
-void Common::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+void Common::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
 {
     m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
 }

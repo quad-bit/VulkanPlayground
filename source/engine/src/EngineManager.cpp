@@ -12,6 +12,7 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     plog::init(plog::debug, &consoleAppender);
 
     m_pTimer = std::make_unique<Timer>(60);
+    m_pMemoryManager = std::make_unique<Common::Memory::MemoryManager>();
 
     m_pSceneManager = std::make_unique<Common::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
 
@@ -91,6 +92,12 @@ void Common::EngineManager::DeInit()
 
         m_pSceneManager.reset();
         m_pSceneManager = nullptr;
+    }
+
+    if (m_pMemoryManager)
+    {
+        m_pMemoryManager.reset();
+        m_pMemoryManager = nullptr;
     }
 
     if (m_pTimer)

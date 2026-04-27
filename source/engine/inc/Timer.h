@@ -1,8 +1,11 @@
 #ifndef TIMER_H
 #define TIMER_H
 
+#include <plog/Log.h>
 #include <chrono>
 #include <thread>
+#include <string>
+#include <functional>
 
 namespace Common
 {
@@ -16,7 +19,7 @@ namespace Common
 
     public:
 
-        Timer(uint32_t targetFPS) : m_frameCounter(0), m_targetFrameDuration(1.0 / targetFPS), m_oneSecAccumulator(0.0)
+        explicit Timer(uint32_t targetFPS) : m_frameCounter(0), m_targetFrameDuration(1.0 / targetFPS), m_oneSecAccumulator(0.0)
         {
         }
 
@@ -81,6 +84,55 @@ namespace Common
 
             std::chrono::duration<double> extraTime = std::chrono::high_resolution_clock::now() - additionalWorkStartTimePoint;
             m_oneSecAccumulator += extraTime.count();
+        }
+    };
+
+    class Benchmark
+    {
+    private:
+        std::chrono::time_point<std::chrono::high_resolution_clock> m_startTime;
+        std::string m_targetName;
+        bool m_deactivated = false;
+
+        std::vector<std::function<void(const std::string&)>> m_onExit;
+
+    public:
+        explicit Benchmark(const std::string& targetName) : m_targetName(targetName)
+        {
+            m_startTime = std::chrono::high_resolution_clock::now();
+        }
+
+        explicit Benchmark(const std::string& targetName, const std::vector<std::function<void(const std::string&)>>& onExit) :
+            m_targetName(targetName), m_onExit(onExit)
+        {
+            m_startTime = std::chrono::high_resolution_clock::now();
+        }
+
+        void Stop()
+        {
+            std::chrono::duration<double> elapsedTime = std::chrono::high_resolution_clock::now() - m_startTime;
+            auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(elapsedTime);
+            auto s = std::chrono::duration_cast<std::chrono::seconds>(elapsedTime);
+
+            // Using ostringstream for formatting
+            std::ostringstream oss;
+            oss << "Time taken for " << m_targetName << " : " << ms;
+            std::string output{ oss.str() };
+            PLOGD << output;
+
+            m_deactivated = true;
+            for (auto& func : m_onExit)
+            {
+                func(output);
+            }
+        }
+
+        ~Benchmark()
+        {
+            if (!m_deactivated)
+            {
+                Stop();
+            }
         }
     };
 }

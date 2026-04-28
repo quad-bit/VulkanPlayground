@@ -21,12 +21,17 @@ set(CORE_FILES
     inc/VulkanWrappers.h
     inc/EngineManager.h
     inc/Assertion.h
+    inc/EventBus.h
+    inc/Event.h
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
+
+    inc/input/InputManager.h
+    inc/input/MouseInputManager.h
 
     inc/memory/MemoryManager.h
     inc/memory/MemoryUtils.h
@@ -45,7 +50,11 @@ set(CORE_FILES
     src/BoundsManager.cpp
     src/EngineManager.cpp
     src/Assertion.cpp
-    
+    src/EventBus.cpp
+
+    src/input/InputManager.cpp
+    src/input/InputManagerGLFW.cpp
+
     src/tasks/WireFrameTask.cpp
     src/tasks/ColorUnlitTask.cpp
     src/tasks/Task.cpp

@@ -432,7 +432,7 @@ namespace
 flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
     Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
 {
-    Common::Benchmark benchMark("LoadGltf");
+    //Common::Benchmark benchMark("LoadGltf");
 
     const std::filesystem::path filePath(assetPath.data());
     const std::string metadataFolderPath = GetExecutableDirectory().string();
@@ -475,7 +475,7 @@ flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& 
     std::string error, warning;
 
     {
-        Common::Benchmark benchMark("FileLoad");
+        //Common::Benchmark benchMark("FileLoad");
 
         bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, assetPath.data());
         assert(fileLoaded == true);

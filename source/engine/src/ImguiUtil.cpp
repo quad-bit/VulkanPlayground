@@ -123,13 +123,16 @@ Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, con
     m_glfwWindow(glfwWindow), cm_device(device), cm_physicalDevice(physicalDevice), cm_graphicsQueue(graphicsQueue), m_graphicsQueueFamily(graphicsQueueFamily),
     m_framebufferWidth(frameBufferWidth), m_framebufferHeight(framebufferHeight), m_colorFormat(colorFormat), m_depthFormat(depthFormat), m_colorAttachmentViews(colorViews)
 {
-    m_userCallbackWindowFocus = glfwSetWindowFocusCallback(m_glfwWindow, WindowFocusCallback);
-    m_userCallbackCursorEnter = glfwSetCursorEnterCallback(m_glfwWindow, CursorEnterCallback);
-    m_userCallbackCursorPos = glfwSetCursorPosCallback(m_glfwWindow, CursorPosCallback);
-    m_userCallbackMousebutton = glfwSetMouseButtonCallback(m_glfwWindow, MouseButtonCallback);
-    m_userCallbackScroll = glfwSetScrollCallback(m_glfwWindow, ScrollCallback);
-    m_userCallbackKey = glfwSetKeyCallback(m_glfwWindow, KeyCallback);
-    m_userCallbackChar = glfwSetCharCallback(m_glfwWindow, CharCallback);
+
+    // the callback registration has been moved to inputManagerGLFW.cpp
+
+    //m_userCallbackWindowFocus = glfwSetWindowFocusCallback(m_glfwWindow, WindowFocusCallback);
+    //m_userCallbackCursorEnter = glfwSetCursorEnterCallback(m_glfwWindow, CursorEnterCallback);
+    //m_userCallbackCursorPos = glfwSetCursorPosCallback(m_glfwWindow, CursorPosCallback);
+    ////m_userCallbackMousebutton = glfwSetMouseButtonCallback(m_glfwWindow, MouseButtonCallback);
+    //m_userCallbackScroll = glfwSetScrollCallback(m_glfwWindow, ScrollCallback);
+    //m_userCallbackKey = glfwSetKeyCallback(m_glfwWindow, KeyCallback);
+    //m_userCallbackChar = glfwSetCharCallback(m_glfwWindow, CharCallback);
 
     m_vertexBuffers.resize(frameInFlights);
     m_vertexBufferMemories.resize(frameInFlights);
@@ -512,6 +515,7 @@ void Common::ImguiUtil::CharCallback(GLFWwindow* window, unsigned int c)
 void Common::ImguiUtil::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
     ImGuiIO& io = ImGui::GetIO();
+
     UpdateKeyModifiers(io, window);
     if (button >= 0 && button < ImGuiMouseButton_COUNT)
         io.AddMouseButtonEvent(button, action == GLFW_PRESS);

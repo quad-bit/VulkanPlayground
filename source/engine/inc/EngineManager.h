@@ -6,6 +6,7 @@
 #include "VulkanManager.h"
 #include "WindowManager.h"
 #include "memory/MemoryManager.h"
+#include "input/InputManager.h"
 
 #include "ImguiUtil.h"
 #include "Utils.h"
@@ -36,6 +37,7 @@ namespace Common
             std::unique_ptr<Common::ImguiUtil > m_pImguiUtil;
             std::unique_ptr<Common::ImguiEditor> m_pEditor;
             std::unique_ptr<Common::Memory::MemoryManager> m_pMemoryManager;
+            std::unique_ptr<Common::IO::InputManager> m_pInputManager;
 
             uint32_t m_maxFramesInFlight;
             std::unique_ptr<Timer> m_pTimer;

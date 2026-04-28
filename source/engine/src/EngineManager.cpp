@@ -2,6 +2,9 @@
 #include "Defines.h"
 #include "Timer.h"
 
+#include "Event.h"
+#include "EventBus.h"
+
 #include <plog/Initializers/RollingFileInitializer.h>
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
@@ -12,6 +15,8 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     plog::init(plog::debug, &consoleAppender);
 
     m_pTimer = std::make_unique<Timer>(60);
+    Events::EventBus::GetInstance()->Init();
+
     m_pMemoryManager = std::make_unique<Common::Memory::MemoryManager>();
 
     m_pSceneManager = std::make_unique<Common::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
@@ -22,6 +27,8 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     m_pVulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = m_pVulkanManager->Init(m_pWindowManagerObj->glfwWindow);
 
+    m_pInputManager = std::make_unique<IO::InputManager>(m_pWindowManagerObj->glfwWindow);
+
     assert(std::get<0>(dim) == info.m_screenSize.m_width);
     assert(std::get<1>(dim) == info.m_screenSize.m_height);
 
@@ -29,6 +36,26 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
         m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);
 
     m_maxFramesInFlight = m_pVulkanManager->GetMaxFramesInFlight();
+
+    /*
+    {
+        auto func = [this](const Events::Event* event)
+            {
+                PLOGD << (static_cast<const Events::KeyInputEvent*>(event))->keyname;
+                if ((static_cast<const Events::KeyInputEvent*>(event))->keyState == Events::KeyState::DOWN)
+                    PLOGD << "DOWN " << this->GetMaxFrameInFlights();
+            };
+
+        Events::EventBus::GetInstance()->Subscribe<Events::KeyInputEvent>(func);
+
+
+        Events::KeyInputEvent testEvent;
+        testEvent.keyname = "Control";
+        testEvent.keyState = Events::KeyState::DOWN;
+
+        Events::EventBus::GetInstance()->Publish<Events::KeyInputEvent>(&testEvent);
+    }
+    */
 
     // pipeline creation
     {
@@ -87,6 +114,12 @@ void Common::EngineManager::DeInit()
             m_pImguiUtil = nullptr;
         }
 
+        if (m_pInputManager)
+        {
+            m_pInputManager->DeInit();
+            m_pInputManager.reset();
+        }
+
         m_pVulkanManager->DeInit();
         m_pWindowManagerObj->DeInit();
 
@@ -99,6 +132,9 @@ void Common::EngineManager::DeInit()
         m_pMemoryManager.reset();
         m_pMemoryManager = nullptr;
     }
+
+    Events::EventBus::GetInstance()->DeInit();
+    delete Events::EventBus::GetInstance();
 
     if (m_pTimer)
     {

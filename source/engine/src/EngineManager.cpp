@@ -9,7 +9,7 @@
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 
-Common::EngineManager::EngineManager(const Common::EngineInfo& info)
+Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCallbacks& callbacks) : m_appCallbacks(callbacks)
 {
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
     plog::init(plog::debug, &consoleAppender);
@@ -17,9 +17,9 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     m_pTimer = std::make_unique<Timer>(60);
     Events::EventBus::GetInstance()->Init();
 
-    m_pMemoryManager = std::make_unique<Common::Memory::MemoryManager>();
+    m_pMemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
 
-    m_pSceneManager = std::make_unique<Common::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
+    m_pSceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
 
     m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     m_pWindowManagerObj->Init();
@@ -74,32 +74,42 @@ Common::EngineManager::EngineManager(const Common::EngineInfo& info)
     }
 
     // imgui
-    m_pImguiUtil = std::make_unique<Common::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
+    m_pImguiUtil = std::make_unique<Loops::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
         m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
         m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height, m_pVulkanManager->GetDepthFormat(),
         VK_FORMAT_B8G8R8A8_UNORM, m_pVulkanManager->GetDefaultColorImageView());
 
     m_pImguiUtil->Init();
 
-    m_pEditor = std::make_unique<Common::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager);
+    m_pEditor = std::make_unique<Loops::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager);
+
+    Init();
 }
 
-void Common::EngineManager::Init()
+void Loops::EngineManager::Init()
 {
-
+    for (auto& onStartFunc : m_appCallbacks.m_Start)
+    {
+        onStartFunc(m_pSceneManager->m_world);
+    }
 }
 
-void Common::EngineManager::DeInit()
+void Loops::EngineManager::DeInit()
 {
     if (m_pVulkanManager->AreTheQueuesIdle())
     {
-        m_pSceneManager->DeInitialise();
+        for (auto& onExit : m_appCallbacks.m_Exit)
+        {
+            onExit();
+        }
 
         if (m_pEditor)
         {
             m_pEditor.reset();
             m_pEditor = nullptr;
         }
+
+        m_pSceneManager->DeInitialise();
 
         if (m_pWireframePipeline)
         {
@@ -143,27 +153,27 @@ void Common::EngineManager::DeInit()
     }
 }
 
-const Common::ImguiUtil& Common::EngineManager::GetImguiUtil() const
+const Loops::ImguiUtil& Loops::EngineManager::GetImguiUtil() const
 {
     return *m_pImguiUtil.get();
 }
 
-const Common::SceneManager& Common::EngineManager::GetSceneManager() const
+const Loops::SceneManager& Loops::EngineManager::GetSceneManager() const
 {
     return *m_pSceneManager;
 }
 
-const Common::VulkanManager& Common::EngineManager::GetVulkanManager() const
+const Loops::VulkanManager& Loops::EngineManager::GetVulkanManager() const
 {
     return *m_pVulkanManager;
 }
 
-uint32_t Common::EngineManager::GetMaxFrameInFlights() const
+uint32_t Loops::EngineManager::GetMaxFrameInFlights() const
 {
     return m_maxFramesInFlight;
 }
 
-void Common::EngineManager::Loop()
+void Loops::EngineManager::Loop()
 {
     while (m_pWindowManagerObj->Update())
     {
@@ -172,6 +182,11 @@ void Common::EngineManager::Loop()
         auto currentFrameInFlight = m_pVulkanManager->GetFrameInFlightIndex();
 
         m_pImguiUtil->NewFrame();
+
+        for (auto& onUpdate : m_appCallbacks.m_Update)
+        {
+            onUpdate(m_pTimer->GetDeltaTime());
+        }
 
         m_pSceneManager->Update(currentFrameInFlight);
 

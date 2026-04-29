@@ -214,16 +214,16 @@ namespace
         //   GetButtonName(button),
         //    GetModsName(mods),
         //    GetActionName(action));
-        //Common::IO::MouseInputManager::GetInstance()->MouseButtonEventHandler(GetButtonName(button), GetActionName(action));
+        //Loops::IO::MouseInputManager::GetInstance()->MouseButtonEventHandler(GetButtonName(button), GetActionName(action));
 
         ImGuiIO& io = ImGui::GetIO();
         if (io.WantCaptureMouse)
         {
-            Common::ImguiUtil::MouseButtonCallback(window, button, action, mods);
+            Loops::ImguiUtil::MouseButtonCallback(window, button, action, mods);
             return;
         }
 
-        Common::Events::MouseButtonEvent mouseButtonEvent{};
+        Loops::Events::MouseButtonEvent mouseButtonEvent{};
         {
             // publish the event when needed
             const char* upAction = "released";
@@ -233,23 +233,23 @@ namespace
 
             if (strcmp(GetActionName(action), upAction) == 0)
             {
-                mouseButtonEvent.keyState = Common::Events::KeyState::RELEASED;
-                //currentMouseButtonDown = Common::Events::MouseButtons::None;
+                mouseButtonEvent.keyState = Loops::Events::KeyState::RELEASED;
+                //currentMouseButtonDown = Loops::Events::MouseButtons::None;
             }
             else if (strcmp(GetActionName(action), pressedAction) == 0)
             {
-                mouseButtonEvent.keyState = Common::Events::KeyState::PRESSED;
+                mouseButtonEvent.keyState = Loops::Events::KeyState::PRESSED;
 
                 const char* right = "right";
                 const char* left = "left";
 
                 /*if (strcmp(GetButtonName(button), right) == 0)
                 {
-                    currentMouseButtonDown = Common::Events::MouseButtons::Right;
+                    currentMouseButtonDown = Loops::Events::MouseButtons::Right;
                 }
                 else if (strcmp(GetButtonName(button), left) == 0)
                 {
-                    currentMouseButtonDown = Common::Events::MouseButtons::Left;
+                    currentMouseButtonDown = Loops::Events::MouseButtons::Left;
                 }*/
             }
 
@@ -260,15 +260,15 @@ namespace
 
         }
         void* userPointer = glfwGetWindowUserPointer(window);
-        static_cast<Common::IO::InputManager*>(userPointer)->EventNotification<Common::Events::MouseButtonEvent>(&mouseButtonEvent);
+        static_cast<Loops::IO::InputManager*>(userPointer)->EventNotification<Loops::Events::MouseButtonEvent>(&mouseButtonEvent);
     }
 
     static void CursorPositionCallback(GLFWwindow* window, double x, double y)
     {
         //Slot* slot = (Slot*)glfwGetWindowUserPointer(window);
         //printf("Cursor position: %f %f\n", x, y);
-        //Common::IO::MouseInputManager::GetInstance()->MousePointerEventHandler(x, y);
-        Common::ImguiUtil::CursorPosCallback(window, x, y);
+        //Loops::IO::MouseInputManager::GetInstance()->MousePointerEventHandler(x, y);
+        Loops::ImguiUtil::CursorPosCallback(window, x, y);
     }
 
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -276,7 +276,7 @@ namespace
         if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         {
             glfwSetWindowShouldClose(window, GLFW_TRUE);
-            //Common::IO::WindowManager::GetInstance()->Close();
+            //Loops::IO::WindowManager::GetInstance()->Close();
 
             //return;
         }
@@ -284,7 +284,7 @@ namespace
         ImGuiIO& io = ImGui::GetIO();
         if (io.WantCaptureMouse)
         {
-            Common::ImguiUtil::KeyCallback(window, key, scancode, action, mods);
+            Loops::ImguiUtil::KeyCallback(window, key, scancode, action, mods);
             return;
         }
 
@@ -296,25 +296,25 @@ namespace
         const char* pressedAction = "pressed";
         const char* downAction = "repeated";
 
-        Common::Events::KeyInputEvent keyEvent{};
+        Loops::Events::KeyInputEvent keyEvent{};
         keyEvent.keyname = keyname;
         keyEvent.keyStateName = actionName;
 
         if (strcmp(actionName, upAction) == 0)
         {
-            keyEvent.keyState = Common::Events::KeyState::RELEASED;
+            keyEvent.keyState = Loops::Events::KeyState::RELEASED;
         }
         else if (strcmp(actionName, downAction) == 0)
         {
-            keyEvent.keyState = Common::Events::KeyState::DOWN;
+            keyEvent.keyState = Loops::Events::KeyState::DOWN;
         }
         else if (strcmp(actionName, pressedAction) == 0)
         {
-            keyEvent.keyState = Common::Events::KeyState::PRESSED;
+            keyEvent.keyState = Loops::Events::KeyState::PRESSED;
         }
 
         void* userPointer = glfwGetWindowUserPointer(window);
-        static_cast<Common::IO::InputManager*>(userPointer)->EventNotification<Common::Events::KeyInputEvent>(&keyEvent);
+        static_cast<Loops::IO::InputManager*>(userPointer)->EventNotification<Loops::Events::KeyInputEvent>(&keyEvent);
 
         /*
         if (name)
@@ -337,20 +337,20 @@ namespace
     }
 }
 
-Common::IO::InputManager::InputManager(GLFWwindow* windowObj) : m_windowObj(windowObj)
+Loops::IO::InputManager::InputManager(GLFWwindow* windowObj) : m_windowObj(windowObj)
 {
     glfwSetWindowUserPointer(m_windowObj, this);
     glfwSetKeyCallback(m_windowObj, KeyCallback);
     glfwSetMouseButtonCallback(m_windowObj, MouseButtonCallback);
     //glfwSetCursorPosCallback(m_windowObj, CursorPositionCallback);
 
-    glfwSetWindowFocusCallback(m_windowObj, Common::ImguiUtil::WindowFocusCallback);
-    glfwSetCursorEnterCallback(m_windowObj, Common::ImguiUtil::CursorEnterCallback);
-    glfwSetCursorPosCallback(m_windowObj, Common::ImguiUtil::CursorPosCallback);
+    glfwSetWindowFocusCallback(m_windowObj, Loops::ImguiUtil::WindowFocusCallback);
+    glfwSetCursorEnterCallback(m_windowObj, Loops::ImguiUtil::CursorEnterCallback);
+    glfwSetCursorPosCallback(m_windowObj, Loops::ImguiUtil::CursorPosCallback);
     //m_userCallbackMousebutton = glfwSetMouseButtonCallback(m_glfwWindow, MouseButtonCallback);
-    glfwSetScrollCallback(m_windowObj, Common::ImguiUtil::ScrollCallback);
+    glfwSetScrollCallback(m_windowObj, Loops::ImguiUtil::ScrollCallback);
     //glfwSetKeyCallback(m_windowObj, KeyCallback);
-    glfwSetCharCallback(m_windowObj, Common::ImguiUtil::CharCallback);
+    glfwSetCharCallback(m_windowObj, Loops::ImguiUtil::CharCallback);
 }
 
 

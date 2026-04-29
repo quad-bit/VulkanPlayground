@@ -3,7 +3,7 @@
 #include "Assertion.h"
 #include <algorithm>
 
-Common::Memory::StackPoolAllocator::StackPoolAllocator(const size_t totalSize)
+Loops::Memory::StackPoolAllocator::StackPoolAllocator(const size_t totalSize)
 {
     m_buffer = new std::byte[totalSize];
 
@@ -14,7 +14,7 @@ Common::Memory::StackPoolAllocator::StackPoolAllocator(const size_t totalSize)
     m_currentHeader = nullptr;
 }
 
-void* Common::Memory::StackPoolAllocator::Allocate(const size_t size, const size_t alignment)
+void* Loops::Memory::StackPoolAllocator::Allocate(const size_t size, const size_t alignment)
 {
     // check for header alignment from m_head
     const size_t headerPadding = GetAlignmentOffset(m_head, alignof(Header));
@@ -40,13 +40,13 @@ void* Common::Memory::StackPoolAllocator::Allocate(const size_t size, const size
     return payloadAddress;
 }
 
-void Common::Memory::StackPoolAllocator::Reset()
+void Loops::Memory::StackPoolAllocator::Reset()
 {
     m_head = m_start;
     m_currentHeader = nullptr;
 }
 
-void Common::Memory::StackPoolAllocator::DeAllocate()
+void Loops::Memory::StackPoolAllocator::DeAllocate()
 {
     // Stack pop
     if (m_currentHeader == nullptr)
@@ -56,7 +56,7 @@ void Common::Memory::StackPoolAllocator::DeAllocate()
     m_currentHeader = m_currentHeader->m_prevHeader;
 }
 
-Common::Memory::StackPoolAllocator::~StackPoolAllocator()
+Loops::Memory::StackPoolAllocator::~StackPoolAllocator()
 {
     if(m_buffer)
         delete[] m_buffer;

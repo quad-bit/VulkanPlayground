@@ -11,7 +11,7 @@
 #include "Utils.h"
 //#include "Camera.h"
 
-namespace Common::Tasking
+namespace Loops::Tasking
 {
     enum class TaskType
     {

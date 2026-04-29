@@ -23,7 +23,7 @@ We need to configure it to use the Vulkan range of 0.0 to 1.0 using the GLM_FORC
 
 #include <flecs.h>
 
-namespace Common
+namespace Loops
 {
     struct Dimension
     {

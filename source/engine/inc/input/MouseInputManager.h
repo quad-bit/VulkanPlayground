@@ -3,7 +3,7 @@
 #include <vector>
 #include "Event.h"
 
-namespace Common::IO
+namespace Loops::IO
 {
     class MouseInputManager
     {

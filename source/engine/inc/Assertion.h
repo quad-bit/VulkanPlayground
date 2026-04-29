@@ -2,7 +2,7 @@
 
 //#include <iostream>
 
-namespace Common
+namespace Loops
 {
 #define ASSERT_MSG(Expr, Msg) \
         AssertWithMsg(#Expr, Expr, __FILE__, __LINE__, Msg)

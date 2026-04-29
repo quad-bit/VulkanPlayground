@@ -2,7 +2,7 @@
 #define DEFINES_H
 
 #include <stdint.h>
-namespace Common
+namespace Loops
 {
     // For now change this manually based on the model being loaded
     const uint32_t MAX_ENTITIES = 1000;

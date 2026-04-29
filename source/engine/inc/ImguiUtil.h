@@ -10,7 +10,7 @@
 
 // https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/GUI/02_imgui_setup.html#_creating_an_imgui_integration
 
-namespace Common
+namespace Loops
 {
     class ImguiUtil
     {

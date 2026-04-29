@@ -1,24 +1,24 @@
 #include "tasks/Task.h"
 
-void Common::Tasking::GraphicsTask::CreateAttachments()
+void Loops::Tasking::GraphicsTask::CreateAttachments()
 {
     assert(0);
 }
 
-Common::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info) : m_info(info), m_ownAttachments(true)
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info) : m_info(info), m_ownAttachments(true)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
     CreateAttachments();
 }
 
-Common::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
     const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) :
     m_info(info), m_colorAttachmentViews(colorViews), m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat), m_depthFormat(depthFormat)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
 
-Common::Tasking::GraphicsTask::~GraphicsTask()
+Loops::Tasking::GraphicsTask::~GraphicsTask()
 {
     if (m_ownAttachments)
     {
@@ -38,17 +38,17 @@ Common::Tasking::GraphicsTask::~GraphicsTask()
     vkDestroyCommandPool(m_info.m_device, m_commandPool, nullptr);
 }
 
-const std::vector<VkImageView>& Common::Tasking::GraphicsTask::GetColorAttachmentViews() const
+const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetColorAttachmentViews() const
 {
     return m_colorAttachmentViews;
 }
 
-const std::vector<VkImageView>& Common::Tasking::GraphicsTask::GetDepthAttachmentViews() const
+const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetDepthAttachmentViews() const
 {
     return m_depthAttachmentViews;
 }
 
-void Common::Tasking::GraphicsTask::Submit(uint32_t frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue,
+void Loops::Tasking::GraphicsTask::Submit(uint32_t frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue,
     std::optional<uint64_t> waitValue)
 {
     VkSemaphoreSubmitInfo waitInfo{};
@@ -85,6 +85,6 @@ void Common::Tasking::GraphicsTask::Submit(uint32_t frameInFlight, const VkSemap
     // If the threads are being killed, we need to skip the queue submission to allow the program to exit gracefully
     //if (m_alive)
     {
-        Common::VkUtils::ErrorCheck(vkQueueSubmit2(m_info.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_info.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
     }
 }

@@ -9,10 +9,10 @@
 #include "VulkanWrappers.h"
 #include "Components.h"
 
-namespace Common
+namespace Loops
 {
-    flecs::entity LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
-        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor = 1.0f);
+    flecs::entity LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager,
+        Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor = 1.0f);
 }
 
 #endif // !GLTF_LOADER_H

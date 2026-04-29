@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include "Components.h"
 
-namespace Common
+namespace Loops
 {
     enum class CameraType
     {
@@ -34,9 +34,9 @@ namespace Common
 
     public:
 
-        Common::Transform m_transform;
+        Loops::Transform m_transform;
         // Constructor with vectors
-        Camera(const Common::Transform& transform, float aspectRatio,
+        Camera(const Loops::Transform& transform, float aspectRatio,
             glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
             CameraType projectionType = CameraType::PERSPECTIVE);
 

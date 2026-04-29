@@ -8,7 +8,7 @@
 
 #include "Event.h"
 
-namespace Common::Events
+namespace Loops::Events
 {
     class EventBus
     {

@@ -3,7 +3,7 @@
 #include "Assertion.h"
 #include <assert.h>
 
-Common::Memory::LinearPoolAllocator::LinearPoolAllocator(const size_t totalSize)
+Loops::Memory::LinearPoolAllocator::LinearPoolAllocator(const size_t totalSize)
 {
     m_buffer = new std::byte[totalSize];
 
@@ -15,7 +15,7 @@ Common::Memory::LinearPoolAllocator::LinearPoolAllocator(const size_t totalSize)
     assert(m_totalSize > 0);
 }
 
-void* Common::Memory::LinearPoolAllocator::Allocate(const size_t size, const size_t alignment)
+void* Loops::Memory::LinearPoolAllocator::Allocate(const size_t size, const size_t alignment)
 {
     // check for free space
     size_t remainingSpace = reinterpret_cast<uintptr_t>(m_end) - reinterpret_cast<uintptr_t>(m_head);
@@ -29,12 +29,12 @@ void* Common::Memory::LinearPoolAllocator::Allocate(const size_t size, const siz
     return dataAddress;
 }
 
-void Common::Memory::LinearPoolAllocator::Reset()
+void Loops::Memory::LinearPoolAllocator::Reset()
 {
     m_head = m_start;
 }
 
-Common::Memory::LinearPoolAllocator::~LinearPoolAllocator()
+Loops::Memory::LinearPoolAllocator::~LinearPoolAllocator()
 {
     if (m_buffer)
         delete[] m_buffer;

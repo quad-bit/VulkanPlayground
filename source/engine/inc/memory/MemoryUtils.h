@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-namespace Common::Memory
+namespace Loops::Memory
 {
     inline bool IsAligned(const void* pointer, size_t alignment)
     {

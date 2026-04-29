@@ -4,7 +4,7 @@
 #include <memory>
 #include "Assertion.h"
 
-namespace Common::Memory
+namespace Loops::Memory
 {
     class StackPoolAllocator
     {

@@ -1,6 +1,6 @@
 #include "pipelines/Pipeline.h"
 
-Common::Tasking::Pipeline::Pipeline(const PipelineInfo& info) : m_info(info)
+Loops::Tasking::Pipeline::Pipeline(const PipelineInfo& info) : m_info(info)
 {
     for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
     {
@@ -8,7 +8,7 @@ Common::Tasking::Pipeline::Pipeline(const PipelineInfo& info) : m_info(info)
         info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
         VkSemaphore semaphore;
-        Common::VkUtils::ErrorCheck(vkCreateSemaphore(m_info.m_device, &info, nullptr, &semaphore));
+        Loops::VkUtils::ErrorCheck(vkCreateSemaphore(m_info.m_device, &info, nullptr, &semaphore));
         m_swapchainImageAcquiredSemaphores.push_back(semaphore);
     }
 
@@ -19,7 +19,7 @@ Common::Tasking::Pipeline::Pipeline(const PipelineInfo& info) : m_info(info)
     }*/
 }
 
-Common::Tasking::Pipeline::~Pipeline()
+Loops::Tasking::Pipeline::~Pipeline()
 {
     for (auto& sem : m_swapchainImageAcquiredSemaphores)
         vkDestroySemaphore(m_info.m_device, sem, nullptr);

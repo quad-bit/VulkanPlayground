@@ -1,7 +1,7 @@
 #include "Assertion.h"
 #include <iostream>
 
-void Common::AssertWithMsg(const char* expr_str, bool expr, const char* file, int line, const char* msg)
+void Loops::AssertWithMsg(const char* expr_str, bool expr, const char* file, int line, const char* msg)
 {
     if (!expr)
     {
@@ -12,7 +12,7 @@ void Common::AssertWithMsg(const char* expr_str, bool expr, const char* file, in
     }
 }
 
-void Common::Assert(const char* expr_str, bool expr, const char* file, int line)
+void Loops::Assert(const char* expr_str, bool expr, const char* file, int line)
 {
     if (!expr)
     {

@@ -1,6 +1,6 @@
 #include "Camera.h"
 
-Common::Camera::Camera(const Common::Transform& transform, float aspectRatio,
+Loops::Camera::Camera(const Loops::Transform& transform, float aspectRatio,
     glm::vec3 up, CameraType projectionType) : m_transform(transform), m_aspect(aspectRatio), m_projectionType(projectionType)
 {
     // FOR NOW CAMERA DOESN'T HAS A PARENT
@@ -35,17 +35,17 @@ Common::Camera::Camera(const Common::Transform& transform, float aspectRatio,
     }
 }
 
-const glm::mat4& Common::Camera::GetViewMatrix()
+const glm::mat4& Loops::Camera::GetViewMatrix()
 {
     return m_viewMat;
 }
 
-const glm::mat4& Common::Camera::GetProjectionMat()
+const glm::mat4& Loops::Camera::GetProjectionMat()
 {
     return m_projectionMat;
 }
 
-glm::vec3 Common::Camera::GetPosition()
+glm::vec3 Loops::Camera::GetPosition()
 {
     return m_transform.m_position;
 }

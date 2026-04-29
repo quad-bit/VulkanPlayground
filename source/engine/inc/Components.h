@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
-namespace Common
+namespace Loops
 {
     // ============= TRANSFORM ===============
     struct Transform

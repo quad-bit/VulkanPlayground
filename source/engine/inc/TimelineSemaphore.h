@@ -3,7 +3,7 @@
 
 #include "Utils.h"
 
-namespace Common
+namespace Loops
 {
     class TimelineSemaphore
     {
@@ -29,7 +29,7 @@ namespace Common
             VkSemaphoreCreateInfo info{};
             info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
             info.pNext = &typeCreateInfo;
-            Common::VkUtils::ErrorCheck(vkCreateSemaphore(device, &info, nullptr, &m_semaphore));
+            Loops::VkUtils::ErrorCheck(vkCreateSemaphore(device, &info, nullptr, &m_semaphore));
         }
 
         ~TimelineSemaphore()

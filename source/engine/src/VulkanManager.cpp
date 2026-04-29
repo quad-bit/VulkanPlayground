@@ -36,7 +36,7 @@ namespace
         info.queueFamilyIndex = queueFamilyIndex;
         info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-        Common::VkUtils::ErrorCheck(vkCreateCommandPool(device, &info, nullptr, &pool));
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(device, &info, nullptr, &pool));
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.commandBufferCount = 1;
@@ -46,7 +46,7 @@ namespace
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
         VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-        Common::VkUtils::ErrorCheck(vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer));
+        Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(device, &allocInfo, &cmdBuffer));
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -92,23 +92,23 @@ namespace
         VkFenceCreateInfo fenceInfo{};
         fenceInfo.pNext = nullptr;
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        Common::VkUtils::ErrorCheck(vkCreateFence(device, &fenceInfo, nullptr, &fence));
+        Loops::VkUtils::ErrorCheck(vkCreateFence(device, &fenceInfo, nullptr, &fence));
 
         VkSubmitInfo submitInfo{};
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmdBuffer;
         submitInfo.pNext = nullptr;
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        Common::VkUtils::ErrorCheck(vkQueueSubmit(queue, 1, &submitInfo, fence));
+        Loops::VkUtils::ErrorCheck(vkQueueSubmit(queue, 1, &submitInfo, fence));
 
-        Common::VkUtils::ErrorCheck(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
+        Loops::VkUtils::ErrorCheck(vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX));
 
         vkDestroyFence(device, fence, nullptr);
         vkDestroyCommandPool(device, pool, nullptr);
     }
 }
 
-void Common::VulkanManager::CreateInstance()
+void Loops::VulkanManager::CreateInstance()
 {
     VkApplicationInfo appInfo{};
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -127,10 +127,10 @@ void Common::VulkanManager::CreateInstance()
     createInfoObj.ppEnabledExtensionNames = m_validationManagerObj->instanceExtensionNameList.data();
     createInfoObj.ppEnabledLayerNames = m_validationManagerObj->instanceLayerNameList.data();
 
-    Common::VkUtils::ErrorCheck(vkCreateInstance(&createInfoObj, nullptr, &m_instanceObj));
+    Loops::VkUtils::ErrorCheck(vkCreateInstance(&createInfoObj, nullptr, &m_instanceObj));
 }
 
-void Common::VulkanManager::CreateLogicalDevice(const uint32_t & queueFamilyIndex)
+void Loops::VulkanManager::CreateLogicalDevice(const uint32_t & queueFamilyIndex)
 {
     VkPhysicalDeviceTimelineSemaphoreFeatures timelineFeatures{};
     timelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
@@ -162,10 +162,10 @@ void Common::VulkanManager::CreateLogicalDevice(const uint32_t & queueFamilyInde
     vkDeviceCreateInfoObj.ppEnabledLayerNames = nullptr;
     vkDeviceCreateInfoObj.pNext = &physicalFeatures2;
 
-    Common::VkUtils::ErrorCheck(vkCreateDevice(m_physicalDevice, &vkDeviceCreateInfoObj, nullptr, &m_logicalDevice));
+    Loops::VkUtils::ErrorCheck(vkCreateDevice(m_physicalDevice, &vkDeviceCreateInfoObj, nullptr, &m_logicalDevice));
 }
 
-void Common::VulkanManager::AcquirePhysicalDevice()
+void Loops::VulkanManager::AcquirePhysicalDevice()
 {
     uint32_t count = 0;
     vkEnumeratePhysicalDevices(m_instanceObj, &count, nullptr);
@@ -207,7 +207,7 @@ void Common::VulkanManager::AcquirePhysicalDevice()
     }
 }
 
-uint32_t Common::VulkanManager::GetQueuesFamilyIndex()
+uint32_t Loops::VulkanManager::GetQueuesFamilyIndex()
 {
     uint32_t graphicsReq = VK_QUEUE_GRAPHICS_BIT;
     uint32_t computeReq = VK_QUEUE_COMPUTE_BIT;
@@ -249,11 +249,11 @@ uint32_t Common::VulkanManager::GetQueuesFamilyIndex()
     return graphicsQueueFamilyIndex;
 }
 
-void Common::VulkanManager::GetMaxUsableVKSampleCount()
+void Loops::VulkanManager::GetMaxUsableVKSampleCount()
 {
 }
 
-void Common::VulkanManager::FindBestDepthFormat()
+void Loops::VulkanManager::FindBestDepthFormat()
 {
     VkFormat formatList[5]{
     VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -276,16 +276,16 @@ void Common::VulkanManager::FindBestDepthFormat()
     assert(0);
 }
 
-Common::VulkanManager::~VulkanManager()
+Loops::VulkanManager::~VulkanManager()
 {
 }
 
-Common::VulkanManager::VulkanManager(const uint32_t& screenWidth, const uint32_t& screenHeight) : m_surfaceWidth(screenWidth), m_surfaceHeight(screenHeight)
+Loops::VulkanManager::VulkanManager(const uint32_t& screenWidth, const uint32_t& screenHeight) : m_surfaceWidth(screenWidth), m_surfaceHeight(screenHeight)
 {
     m_validationManagerObj = std::make_unique<ValidationManager>();
 }
 
-std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindow)
+std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow)
 {
     CreateInstance();
     AcquirePhysicalDevice();
@@ -309,7 +309,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
             VkSemaphoreCreateInfo semInfo{};
             semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
             VkSemaphore semaphore = VK_NULL_HANDLE;
-            Common::VkUtils::ErrorCheck(vkCreateSemaphore(m_logicalDevice, &semInfo, nullptr, &semaphore));
+            Loops::VkUtils::ErrorCheck(vkCreateSemaphore(m_logicalDevice, &semInfo, nullptr, &semaphore));
             m_renderingCompletedSignalSemaphore.push_back(semaphore);
         }
     }
@@ -320,7 +320,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
         createInfo.queueFamilyIndex = m_queueFamilyIndex;
         createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-        Common::VkUtils::ErrorCheck(vkCreateCommandPool(m_logicalDevice, &createInfo, nullptr, &m_commandPool));
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_logicalDevice, &createInfo, nullptr, &m_commandPool));
 
         m_commandBuffers.resize(m_maxFrameInFlight);
         VkCommandBufferAllocateInfo alloc_info{};
@@ -329,7 +329,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
         alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-        Common::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
+        Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
     }
 
     {
@@ -339,7 +339,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
         m_colorAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Common::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
@@ -352,7 +352,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
             createInfo.subresourceRange.layerCount = 1;
             createInfo.subresourceRange.levelCount = 1;
             createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            Common::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_colorAttachmentViews[i]));
+            Loops::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_colorAttachmentViews[i]));
         }
 
         //Depth
@@ -361,7 +361,7 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
         m_depthAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_depthAttachments[i], m_depthAttachmentMemory[i]) = Common::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            std::tie(m_depthAttachments[i], m_depthAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
             createInfo.format = m_depthFormat;
@@ -373,17 +373,17 @@ std::tuple<uint32_t, uint32_t> Common::VulkanManager::Init(GLFWwindow* glfwWindo
             createInfo.subresourceRange.layerCount = 1;
             createInfo.subresourceRange.levelCount = 1;
             createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            Common::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_depthAttachmentViews[i]));
+            Loops::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_depthAttachmentViews[i]));
         }
 
-        Common::VkUtils::ChangeImageLayout(m_logicalDevice, m_colorAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        Common::VkUtils::ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_colorAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
     return std::tuple<uint32_t, uint32_t>{ (uint32_t)m_surfaceWidth, (uint32_t)m_surfaceHeight };
 }
 
-void Common::VulkanManager::DeInit()
+void Loops::VulkanManager::DeInit()
 {
     vkQueueWaitIdle(m_computeQueue);
     vkQueueWaitIdle(m_graphicsQueue);
@@ -416,86 +416,86 @@ void Common::VulkanManager::DeInit()
     vkDestroyInstance(m_instanceObj, nullptr);
 }
 
-void Common::VulkanManager::Update(uint32_t currentFrameIndex)
+void Loops::VulkanManager::Update(uint32_t currentFrameIndex)
 {
 
 }
 
-uint32_t Common::VulkanManager::GetSwapchainImageCount() const
+uint32_t Loops::VulkanManager::GetSwapchainImageCount() const
 {
     return m_swapchainImageCount;
 }
 
-uint32_t Common::VulkanManager::GetFrameInFlightIndex() const
+uint32_t Loops::VulkanManager::GetFrameInFlightIndex() const
 {
     return m_frameInFlightIndex;
 }
 
-uint32_t Common::VulkanManager::GetMaxFramesInFlight() const
+uint32_t Loops::VulkanManager::GetMaxFramesInFlight() const
 {
     return m_maxFrameInFlight;
 }
 
-const VkDevice& Common::VulkanManager::GetLogicalDevice() const
+const VkDevice& Loops::VulkanManager::GetLogicalDevice() const
 {
     return m_logicalDevice;
 }
 
-const VkPhysicalDevice & Common::VulkanManager::GetPhysicalDevice() const
+const VkPhysicalDevice & Loops::VulkanManager::GetPhysicalDevice() const
 {
     return m_physicalDevice;
 }
 
-uint32_t Common::VulkanManager::GetQueueFamilyIndex() const
+uint32_t Loops::VulkanManager::GetQueueFamilyIndex() const
 {
     return m_queueFamilyIndex;
 }
 
-uint32_t Common::VulkanManager::GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore)
+uint32_t Loops::VulkanManager::GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore)
 {
     //Get the swapchain image index
-    Common::VkUtils::ErrorCheck(vkAcquireNextImageKHR(m_logicalDevice, m_swapchainObj, UINT64_MAX,
+    Loops::VkUtils::ErrorCheck(vkAcquireNextImageKHR(m_logicalDevice, m_swapchainObj, UINT64_MAX,
         imageAquiredSignalSemaphore, VK_NULL_HANDLE, &m_currentSwpachainIndex));
 
     return m_currentSwpachainIndex;
 }
 
-const VkQueue & Common::VulkanManager::GetComputeQueue() const
+const VkQueue & Loops::VulkanManager::GetComputeQueue() const
 {
     return m_computeQueue;
 }
 
-const VkQueue & Common::VulkanManager::GetGraphicsQueue() const
+const VkQueue & Loops::VulkanManager::GetGraphicsQueue() const
 {
     return m_graphicsQueue;
 }
 
-const VkFormat & Common::VulkanManager::GetDepthFormat() const
+const VkFormat & Loops::VulkanManager::GetDepthFormat() const
 {
     return m_depthFormat;
 }
 
-const std::vector<VkImageView>& Common::VulkanManager::GetDefaultColorImageView() const
+const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultColorImageView() const
 {
     return m_colorAttachmentViews;
 }
 
-const std::vector<VkImage>& Common::VulkanManager::GetDefaultColorImages() const
+const std::vector<VkImage>& Loops::VulkanManager::GetDefaultColorImages() const
 {
     return m_colorAttachments;
 }
 
-const std::vector<VkImageView>& Common::VulkanManager::GetDefaultDepthImageView() const
+const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultDepthImageView() const
 {
     return m_depthAttachmentViews;
 }
 
-const std::vector<VkImage>& Common::VulkanManager::GetDefaultDepthImages() const
+const std::vector<VkImage>& Loops::VulkanManager::GetDefaultDepthImages() const
 {
     return m_depthAttachments;
 }
 
-void Common::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& semaphore, const VkSemaphore& imageAcquiredSemaphore,
+void Loops::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& semaphore, const VkSemaphore& imageAcquiredSemaphore,
     uint64_t waitValue, uint64_t signalValue)
 {
     // Change layout to tranfer dst, then copy and change it to present layout
@@ -503,7 +503,7 @@ void Common::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSem
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    Common::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[m_frameInFlightIndex], &beginInfo));
+    Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[m_frameInFlightIndex], &beginInfo));
 
     std::vector<VkImageMemoryBarrier> image_barrier;
     //if (srcImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
@@ -570,7 +570,7 @@ void Common::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSem
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         0, 0, nullptr, 0, nullptr, barrier2.size(), barrier2.data());
 
-    Common::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[m_frameInFlightIndex]));
+    Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[m_frameInFlightIndex]));
 
     VkSemaphoreSubmitInfo signalInfo[2]{
         {VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, m_renderingCompletedSignalSemaphore[m_currentSwpachainIndex], 0, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0},
@@ -595,7 +595,7 @@ void Common::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSem
     submitInfo.signalSemaphoreInfoCount = 2;
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
     submitInfo.waitSemaphoreInfoCount = 2;
-    Common::VkUtils::ErrorCheck(vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+    Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.pImageIndices = &m_currentSwpachainIndex;
@@ -605,12 +605,12 @@ void Common::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSem
     presentInfo.swapchainCount = 1;
     presentInfo.waitSemaphoreCount = 1;
 
-    Common::VkUtils::ErrorCheck(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
+    Loops::VkUtils::ErrorCheck(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
 
     m_frameInFlightIndex = (m_frameInFlightIndex + 1) % m_maxFrameInFlight;
 }
 
-bool Common::VulkanManager::AreTheQueuesIdle()
+bool Loops::VulkanManager::AreTheQueuesIdle()
 {
     vkQueueWaitIdle(m_computeQueue);
     vkQueueWaitIdle(m_graphicsQueue);
@@ -618,7 +618,7 @@ bool Common::VulkanManager::AreTheQueuesIdle()
     return true;
 }
 
-void Common::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
+void Loops::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
 {
 #if defined(GLFW_ENABLED)
     if (VK_SUCCESS != glfwCreateWindowSurface(m_instanceObj, glfwWindow, nullptr, &m_surface))
@@ -670,7 +670,7 @@ void Common::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
     }
 }
 
-void Common::VulkanManager::CreateSwapchain()
+void Loops::VulkanManager::CreateSwapchain()
 {
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &m_surfaceCapabilities);
 
@@ -684,9 +684,9 @@ void Common::VulkanManager::CreateSwapchain()
     auto presentMode = VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR;
     {
         uint32_t count = 0;
-        Common::VkUtils::ErrorCheck(vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &count, nullptr));
+        Loops::VkUtils::ErrorCheck(vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &count, nullptr));
         std::vector<VkPresentModeKHR> presentModeList(count);
-        Common::VkUtils::ErrorCheck(vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &count, presentModeList.data()));
+        Loops::VkUtils::ErrorCheck(vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &count, presentModeList.data()));
 
         for (VkPresentModeKHR obj : presentModeList)
         {
@@ -720,13 +720,13 @@ void Common::VulkanManager::CreateSwapchain()
     swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     swapChainCreateInfo.surface = m_surface;
 
-    Common::VkUtils::ErrorCheck(vkCreateSwapchainKHR(m_logicalDevice, &swapChainCreateInfo, nullptr, &m_swapchainObj));
+    Loops::VkUtils::ErrorCheck(vkCreateSwapchainKHR(m_logicalDevice, &swapChainCreateInfo, nullptr, &m_swapchainObj));
 
     // swapchain images
     uint32_t count = 0;
-    Common::VkUtils::ErrorCheck(vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchainObj, &count, nullptr));
+    Loops::VkUtils::ErrorCheck(vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchainObj, &count, nullptr));
     m_swapchainImageList.resize(count);
-    Common::VkUtils::ErrorCheck(vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchainObj, &count, m_swapchainImageList.data()));
+    Loops::VkUtils::ErrorCheck(vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchainObj, &count, m_swapchainImageList.data()));
     assert(m_swapchainImageCount == (uint32_t)m_swapchainImageList.size());
 
     // swapchain image views
@@ -745,11 +745,11 @@ void Common::VulkanManager::CreateSwapchain()
         createInfo.subresourceRange.levelCount = 1;
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 
-        Common::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_swapChainImageViewList[i]));
+        Loops::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_swapChainImageViewList[i]));
     }
 }
 
-void Common::VulkanManager::DestroySwapChain()
+void Loops::VulkanManager::DestroySwapChain()
 {
     for (auto& view : m_swapChainImageViewList)
     {

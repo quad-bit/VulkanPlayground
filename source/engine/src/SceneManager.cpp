@@ -8,14 +8,14 @@
 
 uint32_t meshViewCount = 0;
 
-void Common::SceneManager::Update(uint32_t currentFrameInFlight)
+void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
 {
     std::stack<glm::mat4> matrixStack;
     matrixStack.push(glm::mat4(1.0));
 
     auto UpdateGlobalMatrix = [&matrixStack](auto self, const flecs::entity& e) -> void
     {
-        Transform& t = e.get_mut<Common::Transform>();
+        Transform& t = e.get_mut<Loops::Transform>();
         {
             auto translationMat = glm::translate(t.m_position);
             auto scaleMat = glm::scale(t.m_scale);
@@ -46,7 +46,7 @@ void Common::SceneManager::Update(uint32_t currentFrameInFlight)
     }
 }
 
-void Common::SceneManager::Prepare(uint32_t currentFrameInFlight)
+void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
 {
     m_boundManager.Update(currentFrameInFlight);
 
@@ -56,9 +56,9 @@ void Common::SceneManager::Prepare(uint32_t currentFrameInFlight)
 
     auto AddAllEntities = [&renderData, this](auto self, const flecs::entity& e)-> void
     {
-        if (e.has<Common::Mesh>())
+        if (e.has<Loops::Mesh>())
         {
-            Mesh m = e.get<Common::Mesh>();
+            Mesh m = e.get<Loops::Mesh>();
             if (m.m_meshViewCount > 0)
             {
                 auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
@@ -69,7 +69,7 @@ void Common::SceneManager::Prepare(uint32_t currentFrameInFlight)
                 // resetting
                 drawable.m_numOfViews = 0;
 
-                mat = e.get<Common::Transform>().m_modelMatGlobal;
+                mat = e.get<Loops::Transform>().m_modelMatGlobal;
                 drawable.m_viewStartIndex = renderData.m_viewCount;
                 drawable.m_vertexBufferId = m.m_vertexBufferIndex;
                 drawable.m_indexBufferId = m.m_indexBufferIndex;
@@ -99,7 +99,7 @@ void Common::SceneManager::Prepare(uint32_t currentFrameInFlight)
     }
 }
 
-Common::MeshView& Common::SceneManager::GetMeshView(flecs::entity& entity, Common::Mesh& mesh)
+Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::Mesh& mesh)
 {
     auto& view = mesh.m_meshViews[mesh.m_meshViewCount++]; 
     view.m_viewIndex = meshViewCount++;
@@ -107,12 +107,12 @@ Common::MeshView& Common::SceneManager::GetMeshView(flecs::entity& entity, Commo
     return view;
 }
 
-void Common::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+void Loops::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
 {
     m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
 }
 
-Common::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
+Loops::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
 {
     {
         //m_world.set_entity_range(0, MAX_ENTITES);
@@ -135,7 +135,7 @@ Common::SceneManager::SceneManager(const std::string_view& assetPath, const uint
     m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh));
 }
 
-Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
+Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
 {
     {
         //m_world.set_entity_range(0, MAX_ENTITES);
@@ -161,12 +161,12 @@ Common::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, cons
     }
 }
 
-Common::SceneManager::~SceneManager()
+Loops::SceneManager::~SceneManager()
 {
     m_mainCamera.reset();
 }
 
-void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice,
+void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice,
     const VkQueue& graphicsQueue, uint32_t queueFamilyIndex, uint32_t maxFrameInFlights, const Dimension& screenDimension, const Dimension& designDimension)
 {
     m_device = device;
@@ -178,25 +178,25 @@ void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDe
 
     auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
     {
-        Common::VkUtils::CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        Loops::VkUtils::CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         // copy data into vertex and index buffer
 
-        auto [stagingBuffer, stagingMemory] = Common::VkUtils::CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
+        auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
 
         {
             // map and copy 
             void* pData;
-            Common::VkUtils::ErrorCheck(vkMapMemory(m_device, stagingMemory, 0, dataSize, 0, &pData));
+            Loops::VkUtils::ErrorCheck(vkMapMemory(m_device, stagingMemory, 0, dataSize, 0, &pData));
             memcpy(pData, data, dataSize);
             vkUnmapMemory(m_device, stagingMemory);
         }
 
-        Common::VkUtils::CopyFromStagingBuffer(stagingBuffer, buffer, dataSize, m_device, m_graphicsQueue, m_queueFamilyIndex);
+        Loops::VkUtils::CopyFromStagingBuffer(stagingBuffer, buffer, dataSize, m_device, m_graphicsQueue, m_queueFamilyIndex);
 
-        Common::VkUtils::DestroyBuffer(m_device, stagingBuffer);
-        Common::VkUtils::FreeMemory(m_device, stagingMemory);
+        Loops::VkUtils::DestroyBuffer(m_device, stagingBuffer);
+        Loops::VkUtils::FreeMemory(m_device, stagingMemory);
     };
 
     assert(m_vertexBufferWrapperCount == m_indexBufferWrapperCount);
@@ -212,53 +212,53 @@ void Common::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDe
     }
 
 
-    Common::Transform camTransform;
+    Loops::Transform camTransform;
     //camTransform.m_position = glm::vec3(-65, 20, 0);
     //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
     camTransform.m_position = glm::vec3(0, 0, -3);
-    m_mainCamera = std::make_unique<Common::Camera>(camTransform, designDimension.m_width / (float)designDimension.m_height);
+    m_mainCamera = std::make_unique<Loops::Camera>(camTransform, designDimension.m_width / (float)designDimension.m_height);
 }
 
-void Common::SceneManager::DeInitialise()
+void Loops::SceneManager::DeInitialise()
 {
     m_mainCamera.reset();
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
-        Common::VkUtils::DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
-        Common::VkUtils::DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
-        Common::VkUtils::FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
-        Common::VkUtils::FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
+        Loops::VkUtils::DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
+        Loops::VkUtils::DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
+        Loops::VkUtils::FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
+        Loops::VkUtils::FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
     }
 }
 
-void Common::SceneManager::AddParentEntity(flecs::entity e)
+void Loops::SceneManager::AddParentEntity(flecs::entity e)
 {
     m_parentEntities.push_back(e);
 }
 
-const std::vector<flecs::entity>& Common::SceneManager::GetParentList() const
+const std::vector<flecs::entity>& Loops::SceneManager::GetParentList() const
 {
     return m_parentEntities;
 }
 
-const Common::RenderData& Common::SceneManager::GetRenderData(uint32_t frameIndex) const
+const Loops::RenderData& Loops::SceneManager::GetRenderData(uint32_t frameIndex) const
 {
     return m_renderDataList[frameIndex];
 }
 
-const VkBuffer& Common::SceneManager::GetVertexBuffer(uint32_t id) const
+const VkBuffer& Loops::SceneManager::GetVertexBuffer(uint32_t id) const
 {
     assert(id < m_vertexBufferWrapperCount);
     return m_vertexBufferWrappers[id].m_vkVertexBuffer;
 }
 
-const VkBuffer& Common::SceneManager::GetIndexBuffer(uint32_t id) const
+const VkBuffer& Loops::SceneManager::GetIndexBuffer(uint32_t id) const
 {
     assert(id < m_indexBufferWrapperCount);
     return m_indexBufferWrappers[id].m_vkIndexBuffer;
 }
 
-std::unique_ptr<Common::Camera>& Common::SceneManager::GetMainCamera()
+std::unique_ptr<Loops::Camera>& Loops::SceneManager::GetMainCamera()
 {
     return m_mainCamera;
 }

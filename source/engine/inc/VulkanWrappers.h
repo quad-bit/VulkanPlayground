@@ -4,13 +4,13 @@
 #include "Utils.h"
 #include "Components.h"
 
-namespace Common
+namespace Loops
 {
     struct VertexBuffer
     {
         VkBuffer m_vkVertexBuffer = VK_NULL_HANDLE;
         VkDeviceMemory m_vertexBufferMemory = VK_NULL_HANDLE;
-        std::vector<Common::Vertex> m_vertexList;
+        std::vector<Loops::Vertex> m_vertexList;
         // Used to get the position of head in case its resized with size initially
         size_t m_currentSize = 0;
         // id used for indexing in to an array

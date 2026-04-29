@@ -6,7 +6,7 @@
 #include "VulkanManager.h"
 #include <memory>
 
-namespace Common::Tasking
+namespace Loops::Tasking
 {
     struct PipelineInfo
     {

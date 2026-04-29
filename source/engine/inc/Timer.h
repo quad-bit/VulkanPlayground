@@ -7,7 +7,7 @@
 #include <string>
 #include <functional>
 
-namespace Common
+namespace Loops
 {
     class Timer
     {
@@ -15,6 +15,7 @@ namespace Common
         uint32_t m_frameCounter;
         double m_targetFrameDuration;
         double m_oneSecAccumulator = 0.0;
+        float m_deltaTime = 0.0;
         std::chrono::time_point<std::chrono::high_resolution_clock> m_frameStartTime;
 
     public:
@@ -84,6 +85,12 @@ namespace Common
 
             std::chrono::duration<double> extraTime = std::chrono::high_resolution_clock::now() - additionalWorkStartTimePoint;
             m_oneSecAccumulator += extraTime.count();
+            m_deltaTime = elapsedTime.count() + extraTime.count();
+        }
+
+        const double& GetDeltaTime() const
+        {
+            return m_deltaTime;
         }
     };
 

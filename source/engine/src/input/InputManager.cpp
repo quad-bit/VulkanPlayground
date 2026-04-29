@@ -2,7 +2,7 @@
 #include <imgui.h>
 
 
-Common::IO::InputManager::~InputManager()
+Loops::IO::InputManager::~InputManager()
 {
     //for (uint16_t i = 0; i < m_poolSize; i++)
     //{
@@ -12,11 +12,11 @@ Common::IO::InputManager::~InputManager()
     //m_keyEventPool.clear();
 }
 
-void Common::IO::InputManager::DeInit()
+void Loops::IO::InputManager::DeInit()
 {
     PLOGD << "Input manager DeInit";
 }
 
-void Common::IO::InputManager::Update()
+void Loops::IO::InputManager::Update()
 {
 }

@@ -4,7 +4,7 @@
 #include "Components.h"
 
 
-Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager) : cm_utilObj(utilObj), cm_sceneManager(sceneManager)
+Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager) : cm_utilObj(utilObj), cm_sceneManager(sceneManager)
 {
     m_selectedNodeIndex = cm_sceneManager.GetParentList()[0].id();
 
@@ -60,7 +60,7 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
     {
         auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
 
-        auto& t = e.get<Common::Transform>();
+        auto& t = e.get<Loops::Transform>();
         auto mat = t.m_modelMat;
         glm::vec3 position = t.m_position;
         glm::vec3 scale = t.m_scale;
@@ -132,13 +132,13 @@ Common::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& s
     auto CreateMeshPanel = [this]()
     {
         auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
-        if (e.has<Common::Mesh>())
+        if (e.has<Loops::Mesh>())
         {
             ImGui::Begin("Mesh");
-            auto& mesh = e.get<Common::Mesh>();
+            auto& mesh = e.get<Loops::Mesh>();
             for (uint32_t i = 0; i<mesh.m_meshViewCount; i++)
             {
-                const Common::MeshView& view = mesh.m_meshViews[i];
+                const Loops::MeshView& view = mesh.m_meshViews[i];
                 ImGui::Text("Index count : %d", view.m_indexCount);
                 ImGui::Text("Triangle count : %d", view.m_indexCount/3);
             }

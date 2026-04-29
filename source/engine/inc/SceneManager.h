@@ -12,7 +12,7 @@
 #include <flecs.h>
 #include <memory>
 
-namespace Common
+namespace Loops
 {
     //constexpr uint32_t MAX_ENTITES = 1000;
     const uint16_t MAX_WRAPPERS = 10; // one for an entire gltf
@@ -43,10 +43,10 @@ namespace Common
         //=================   FLECS ================================
 
         //TODO: temporary
-        //std::vector<Common::Vertex> m_vertexList;
+        //std::vector<Loops::Vertex> m_vertexList;
         //std::vector<uint32_t> m_indexList;
-        Common::VertexBuffer m_vertexBufferWrappers[MAX_WRAPPERS];
-        Common::IndexBuffer m_indexBufferWrappers[MAX_WRAPPERS];
+        Loops::VertexBuffer m_vertexBufferWrappers[MAX_WRAPPERS];
+        Loops::IndexBuffer m_indexBufferWrappers[MAX_WRAPPERS];
         uint32_t m_vertexBufferWrapperCount = 0, m_indexBufferWrapperCount = 0;
 
         // Vulkan specific
@@ -64,9 +64,9 @@ namespace Common
 
         uint32_t m_maxFrameInFlights = 0;
 
-        std::vector<Common::RenderData> m_renderDataList;
+        std::vector<Loops::RenderData> m_renderDataList;
 
-        Common::BoundsManager m_boundManager;
+        Loops::BoundsManager m_boundManager;
         std::unique_ptr<Camera> m_mainCamera;
 
     public:

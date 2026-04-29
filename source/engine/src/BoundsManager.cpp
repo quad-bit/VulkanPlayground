@@ -1,9 +1,9 @@
 #include "BoundsManager.h"
 
 
-Common::AABB Common::Union(const Common::AABB& b1, const Common::AABB& b2)
+Loops::AABB Loops::Union(const Loops::AABB& b1, const Loops::AABB& b2)
 {
-    Common::AABB bound;
+    Loops::AABB bound;
     bound.m_max = glm::vec3(std::max(b1.m_max.x, b2.m_max.x), std::max(b1.m_max.y, b2.m_max.y), std::max(b1.m_max.z, b2.m_max.z));
     bound.m_min = glm::vec3(std::min(b1.m_min.x, b2.m_min.x), std::min(b1.m_min.y, b2.m_min.y), std::min(b1.m_min.z, b2.m_min.z));
     bound.m_center = (bound.m_max + bound.m_min) / 2.0f;
@@ -11,7 +11,7 @@ Common::AABB Common::Union(const Common::AABB& b1, const Common::AABB& b2)
     return bound;
 }
 
-void Common::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+void Loops::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
 {
     AABB& bound = m_bounds[m_primitiveBoundCount];
     bound.m_boundIndex = m_primitiveBoundCount;
@@ -37,7 +37,7 @@ void Common::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max,
     }
 }
 
-void Common::BoundsManager::CalculateSceneBound()
+void Loops::BoundsManager::CalculateSceneBound()
 {
     for (uint32_t i=0; i < m_primitiveBoundCount;i++)
     {
@@ -79,7 +79,7 @@ void Common::BoundsManager::CalculateSceneBound()
     // retrun the parent node
 }
 
-void Common::BoundsManager::Update(uint32_t currentFrameInFlight)
+void Loops::BoundsManager::Update(uint32_t currentFrameInFlight)
 {
     CalculateSceneBound();
 }

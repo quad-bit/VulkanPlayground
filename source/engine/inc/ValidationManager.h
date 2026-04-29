@@ -7,7 +7,7 @@
 #include <iostream>
 #include <vector>
 
-namespace Common
+namespace Loops
 {
     class ValidationManager
     {

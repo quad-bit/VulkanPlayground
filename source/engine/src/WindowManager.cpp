@@ -1,33 +1,33 @@
 #include "WindowManager.h"
 #include <assert.h>
 
-Common::WindowManager::WindowManager(uint32_t screenWidth, uint32_t screenHeight) :
+Loops::WindowManager::WindowManager(uint32_t screenWidth, uint32_t screenHeight) :
     m_screenWidth(screenWidth), m_screenHeight(screenHeight)
 {
 }
 
-void Common::WindowManager::Init()
+void Loops::WindowManager::Init()
 {
     InitOSWindow();
 }
 
-void Common::WindowManager::DeInit()
+void Loops::WindowManager::DeInit()
 {
     DeInitOSWindow();
 }
 
-void Common::WindowManager::Close()
+void Loops::WindowManager::Close()
 {
     windowShouldRun = false;
 }
 
-bool Common::WindowManager::Update()
+bool Loops::WindowManager::Update()
 {
     UpdateOSWindow();
     return windowShouldRun;
 }
 
-void Common::WindowManager::InitOSWindow()
+void Loops::WindowManager::InitOSWindow()
 {
     glfwInit();
     if (glfwVulkanSupported() == GLFW_FALSE)
@@ -39,13 +39,13 @@ void Common::WindowManager::InitOSWindow()
     glfwGetFramebufferSize(glfwWindow, (int*)&m_screenWidth, (int*)&m_screenHeight);
 }
 
-void Common::WindowManager::DeInitOSWindow()
+void Loops::WindowManager::DeInitOSWindow()
 {
     glfwDestroyWindow(glfwWindow);
     glfwTerminate();
 }
 
-void Common::WindowManager::UpdateOSWindow()
+void Loops::WindowManager::UpdateOSWindow()
 {
     glfwPollEvents();
 

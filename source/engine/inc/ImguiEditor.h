@@ -6,7 +6,7 @@
 #include "SceneManager.h"
 #include<flecs.h>
 
-namespace Common
+namespace Loops
 {
     class ImguiEditor
     {

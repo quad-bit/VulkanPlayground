@@ -87,7 +87,7 @@ namespace
     flecs::entity CreateEntity(const tinygltf::Node& inputNode, flecs::world& world,
         const flecs::entity& parent, float scaleFactor)
     {
-        Common::Transform transform{};
+        Loops::Transform transform{};
 
         glm::mat4 matrix = glm::mat4(1.0f);
         if (inputNode.translation.size() == 3)
@@ -118,7 +118,7 @@ namespace
         transform.m_modelMat = matrix;
 
         auto e = world.entity(inputNode.name.c_str()).child_of(parent);
-        e.emplace<Common::Transform>(transform);
+        e.emplace<Loops::Transform>(transform);
 
         return e;
     }
@@ -160,7 +160,7 @@ namespace
     }
 
     void FillIndicies(std::vector<unsigned int>& indicies, uint32_t& indexCount, const uint32_t vertexStart, const tinygltf::Primitive& glTFPrimitive,
-        const tinygltf::Model& input, Common::ModelMetadata& metadata)
+        const tinygltf::Model& input, Loops::ModelMetadata& metadata)
     {
         const tinygltf::Accessor& accessor = input.accessors[glTFPrimitive.indices];
         const tinygltf::BufferView& bufferView = input.bufferViews[accessor.bufferView];
@@ -255,9 +255,9 @@ namespace
 
 
     //https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfscenerendering/gltfscenerendering.cpp
-    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Common::SceneManager& sceneManager,
-        const flecs::entity& parent, Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, /*uint32_t& numEntities,
-        uint32_t& maxMeshViewsPerMesh, uint64_t& numVerticies*/ Common::ModelMetadata& metadata, float scaleFactor)
+    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager,
+        const flecs::entity& parent, Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, /*uint32_t& numEntities,
+        uint32_t& maxMeshViewsPerMesh, uint64_t& numVerticies*/ Loops::ModelMetadata& metadata, float scaleFactor)
     {
         auto e = CreateEntity(inputNode, world, parent, scaleFactor);
         //numEntities++;
@@ -276,8 +276,8 @@ namespace
         // In glTF this is done via accessors and buffer views
         if (inputNode.mesh > -1)
         {
-            //Common::Mesh& meshObj = sceneManager.CreateMesh(node, vertexBuffer, indexBuffer);
-            Common::Mesh meshObj;
+            //Loops::Mesh& meshObj = sceneManager.CreateMesh(node, vertexBuffer, indexBuffer);
+            Loops::Mesh meshObj;
             meshObj.m_vertexBufferIndex = vertexBuffer.m_index;
             meshObj.m_indexBufferIndex = indexBuffer.m_index;
 
@@ -308,7 +308,7 @@ namespace
                     // Append data to model's vertex buffer
                     for (size_t v = 0; v < vertexCount; v++)
                     {
-                        Common::Vertex vert{};
+                        Loops::Vertex vert{};
                         vert.m_position = glm::vec3(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor);
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
@@ -327,24 +327,24 @@ namespace
                     FillIndicies(indexBuffer.m_indexList, indexCount, vertexStart, glTFPrimitive, input, metadata);
                 }
 
-                Common::MeshView& view = sceneManager.GetMeshView(e, meshObj);
-                assert(meshObj.m_meshViewCount < Common::MAX_MESH_VIEWS_PER_MESH);
+                Loops::MeshView& view = sceneManager.GetMeshView(e, meshObj);
+                assert(meshObj.m_meshViewCount < Loops::MAX_MESH_VIEWS_PER_MESH);
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
                 //view.materialIndex = glTFPrimitive.material;
 
                 {
-                    const glm::mat4* globalMat = &e.get<Common::Transform>().m_modelMatGlobal;
+                    const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
                     sceneManager.CreateBounds(min, max, globalMat, view.m_viewIndex, e.id());
                 }
             }
-            e.emplace<Common::Mesh>(meshObj);
+            e.emplace<Loops::Mesh>(meshObj);
         }
     }
 
-    void LoadNodeCached(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Common::SceneManager& sceneManager, const flecs::entity& parent,
-        Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, float scaleFactor)
+    void LoadNodeCached(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager, const flecs::entity& parent,
+        Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, float scaleFactor)
     {
         auto e = CreateEntity(inputNode, world, parent, scaleFactor);
 
@@ -361,7 +361,7 @@ namespace
         // In glTF this is done via accessors and buffer views
         if (inputNode.mesh > -1)
         {
-            Common::Mesh meshObj;
+            Loops::Mesh meshObj;
             meshObj.m_vertexBufferIndex = vertexBuffer.m_index;
             meshObj.m_indexBufferIndex = indexBuffer.m_index;
 
@@ -389,7 +389,7 @@ namespace
                     // Append data to model's vertex buffer
                     for (size_t v = 0; v < vertexCount; v++)
                     {
-                        Common::Vertex vert{};
+                        Loops::Vertex vert{};
                         vert.m_position = glm::vec3(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor);
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
@@ -411,28 +411,28 @@ namespace
                     FillIndicies(indexBuffer.m_indexList, indexCount, vertexStart, glTFPrimitive, input, indexBuffer.m_currentSize);
                 }
 
-                Common::MeshView& view = sceneManager.GetMeshView(e, meshObj);
-                assert(meshObj.m_meshViewCount < Common::MAX_MESH_VIEWS_PER_MESH);
+                Loops::MeshView& view = sceneManager.GetMeshView(e, meshObj);
+                assert(meshObj.m_meshViewCount < Loops::MAX_MESH_VIEWS_PER_MESH);
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
                 //view.materialIndex = glTFPrimitive.material;
 
                 {
-                    const glm::mat4* globalMat = &e.get<Common::Transform>().m_modelMatGlobal;
+                    const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
                     sceneManager.CreateBounds(min, max, globalMat, view.m_viewIndex, e.id());
                 }
             }
-            e.emplace<Common::Mesh>(meshObj);
+            e.emplace<Loops::Mesh>(meshObj);
         }
     }
 }
 
 
-flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& world, Common::SceneManager& sceneManager,
-    Common::VertexBuffer& vertexBuffer, Common::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
+flecs::entity Loops::LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager,
+    Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
 {
-    //Common::Benchmark benchMark("LoadGltf");
+    //Loops::Benchmark benchMark("LoadGltf");
 
     const std::filesystem::path filePath(assetPath.data());
     const std::string metadataFolderPath = GetExecutableDirectory().string();
@@ -475,7 +475,7 @@ flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& 
     std::string error, warning;
 
     {
-        //Common::Benchmark benchMark("FileLoad");
+        //Loops::Benchmark benchMark("FileLoad");
 
         bool fileLoaded = gltfContext.LoadASCIIFromFile(&glTFInput, &error, &warning, assetPath.data());
         assert(fileLoaded == true);
@@ -485,8 +485,8 @@ flecs::entity Common::LoadGltf(const std::string_view& assetPath, flecs::world& 
     //LoadMaterials(glTFInput);
 
     flecs::entity modelParent = world.entity(parentName.c_str());
-    Common::Transform t{};
-    modelParent.emplace<Common::Transform>(t);
+    Loops::Transform t{};
+    modelParent.emplace<Loops::Transform>(t);
 
     const tinygltf::Scene& scene = glTFInput.scenes[0];
     for (size_t i = 0; i < scene.nodes.size(); i++) 

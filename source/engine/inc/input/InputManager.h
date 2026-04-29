@@ -12,7 +12,7 @@
 #include <typeindex>
 #include <plog/Log.h>
 
-namespace Common
+namespace Loops
 {
     namespace IO
     {

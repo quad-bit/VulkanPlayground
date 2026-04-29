@@ -5,7 +5,7 @@
 #include "Defines.h"
 #include "Components.h"
 
-namespace Common
+namespace Loops
 {
     //struct alignas(4) Drawable // REMOVE CONST CHAR* AND MAKE IT ALIGNED
     struct Drawable
@@ -20,9 +20,9 @@ namespace Common
 
     struct RenderData
     {
-        Common::MeshView m_meshViews[MAX_MESH_VIEWS_PER_MESH * MAX_ENTITIES];
+        Loops::MeshView m_meshViews[MAX_MESH_VIEWS_PER_MESH * MAX_ENTITIES];
         glm::mat4 m_modelMats[MAX_ENTITIES];
-        Common::Drawable m_drawables[MAX_ENTITIES];
+        Loops::Drawable m_drawables[MAX_ENTITIES];
         uint32_t m_drawableCount = 0;
         uint32_t m_viewCount = 0;
     };

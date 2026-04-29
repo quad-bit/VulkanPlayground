@@ -1,12 +1,12 @@
 #include "pipelines/WireframePipeline.h"
 #include <optional>
 
-Common::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, std::unique_ptr<Common::Camera>& pCamera) :
+Loops::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, std::unique_ptr<Loops::Camera>& pCamera) :
     Pipeline(info)
 {
     {
-        m_timelineSemaphores.emplace_back(std::make_unique<Common::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
-        m_timelineSemaphores.emplace_back(std::make_unique<Common::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
     }
 
     GraphicsTaskInfo taskInfo = {};
@@ -17,11 +17,11 @@ Common::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, 
     taskInfo.m_renderDimensions = info.m_designDimensions;
     taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
-    m_pWireframeTask = std::make_unique<Common::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(),
+    m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(),
         pVulkanManager->GetDefaultDepthImageView(), VK_FORMAT_B8G8R8A8_UNORM, pVulkanManager->GetDepthFormat(), pCamera);
 }
 
-Common::Tasking::WireframePipeline::~WireframePipeline()
+Loops::Tasking::WireframePipeline::~WireframePipeline()
 {
     m_pWireframeTask.reset();
 
@@ -30,8 +30,8 @@ Common::Tasking::WireframePipeline::~WireframePipeline()
     m_timelineSemaphores.clear();
 }
 
-void Common::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Common::SceneManager>& sceneManager,
-    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Common::ImguiUtil>& imguiUtil)
+void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Loops::SceneManager>& sceneManager,
+    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiUtil>& imguiUtil)
 {
     if (m_timelineSemaphores[currentFrameInFlight]->GetFrameIndex() > 0)
     {
@@ -46,7 +46,7 @@ void Common::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, c
         waitInfo.semaphoreCount = 1;
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
 
-        Common::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
+        Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
     }
 
     // Trigger graphics tasks

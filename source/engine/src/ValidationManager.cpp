@@ -168,7 +168,7 @@ namespace
     // ================= new debug utils Ends
 }
 
-void Common::ValidationManager::AddRequiredPlatformInstanceExtensions(std::vector<const char*>* instance_extensions)
+void Loops::ValidationManager::AddRequiredPlatformInstanceExtensions(std::vector<const char*>* instance_extensions)
 {
 #if defined(GLFW_ENABLED)
     uint32_t instance_extension_count = 0;
@@ -185,13 +185,13 @@ void Common::ValidationManager::AddRequiredPlatformInstanceExtensions(std::vecto
 #endif
 }
 
-Common::ValidationManager::ValidationManager()
+Loops::ValidationManager::ValidationManager()
 {
     SetupLayersAndExtensions();
     SetupDebug();
 }
 
-Common::ValidationManager::~ValidationManager()
+Loops::ValidationManager::~ValidationManager()
 {
     vulkanInstanceRef = nullptr;
     pAllocatorRef = nullptr;
@@ -199,7 +199,7 @@ Common::ValidationManager::~ValidationManager()
 
 //================================================  DEBUGGING
 
-void Common::ValidationManager::SetupDebug()
+void Loops::ValidationManager::SetupDebug()
 {
 #if _DEBUG
 
@@ -225,7 +225,7 @@ PFN_vkCmdBeginDebugUtilsLabelEXT vkCmdBeginDebugUtilsLabelEXTCall = nullptr;
 PFN_vkCmdEndDebugUtilsLabelEXT vkCmdEndDebugUtilsLabelEXTCall = nullptr;
 PFN_vkCmdInsertDebugUtilsLabelEXT vkCmdInsertDebugUtilsLabelEXTCall = nullptr;
 
-void Common::ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocationCallbacks* pAllocator)
+void Loops::ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocationCallbacks* pAllocator)
 {
 #if _DEBUG
     vulkanInstanceRef = vulkanInstance;
@@ -262,14 +262,14 @@ void Common::ValidationManager::InitDebug(VkInstance * vulkanInstance, VkAllocat
 #endif
 }
 
-void Common::ValidationManager::DeinitDebug()
+void Loops::ValidationManager::DeinitDebug()
 {
 #if _DEBUG    //vkDestroyDebugReportCallbackEXTObj(*vulkanInstanceRef, debugReport, pAllocatorRef);
     DestroyDebugUtilsMessengerEXT(*vulkanInstanceRef, dbg_messenger, NULL);
 #endif
 }
 
-void Common::ValidationManager::SetupLayersAndExtensions()
+void Loops::ValidationManager::SetupLayersAndExtensions()
 {
     instanceExtensionNameList.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
     instanceExtensionNameList.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);

@@ -4,7 +4,7 @@
 #include <glm/glm.hpp>
 #include "Defines.h"
 
-namespace Common
+namespace Loops
 {
     constexpr uint32_t MAX_BOUNDS = MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH;
     struct alignas(4) AABB
@@ -35,7 +35,7 @@ namespace Common
         AABB m_sceneBound;
 
         uint32_t m_treeNodeBoundCount = 0;
-        Common::AABB m_treeNodeBounds[Common::MAX_TREE_NODES];
+        Loops::AABB m_treeNodeBounds[Loops::MAX_TREE_NODES];
 
         void CalculateSceneBound();
 

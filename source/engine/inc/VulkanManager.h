@@ -7,7 +7,7 @@
 #include "WindowManager.h"
 #include "Utils.h"
 
-namespace Common
+namespace Loops
 {
     class VulkanManager
     {
@@ -15,7 +15,7 @@ namespace Common
         VulkanManager(VulkanManager const&) = delete;
         VulkanManager const& operator= (VulkanManager const&) = delete;
 
-        std::unique_ptr<Common::ValidationManager> m_validationManagerObj;
+        std::unique_ptr<Loops::ValidationManager> m_validationManagerObj;
         std::unique_ptr<WindowManager> m_windowManagerObj;
 
         VkSurfaceKHR m_surface = VK_NULL_HANDLE;

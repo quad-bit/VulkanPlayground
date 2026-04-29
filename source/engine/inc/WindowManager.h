@@ -6,7 +6,7 @@
 #include <GLFW/glfw3.h>
 #endif
 
-namespace Common
+namespace Loops
 {
     class WindowManager
     {

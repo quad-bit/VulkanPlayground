@@ -5,8 +5,8 @@
 #include <ImguiGlfwHelper.h>
 
 
-GLFWwindow*  Common::ImguiUtil::m_mouseWindow = nullptr;
-ImVec2       Common::ImguiUtil::m_lastValidMousePos = ImVec2(0,0);
+GLFWwindow*  Loops::ImguiUtil::m_mouseWindow = nullptr;
+ImVec2       Loops::ImguiUtil::m_lastValidMousePos = ImVec2(0,0);
 
 namespace 
 {
@@ -117,7 +117,7 @@ namespace
 
 };
 
-Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue,
+Loops::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue,
     uint32_t graphicsQueueFamily, uint8_t frameInFlights, uint32_t frameBufferWidth, uint32_t framebufferHeight, VkFormat depthFormat, 
     VkFormat colorFormat, const std::vector<VkImageView>& colorViews):
     m_glfwWindow(glfwWindow), cm_device(device), cm_physicalDevice(physicalDevice), cm_graphicsQueue(graphicsQueue), m_graphicsQueueFamily(graphicsQueueFamily),
@@ -147,10 +147,10 @@ Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, con
         /*CreateBufferAndMemory(physicalDevice, device, m_combinedBuffer, m_combinedBufferMemory, initialSize,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);*/
-        Common::VkUtils::CreateBufferAndMemory(physicalDevice, device, m_vertexBuffers[i], m_vertexBufferMemories[i], initialSize,
+        Loops::VkUtils::CreateBufferAndMemory(physicalDevice, device, m_vertexBuffers[i], m_vertexBufferMemories[i], initialSize,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        Common::VkUtils::CreateBufferAndMemory(physicalDevice, device, m_indexBuffers[i], m_indexBufferMemories[i], initialSize,
+        Loops::VkUtils::CreateBufferAndMemory(physicalDevice, device, m_indexBuffers[i], m_indexBufferMemories[i], initialSize,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT| VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     }
@@ -162,7 +162,7 @@ Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, con
     createInfo.queueFamilyIndex = m_graphicsQueueFamily;
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkCreateCommandPool(device, &createInfo, nullptr, &m_commandPool));
+    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(device, &createInfo, nullptr, &m_commandPool));
 
     m_commandBuffers.resize(frameInFlights);
     VkCommandBufferAllocateInfo alloc_info{};
@@ -171,7 +171,7 @@ Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, con
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkAllocateCommandBuffers(device, &alloc_info, &m_commandBuffers[0]));
+    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(device, &alloc_info, &m_commandBuffers[0]));
 
     m_colorList.resize(frameInFlights);
     for (uint32_t i = 0; i < frameInFlights; i++)
@@ -192,11 +192,11 @@ Common::ImguiUtil::ImguiUtil(GLFWwindow* glfwWindow, const VkDevice& device, con
     }
 }
 
-Common::ImguiUtil::~ImguiUtil()
+Loops::ImguiUtil::~ImguiUtil()
 {
 }
 
-void Common::ImguiUtil::Init()
+void Loops::ImguiUtil::Init()
 {
     if (m_initialized)
     {
@@ -223,7 +223,7 @@ void Common::ImguiUtil::Init()
     m_initialized = true;
 }
 
-void Common::ImguiUtil::InitResources()
+void Loops::ImguiUtil::InitResources()
 {
     CreateFontTexture();
     CreateDescriptorSetLayout();
@@ -233,11 +233,11 @@ void Common::ImguiUtil::InitResources()
     CreatePipeline();
 }
 
-void Common::ImguiUtil::SetStyle(uint32_t index)
+void Loops::ImguiUtil::SetStyle(uint32_t index)
 {
 }
 
-void Common::ImguiUtil::Cleanup()
+void Loops::ImguiUtil::Cleanup()
 {
     if (!m_initialized)
     {
@@ -284,12 +284,12 @@ void Common::ImguiUtil::Cleanup()
     m_initialized = false;
 }
 
-void Common::ImguiUtil::AddPersistentDrawCalls(const std::function<void()>& func) const
+void Loops::ImguiUtil::AddPersistentDrawCalls(const std::function<void()>& func) const
 {
     m_guiDrawPersistentList.push_back(func);
 }
 
-void Common::ImguiUtil::NewFrame()
+void Loops::ImguiUtil::NewFrame()
 {
     if (!m_initialized)
     {
@@ -308,7 +308,7 @@ void Common::ImguiUtil::NewFrame()
 }
 
 
-void Common::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, uint64_t waitValue)
+void Loops::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, uint64_t waitValue)
 {
     if (!m_initialized)
     {
@@ -343,7 +343,7 @@ void Common::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timeli
             // If the threads are being killed, we need to skip the queue submission to allow the program to exit gracefully
             //if (m_alive)
             {
-                Common::VkUtils::ErrorCheck(vkQueueSubmit2(cm_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+                Loops::VkUtils::ErrorCheck(vkQueueSubmit2(cm_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
             }
         }
         return;
@@ -353,7 +353,7 @@ void Common::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timeli
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    Common::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
+    Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
     vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderingInfoList[frameInFlight]);
     {
@@ -421,7 +421,7 @@ void Common::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timeli
     }
     vkCmdEndRendering(m_commandBuffers[frameInFlight]);
 
-    Common::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
+    Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
 
     {
         VkSemaphoreSubmitInfo waitInfo
@@ -447,20 +447,20 @@ void Common::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timeli
         // If the threads are being killed, we need to skip the queue submission to allow the program to exit gracefully
         //if (m_alive)
         {
-            Common::VkUtils::ErrorCheck(vkQueueSubmit2(cm_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+            Loops::VkUtils::ErrorCheck(vkQueueSubmit2(cm_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
         }
     }
 
 }
 
-void Common::ImguiUtil::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+void Loops::ImguiUtil::ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
     //ImGuiIO& io = ImGui::GetIO(bd->Context);
     ImGuiIO& io = ImGui::GetIO();
     io.AddMouseWheelEvent((float)xoffset, (float)yoffset);
 }
 
-void Common::ImguiUtil::KeyCallback(GLFWwindow* window, int keycode, int scancode, int action, int mods)
+void Loops::ImguiUtil::KeyCallback(GLFWwindow* window, int keycode, int scancode, int action, int mods)
 {
     if (action != GLFW_PRESS && action != GLFW_RELEASE)
         return;
@@ -476,13 +476,13 @@ void Common::ImguiUtil::KeyCallback(GLFWwindow* window, int keycode, int scancod
     io.SetKeyEventNativeData(imgui_key, keycode, scancode); // To support legacy indexing (<1.87 user code)
 }
 
-void Common::ImguiUtil::WindowFocusCallback(GLFWwindow* window, int focused)
+void Loops::ImguiUtil::WindowFocusCallback(GLFWwindow* window, int focused)
 {
     ImGuiIO& io = ImGui::GetIO();
     io.AddFocusEvent(focused != 0);
 }
 
-void Common::ImguiUtil::CursorPosCallback(GLFWwindow* window, double x, double y)
+void Loops::ImguiUtil::CursorPosCallback(GLFWwindow* window, double x, double y)
 {
     //ImGuiIO& io = ImGui::GetIO(bd->Context);
     ImGuiIO& io = ImGui::GetIO();
@@ -490,7 +490,7 @@ void Common::ImguiUtil::CursorPosCallback(GLFWwindow* window, double x, double y
     m_lastValidMousePos = ImVec2((float)x, (float)y);
 }
 
-void Common::ImguiUtil::CursorEnterCallback(GLFWwindow* window, int entered)
+void Loops::ImguiUtil::CursorEnterCallback(GLFWwindow* window, int entered)
 {
     ImGuiIO& io = ImGui::GetIO();
     if (entered)
@@ -506,13 +506,13 @@ void Common::ImguiUtil::CursorEnterCallback(GLFWwindow* window, int entered)
     }
 }
 
-void Common::ImguiUtil::CharCallback(GLFWwindow* window, unsigned int c)
+void Loops::ImguiUtil::CharCallback(GLFWwindow* window, unsigned int c)
 {
     ImGuiIO& io = ImGui::GetIO();
     io.AddInputCharacter(c);
 }
 
-void Common::ImguiUtil::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+void Loops::ImguiUtil::MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
     ImGuiIO& io = ImGui::GetIO();
 
@@ -521,7 +521,7 @@ void Common::ImguiUtil::MouseButtonCallback(GLFWwindow* window, int button, int 
         io.AddMouseButtonEvent(button, action == GLFW_PRESS);
 }
 
-void Common::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
+void Loops::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
 {
     ImDrawData* drawData = ImGui::GetDrawData();
     if (!drawData || drawData->CmdListsCount == 0)
@@ -540,10 +540,10 @@ void Common::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
     if (static_cast<uint32_t>(drawData->TotalVtxCount) > m_vertexCounts[frameInFlight]) 
     {
         // Clean up old buffer
-        Common::VkUtils::DestroyBuffer(cm_device, m_vertexBuffers[frameInFlight]);
-        Common::VkUtils::FreeMemory(cm_device, m_vertexBufferMemories[frameInFlight]);
+        Loops::VkUtils::DestroyBuffer(cm_device, m_vertexBuffers[frameInFlight]);
+        Loops::VkUtils::FreeMemory(cm_device, m_vertexBufferMemories[frameInFlight]);
 
-        Common::VkUtils::CreateBufferAndMemory(cm_physicalDevice, cm_device, m_vertexBuffers[frameInFlight], m_vertexBufferMemories[frameInFlight], vertexBufferSize,
+        Loops::VkUtils::CreateBufferAndMemory(cm_physicalDevice, cm_device, m_vertexBuffers[frameInFlight], m_vertexBufferMemories[frameInFlight], vertexBufferSize,
             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -553,10 +553,10 @@ void Common::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
     if (static_cast<uint32_t>(drawData->TotalIdxCount) > m_indexCounts[frameInFlight]) 
     {
         // Clean up old buffer
-        Common::VkUtils::DestroyBuffer(cm_device, m_indexBuffers[frameInFlight]);
-        Common::VkUtils::FreeMemory(cm_device, m_indexBufferMemories[frameInFlight]);
+        Loops::VkUtils::DestroyBuffer(cm_device, m_indexBuffers[frameInFlight]);
+        Loops::VkUtils::FreeMemory(cm_device, m_indexBufferMemories[frameInFlight]);
 
-        Common::VkUtils::CreateBufferAndMemory(cm_physicalDevice, cm_device, m_indexBuffers[frameInFlight], m_indexBufferMemories[frameInFlight], indexBufferSize,
+        Loops::VkUtils::CreateBufferAndMemory(cm_physicalDevice, cm_device, m_indexBuffers[frameInFlight], m_indexBufferMemories[frameInFlight], indexBufferSize,
             VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -567,8 +567,8 @@ void Common::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
     if (drawData->TotalVtxCount > 0 && drawData->TotalIdxCount > 0) 
     {
         void *vtxMappedMemory, *idxMappedMemory;
-        Common::VkUtils::ErrorCheck(vkMapMemory(cm_device, m_vertexBufferMemories[frameInFlight], 0, vertexBufferSize, 0, &vtxMappedMemory));
-        Common::VkUtils::ErrorCheck(vkMapMemory(cm_device, m_indexBufferMemories[frameInFlight], 0, indexBufferSize, 0, &idxMappedMemory));
+        Loops::VkUtils::ErrorCheck(vkMapMemory(cm_device, m_vertexBufferMemories[frameInFlight], 0, vertexBufferSize, 0, &vtxMappedMemory));
+        Loops::VkUtils::ErrorCheck(vkMapMemory(cm_device, m_indexBufferMemories[frameInFlight], 0, indexBufferSize, 0, &idxMappedMemory));
         //void* vtxMappedMemory = vertexBufferMemories[frameInFlight].mapMemory(0, vertexBufferSize);
         //void* idxMappedMemory = indexBufferMemories[frameInFlight].mapMemory(0, indexBufferSize);
 
@@ -591,7 +591,7 @@ void Common::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
     }
 }
 
-void Common::ImguiUtil::HandleMouse(float x, float y, uint32_t buttons)
+void Loops::ImguiUtil::HandleMouse(float x, float y, uint32_t buttons)
 {
     if (!m_initialized) {
         return;
@@ -608,7 +608,7 @@ void Common::ImguiUtil::HandleMouse(float x, float y, uint32_t buttons)
     io.MouseDown[2] = (buttons & 0x04) != 0; // Middle button
 }
 
-void Common::ImguiUtil::HandleKeyboard(uint32_t key, bool pressed)
+void Loops::ImguiUtil::HandleKeyboard(uint32_t key, bool pressed)
 {
     if (!m_initialized) {
         return;
@@ -629,7 +629,7 @@ void Common::ImguiUtil::HandleKeyboard(uint32_t key, bool pressed)
     //io.KeySuper = io.KeysDown[343] || io.KeysDown[347]; // Left/Right Super
 }
 
-void Common::ImguiUtil::HandleChar(uint32_t c)
+void Loops::ImguiUtil::HandleChar(uint32_t c)
 {
     if (!m_initialized) {
         return;
@@ -639,7 +639,7 @@ void Common::ImguiUtil::HandleChar(uint32_t c)
     io.AddInputCharacter(c);
 }
 
-void Common::ImguiUtil::HandleResize(uint32_t width, uint32_t height)
+void Loops::ImguiUtil::HandleResize(uint32_t width, uint32_t height)
 {
     if (!m_initialized) {
         return;
@@ -652,7 +652,7 @@ void Common::ImguiUtil::HandleResize(uint32_t width, uint32_t height)
     io.DisplaySize = ImVec2(static_cast<float>(width), static_cast<float>(height));
 }
 
-bool Common::ImguiUtil::WantCaptureKeyboard() const
+bool Loops::ImguiUtil::WantCaptureKeyboard() const
 {
     if (!m_initialized) {
         return false;
@@ -661,7 +661,7 @@ bool Common::ImguiUtil::WantCaptureKeyboard() const
     return ImGui::GetIO().WantCaptureKeyboard;
 }
 
-bool Common::ImguiUtil::WantCaptureMouse() const
+bool Loops::ImguiUtil::WantCaptureMouse() const
 {
     if (!m_initialized) {
         return false;
@@ -670,7 +670,7 @@ bool Common::ImguiUtil::WantCaptureMouse() const
     return ImGui::GetIO().WantCaptureMouse;
 }
 
-void Common::ImguiUtil::CreateFontTexture()
+void Loops::ImguiUtil::CreateFontTexture()
 {
     ImGuiIO& io = ImGui::GetIO();
     unsigned char* fontData;
@@ -678,16 +678,16 @@ void Common::ImguiUtil::CreateFontTexture()
     io.Fonts->GetTexDataAsRGBA32(&fontData, &texWidth, &texHeight);
     VkDeviceSize uploadSize = texWidth * texHeight * 4 * sizeof(char);
 
-    auto result = Common::VkUtils::CreateImage(cm_device, cm_physicalDevice, texWidth, texHeight, m_colorFormat,
+    auto result = Loops::VkUtils::CreateImage(cm_device, cm_physicalDevice, texWidth, texHeight, m_colorFormat,
         VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
     m_fontImage = std::get<0>(result);
     m_fontImageMemory = std::get<1>(result);
 
-    auto [stagingBuffer, stagingBufferMemory] = Common::VkUtils::LoadImageDataIntoStagingBuffer(cm_physicalDevice, cm_device, fontData, uploadSize);
+    auto [stagingBuffer, stagingBufferMemory] = Loops::VkUtils::LoadImageDataIntoStagingBuffer(cm_physicalDevice, cm_device, fontData, uploadSize);
 
     std::vector<VkImage> imageList{ m_fontImage };
-    Common::VkUtils::ChangeImageLayout(cm_device, imageList, cm_graphicsQueue, m_graphicsQueueFamily, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    Loops::VkUtils::ChangeImageLayout(cm_device, imageList, cm_graphicsQueue, m_graphicsQueueFamily, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     {
         VkCommandPool pool = VK_NULL_HANDLE;
         VkCommandPoolCreateInfo info{};
@@ -696,7 +696,7 @@ void Common::ImguiUtil::CreateFontTexture()
         info.queueFamilyIndex = m_graphicsQueueFamily;
         info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-        Common::VkUtils::ErrorCheck(vkCreateCommandPool(cm_device, &info, nullptr, &pool));
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(cm_device, &info, nullptr, &pool));
 
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.commandBufferCount = 1;
@@ -706,7 +706,7 @@ void Common::ImguiUtil::CreateFontTexture()
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
         VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-        Common::VkUtils::ErrorCheck(vkAllocateCommandBuffers(cm_device, &allocInfo, &cmdBuffer));
+        Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(cm_device, &allocInfo, &cmdBuffer));
 
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -715,34 +715,34 @@ void Common::ImguiUtil::CreateFontTexture()
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
         vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-        Common::VkUtils::CopyBufferToImage(cmdBuffer, stagingBuffer, m_fontImage, texWidth, texHeight);
+        Loops::VkUtils::CopyBufferToImage(cmdBuffer, stagingBuffer, m_fontImage, texWidth, texHeight);
         vkEndCommandBuffer(cmdBuffer);
 
         VkFence fence = VK_NULL_HANDLE;
         VkFenceCreateInfo fenceInfo{};
         fenceInfo.pNext = nullptr;
         fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        Common::VkUtils::ErrorCheck(vkCreateFence(cm_device, &fenceInfo, nullptr, &fence));
+        Loops::VkUtils::ErrorCheck(vkCreateFence(cm_device, &fenceInfo, nullptr, &fence));
 
         VkSubmitInfo submitInfo{};
         submitInfo.commandBufferCount = 1;
         submitInfo.pCommandBuffers = &cmdBuffer;
         submitInfo.pNext = nullptr;
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        Common::VkUtils::ErrorCheck(vkQueueSubmit(cm_graphicsQueue, 1, &submitInfo, fence));
+        Loops::VkUtils::ErrorCheck(vkQueueSubmit(cm_graphicsQueue, 1, &submitInfo, fence));
 
-        Common::VkUtils::ErrorCheck(vkWaitForFences(cm_device, 1, &fence, VK_TRUE, UINT64_MAX));
+        Loops::VkUtils::ErrorCheck(vkWaitForFences(cm_device, 1, &fence, VK_TRUE, UINT64_MAX));
 
         vkDestroyFence(cm_device, fence, nullptr);
         vkDestroyCommandPool(cm_device, pool, nullptr);
     }
-    Common::VkUtils::ChangeImageLayout(cm_device, imageList, cm_graphicsQueue, m_graphicsQueueFamily, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    Loops::VkUtils::ChangeImageLayout(cm_device, imageList, cm_graphicsQueue, m_graphicsQueueFamily, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
     // Staging buffer and memory clean up
-    Common::VkUtils::DestroyBuffer(cm_device, stagingBuffer);
-    Common::VkUtils::FreeMemory(cm_device, stagingBufferMemory);
+    Loops::VkUtils::DestroyBuffer(cm_device, stagingBuffer);
+    Loops::VkUtils::FreeMemory(cm_device, stagingBufferMemory);
 
-    m_fontImageView = Common::VkUtils::CreateImageView(cm_device, cm_physicalDevice, m_fontImage, m_colorFormat, VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT);
+    m_fontImageView = Loops::VkUtils::CreateImageView(cm_device, cm_physicalDevice, m_fontImage, m_colorFormat, VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT);
 
     // Create sampler
     VkSamplerCreateInfo samplerInfo{};
@@ -763,10 +763,10 @@ void Common::ImguiUtil::CreateFontTexture()
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkCreateSampler(cm_device, &samplerInfo, nullptr, &m_sampler));
+    Loops::VkUtils::ErrorCheck(vkCreateSampler(cm_device, &samplerInfo, nullptr, &m_sampler));
 }
 
-void Common::ImguiUtil::CreateDescriptorSetLayout()
+void Loops::ImguiUtil::CreateDescriptorSetLayout()
 {
     VkDescriptorSetLayoutBinding binding{};
     binding.descriptorType = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -779,10 +779,10 @@ void Common::ImguiUtil::CreateDescriptorSetLayout()
     layoutInfo.pBindings = &binding;
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(cm_device, &layoutInfo, nullptr, &m_descriptorSetLayout));
+    Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(cm_device, &layoutInfo, nullptr, &m_descriptorSetLayout));
 }
 
-void Common::ImguiUtil::CreateDescriptorPool()
+void Loops::ImguiUtil::CreateDescriptorPool()
 {
     VkDescriptorPoolSize poolSize{};
     poolSize.type = VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -795,17 +795,17 @@ void Common::ImguiUtil::CreateDescriptorPool()
     poolInfo.pPoolSizes = &poolSize;
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkCreateDescriptorPool(cm_device, &poolInfo, nullptr, &m_descriptorPool));
+    Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(cm_device, &poolInfo, nullptr, &m_descriptorPool));
 }
 
-void Common::ImguiUtil::CreateDescriptorSet()
+void Loops::ImguiUtil::CreateDescriptorSet()
 {
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.descriptorPool = m_descriptorPool;
     allocInfo.descriptorSetCount = 1;
     allocInfo.pSetLayouts = &m_descriptorSetLayout;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    Common::VkUtils::ErrorCheck(vkAllocateDescriptorSets(cm_device, &allocInfo, &m_descriptorSet));
+    Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(cm_device, &allocInfo, &m_descriptorSet));
 
     PLOGD << "ImGui created descriptor set with handle: " << m_descriptorSet << std::endl;
 
@@ -825,7 +825,7 @@ void Common::ImguiUtil::CreateDescriptorSet()
     vkUpdateDescriptorSets(cm_device, 1, &writeSet, 0, nullptr);
 }
 
-void Common::ImguiUtil::CreatePiplelineLayout()
+void Loops::ImguiUtil::CreatePiplelineLayout()
 {
     VkPushConstantRange pushConstantRange;
     pushConstantRange.stageFlags = VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
@@ -840,22 +840,22 @@ void Common::ImguiUtil::CreatePiplelineLayout()
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    Common::VkUtils::ErrorCheck(vkCreatePipelineLayout(cm_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout));
+    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(cm_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayout));
 }
 
-void Common::ImguiUtil::CreatePipeline()
+void Loops::ImguiUtil::CreatePipeline()
 {
     VkShaderModuleCreateInfo vertexShaderModuleInfo = {};
     vertexShaderModuleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     vertexShaderModuleInfo.codeSize = sizeof(__glsl_shader_vert_spv);
     vertexShaderModuleInfo.pCode = (uint32_t*)__glsl_shader_vert_spv;
-    Common::VkUtils::ErrorCheck(vkCreateShaderModule(cm_device, &vertexShaderModuleInfo, nullptr, &m_shaderModuleVert));
+    Loops::VkUtils::ErrorCheck(vkCreateShaderModule(cm_device, &vertexShaderModuleInfo, nullptr, &m_shaderModuleVert));
 
     VkShaderModuleCreateInfo fragmentShaderModuleInfo = {};
     fragmentShaderModuleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     fragmentShaderModuleInfo.codeSize = sizeof(__glsl_shader_frag_spv);
     fragmentShaderModuleInfo.pCode = (uint32_t*)__glsl_shader_frag_spv;
-    Common::VkUtils::ErrorCheck(vkCreateShaderModule(cm_device, &fragmentShaderModuleInfo, nullptr, &m_shaderModuleFrag));
+    Loops::VkUtils::ErrorCheck(vkCreateShaderModule(cm_device, &fragmentShaderModuleInfo, nullptr, &m_shaderModuleFrag));
 
     // Shader stage creation
     VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
@@ -967,5 +967,5 @@ void Common::ImguiUtil::CreatePipeline()
     create_info.pNext = &renderingInfo;
     create_info.renderPass = VK_NULL_HANDLE; // Just make sure it's actually nullptr.
 
-    Common::VkUtils::ErrorCheck( vkCreateGraphicsPipelines(cm_device, nullptr, 1, &create_info, nullptr, &m_pipeline));
+    Loops::VkUtils::ErrorCheck( vkCreateGraphicsPipelines(cm_device, nullptr, 1, &create_info, nullptr, &m_pipeline));
 }

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <utility>
 
-namespace Common::Memory
+namespace Loops::Memory
 {
     class LinearPoolAllocator
     {

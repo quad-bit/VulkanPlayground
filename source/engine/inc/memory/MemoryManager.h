@@ -6,7 +6,7 @@
 #include "LinearPoolAllocator.h"
 #include "StackPoolAllocator.h"
 
-namespace Common::Memory
+namespace Loops::Memory
 {
     class MemoryManager
     {

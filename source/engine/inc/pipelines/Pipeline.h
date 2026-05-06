@@ -2,6 +2,7 @@
 #define PIPELINE_H
 
 #include "Utils.h"
+#include "Defines.h"
 #include "TimelineSemaphore.h"
 #include "VulkanManager.h"
 #include <memory>

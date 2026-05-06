@@ -5,8 +5,8 @@
 #include "Utils.h"
 #include "Components.h"
 #include "RenderData.h"
-#include "BoundsManager.h"
 #include "VulkanWrappers.h"
+#include "BoundsManager.h"
 #include "Camera.h"
 
 #include <flecs.h>
@@ -66,7 +66,7 @@ namespace Loops
 
         std::vector<Loops::RenderData> m_renderDataList;
 
-        Loops::BoundsManager m_boundManager;
+        //Loops::BoundsManager m_boundManager;
         std::unique_ptr<Camera> m_mainCamera;
 
     public:
@@ -74,7 +74,7 @@ namespace Loops
         flecs::world m_world;
 
         SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities);
-        SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities);
+        SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities);
 
         ~SceneManager();
 
@@ -94,7 +94,7 @@ namespace Loops
         // prepare the rendering data maybe do culling and sorting
         void Prepare(uint32_t currentFrameInFlight);
 
-        void CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
+        //void CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
 
         const RenderData& GetRenderData(uint32_t frameIndex) const;
 

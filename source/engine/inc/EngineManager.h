@@ -46,6 +46,7 @@ namespace Loops
             std::unique_ptr<Loops::ImguiEditor> m_pEditor;
             std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
             std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
+            BoundsManager m_boundsManager;
 
             uint32_t m_maxFramesInFlight;
             std::unique_ptr<Timer> m_pTimer;

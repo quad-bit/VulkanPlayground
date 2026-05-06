@@ -62,6 +62,7 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
         auto& t = e.get<Loops::Transform>();
         auto mat = t.m_modelMat;
+        auto globalMat = t.m_modelMatGlobal;
         glm::vec3 position = t.m_position;
         glm::vec3 scale = t.m_scale;
         glm::vec3 angles = t.m_eulerAngles;
@@ -105,26 +106,77 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
         ImGui::EndTable();
 
         // Create a table with 4 columns
-        ImGui::Text("ModelMatrix");
-        if (ImGui::BeginTable("MatrixTable", 4, ImGuiTableFlags_Borders))
+        if (ImGui::BeginTabBar("Transformations"))
         {
-            for (int row = 0; row < 4; row++)
+            if (ImGui::BeginTabItem("LocalMatrix"))
             {
-                ImGui::TableNextRow();
-                for (int col = 0; col < 4; col++)
+                if (ImGui::BeginTable("LocalMatrixTable", 4, ImGuiTableFlags_Borders))
                 {
-                    ImGui::TableSetColumnIndex(col);
+                    for (int row = 0; row < 4; row++)
+                    {
+                        ImGui::TableNextRow();
+                        for (int col = 0; col < 4; col++)
+                        {
+                            ImGui::TableSetColumnIndex(col);
 
-                    // Create a unique ID for each cell
-                    std::string cell_id = "##cell_" + std::to_string(row) + "_" + std::to_string(col);
+                            // Create a unique ID for each cell
+                            std::string cell_id = "##cell_" + std::to_string(row) + "_" + std::to_string(col);
 
-                    // Editable float input for each matrix element
-                    ImGui::SetNextItemWidth(60);
-                    ImGui::InputFloat(cell_id.c_str(), &mat[row][col], 0.0f, 0.0f, "%.3f");
+                            // Editable float input for each matrix element
+                            ImGui::SetNextItemWidth(60);
+                            ImGui::InputFloat(cell_id.c_str(), &mat[col][row], 0.0f, 0.0f, "%.3f");
+                        }
+                    }
+                    ImGui::EndTable();
                 }
+                ImGui::EndTabItem();
             }
-            ImGui::EndTable();
+            if (ImGui::BeginTabItem("GlobalMatrix"))
+            {
+                if (ImGui::BeginTable("GLobalMatrixTable", 4, ImGuiTableFlags_Borders))
+                {
+                    for (int row = 0; row < 4; row++)
+                    {
+                        ImGui::TableNextRow();
+                        for (int col = 0; col < 4; col++)
+                        {
+                            ImGui::TableSetColumnIndex(col);
+
+                            // Create a unique ID for each cell
+                            std::string cell_id = "##cell_" + std::to_string(row) + "_" + std::to_string(col);
+
+                            // Editable float input for each matrix element
+                            ImGui::SetNextItemWidth(60);
+                            ImGui::InputFloat(cell_id.c_str(), &globalMat[col][row], 0.0f, 0.0f, "%.3f");
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
         }
+
+        //ImGui::Text("ModelMatrix");
+        //if (ImGui::BeginTable("MatrixTable", 4, ImGuiTableFlags_Borders))
+        //{
+        //    for (int row = 0; row < 4; row++)
+        //    {
+        //        ImGui::TableNextRow();
+        //        for (int col = 0; col < 4; col++)
+        //        {
+        //            ImGui::TableSetColumnIndex(col);
+
+        //            // Create a unique ID for each cell
+        //            std::string cell_id = "##cell_" + std::to_string(row) + "_" + std::to_string(col);
+
+        //            // Editable float input for each matrix element
+        //            ImGui::SetNextItemWidth(60);
+        //            ImGui::InputFloat(cell_id.c_str(), &mat[col][row], 0.0f, 0.0f, "%.3f");
+        //        }
+        //    }
+        //    ImGui::EndTable();
+        //}
 
         ImGui::End();
     };

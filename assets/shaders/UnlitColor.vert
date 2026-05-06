@@ -24,7 +24,7 @@ layout(push_constant) uniform PushConsts
     int transformIndex;
 };
 
-layout (location = 0) in vec3 pos;
+layout (location = 0) in vec4 pos;
 
 void main()
 {

@@ -26,6 +26,7 @@ set(CORE_FILES
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
+    inc/tasks/BoundsRenderTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
@@ -57,6 +58,7 @@ set(CORE_FILES
 
     src/tasks/WireFrameTask.cpp
     src/tasks/ColorUnlitTask.cpp
+    src/tasks/BoundsRenderTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
@@ -104,9 +106,9 @@ add_custom_command(
 
     # COMMAND glslangvalidator -V -I${CMAKE_CURRENT_SOURCE_DIR}/inc ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.vert -o ${SPV_PATH}/UnlitColorVert.spv
-
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.frag -o ${SPV_PATH}/UnlitColorFrag.spv
-
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Bounds.vert -o ${SPV_PATH}/BoundsVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Bounds.frag -o ${SPV_PATH}/BoundsFrag.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/ClothSim.comp -o ${SPV_PATH}/ClothSim.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.vert -o ${SPV_PATH}/UnlitTexturedVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.frag -o ${SPV_PATH}/UnlitTexturedFrag.spv

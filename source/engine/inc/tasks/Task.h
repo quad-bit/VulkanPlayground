@@ -9,6 +9,7 @@
 #include <optional>
 
 #include "Utils.h"
+#include "Defines.h"
 //#include "Camera.h"
 
 namespace Loops::Tasking
@@ -72,6 +73,8 @@ namespace Loops::Tasking
 
         GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat);
+
+        GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
 
         virtual ~GraphicsTask();
 

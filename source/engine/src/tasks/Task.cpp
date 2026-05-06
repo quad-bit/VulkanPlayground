@@ -1,4 +1,5 @@
 #include "tasks/Task.h"
+#include "Assertion.h"
 
 void Loops::Tasking::GraphicsTask::CreateAttachments()
 {
@@ -14,6 +15,12 @@ Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskI
 Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
     const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) :
     m_info(info), m_colorAttachmentViews(colorViews), m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat), m_depthFormat(depthFormat)
+{
+    strncpy(m_name, name, sizeof(m_name) - 1);
+}
+
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const Loops::Tasking::GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat):
+    m_info(info), m_colorAttachmentViews(colorViews), m_colorFormat(colorFormat)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
@@ -45,6 +52,7 @@ const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetColorAttachment
 
 const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetDepthAttachmentViews() const
 {
+    ASSERT_MSG(m_depthAttachmentViews.size() > 0, "no depth views");
     return m_depthAttachmentViews;
 }
 

@@ -21,13 +21,6 @@ namespace Loops
     // ============= TRANSFORM ===============
 
     // ============= MESH ===============
-    struct Vertex
-    {
-        glm::vec3 m_position;
-        glm::vec4 m_tangent;
-        glm::vec3 m_normal;
-        glm::vec2 m_uv;
-    };
 
     // one or more per object with a mesh (more in case of submesh)
     struct alignas(4) MeshView

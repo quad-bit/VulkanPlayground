@@ -32,8 +32,8 @@ namespace Loops::Tasking
     public:
         WireFrameTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera);
 
-        WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
-            const VkFormat& colorFormat, const VkFormat& depthFormat, const std::unique_ptr<Loops::Camera>& pCamera);
+        WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat,
+            const std::unique_ptr<Loops::Camera>& pCamera);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager);

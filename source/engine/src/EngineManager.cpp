@@ -19,7 +19,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_pMemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
 
-    m_pSceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos, MAX_ENTITIES);
+    m_pSceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos, m_boundsManager, MAX_ENTITIES);
 
     m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     m_pWindowManagerObj->Init();
@@ -189,10 +189,10 @@ void Loops::EngineManager::Loop()
         }
 
         m_pSceneManager->Update(currentFrameInFlight);
-
+        m_boundsManager.Update(currentFrameInFlight, m_pSceneManager->m_world);
         m_pSceneManager->Prepare(currentFrameInFlight);
 
-        m_pWireframePipeline->Update(currentFrameInFlight, m_pSceneManager, m_pVulkanManager, m_pImguiUtil);
+        m_pWireframePipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiUtil);
         m_pTimer->EndFrame();
     }
 }

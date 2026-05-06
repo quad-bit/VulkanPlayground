@@ -1,56 +1,62 @@
 #include "BoundsManager.h"
+#include "Components.h"
 
-
-Loops::AABB Loops::Union(const Loops::AABB& b1, const Loops::AABB& b2)
+Loops::BoundsManager::BoundsManager()
 {
-    Loops::AABB bound;
+    m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
+    m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
+}
+
+Loops::BoundsManager::~BoundsManager()
+{
+
+}
+
+Loops::Bounds Loops::Union(const Loops::Bounds& b1, const Loops::Bounds& b2)
+{
+    Loops::Bounds bound;
     bound.m_max = glm::vec3(std::max(b1.m_max.x, b2.m_max.x), std::max(b1.m_max.y, b2.m_max.y), std::max(b1.m_max.z, b2.m_max.z));
     bound.m_min = glm::vec3(std::min(b1.m_min.x, b2.m_min.x), std::min(b1.m_min.y, b2.m_min.y), std::min(b1.m_min.z, b2.m_min.z));
-    bound.m_center = (bound.m_max + bound.m_min) / 2.0f;
+    //bound.m_center = (bound.m_max + bound.m_min) / 2.0f;
 
     return bound;
 }
 
-void Loops::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+void Loops::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, uint32_t submeshId, uint32_t entityId)
 {
-    AABB& bound = m_bounds[m_primitiveBoundCount];
+    Bounds& bound = m_primitiveBounds[m_primitiveBoundCount];
     bound.m_boundIndex = m_primitiveBoundCount;
-
-    auto& info = m_infos[m_primitiveBoundCount];
-    info.m_boundIndex = m_primitiveBoundCount;
-    
-    m_primitiveBoundCount++;
-    assert(m_primitiveBoundCount < MAX_BOUNDS);
-
-    bound.m_center = (min + max) / 2.0f;
-    bound.m_min = min;
     bound.m_max = max;
+    bound.m_min = min;
 
-    info.m_entityId = entityId;
-    info.m_submeshId = submeshId;
-    info.pm_globalMat = globalMat;
+    BoundInfo info{entityId, submeshId};
+    m_primitiveBoundInfo.insert({ m_primitiveBoundCount, std::move(info) });
+    m_primitiveBoundCount++;
+    assert(m_primitiveBoundCount < MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH);
 
     {
         m_sceneBound.m_max = glm::vec3(std::max(m_sceneBound.m_max.x, bound.m_max.x), std::max(m_sceneBound.m_max.y, bound.m_max.y), std::max(m_sceneBound.m_max.z, bound.m_max.z));
         m_sceneBound.m_min = glm::vec3(std::min(m_sceneBound.m_min.x, bound.m_min.x), std::min(m_sceneBound.m_min.y, bound.m_min.y), std::min(m_sceneBound.m_min.z, bound.m_min.z));
-        m_sceneBound.m_center = (m_sceneBound.m_max + m_sceneBound.m_min) / 2.0f;
+        //m_sceneBound.m_center = (m_sceneBound.m_max + m_sceneBound.m_min) / 2.0f;
     }
 }
 
 void Loops::BoundsManager::CalculateSceneBound()
 {
-    for (uint32_t i=0; i < m_primitiveBoundCount;i++)
-    {
-        const BoundInfo& info = m_infos[i];
-        const auto& bound = m_bounds[info.m_boundIndex];
+    m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
+    m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
 
-        glm::vec3 max = *info.pm_globalMat * glm::vec4(bound.m_max, 1.0f);
-        glm::vec3 min = *info.pm_globalMat * glm::vec4(bound.m_min, 1.0f);
+    //for (uint32_t i=0; i < m_primitiveBoundCount;i++)
+    //{
+    //    const Bounds& bound = m_primitiveWorldBounds[i];
 
-        m_sceneBound.m_max = glm::vec3(std::max(m_sceneBound.m_max.x, bound.m_max.x), std::max(m_sceneBound.m_max.y, bound.m_max.y), std::max(m_sceneBound.m_max.z, bound.m_max.z));
-        m_sceneBound.m_min = glm::vec3(std::min(m_sceneBound.m_min.x, bound.m_min.x), std::min(m_sceneBound.m_min.y, bound.m_min.y), std::min(m_sceneBound.m_min.z, bound.m_min.z));
-        m_sceneBound.m_center = (m_sceneBound.m_max + m_sceneBound.m_min) / 2.0f;
-    }
+    //    //glm::vec3 max = *info.pm_globalMat * glm::vec4(bound.m_max, 1.0f);
+    //    //glm::vec3 min = *info.pm_globalMat * glm::vec4(bound.m_min, 1.0f);
+
+    //    m_sceneBound.m_max = glm::vec3(std::max(m_sceneBound.m_max.x, bound.m_max.x), std::max(m_sceneBound.m_max.y, bound.m_max.y), std::max(m_sceneBound.m_max.z, bound.m_max.z));
+    //    m_sceneBound.m_min = glm::vec3(std::min(m_sceneBound.m_min.x, bound.m_min.x), std::min(m_sceneBound.m_min.y, bound.m_min.y), std::min(m_sceneBound.m_min.z, bound.m_min.z));
+    //    //m_sceneBound.m_center = (m_sceneBound.m_max + m_sceneBound.m_min) / 2.0f;
+    //}
 
     // Create L_B_V_H
 
@@ -69,7 +75,7 @@ void Loops::BoundsManager::CalculateSceneBound()
     * class TreeNode
     * {
     * private:
-    *    AABB m_bounds;
+    *    Bounds m_bounds;
     *    std::variant<LeafNode, ContainerNode> m_node;
     * public:
     *    
@@ -79,7 +85,39 @@ void Loops::BoundsManager::CalculateSceneBound()
     // retrun the parent node
 }
 
-void Loops::BoundsManager::Update(uint32_t currentFrameInFlight)
+void Loops::BoundsManager::UpdatePrimtiveBoundInWorldSpace(const flecs::world& world)
 {
-    CalculateSceneBound();
+    m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
+    m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
+
+    for (uint32_t i = 0; i < m_primitiveBoundCount; i++)
+    {
+        const Bounds& bound = m_primitiveBounds[i];
+        const BoundInfo& boundInfo = m_primitiveBoundInfo[bound.m_boundIndex];
+        Bounds& boundInWorldSpace = m_primitiveWorldBounds[i];
+
+        const glm::mat4& globalMat = world.entity(boundInfo.m_entityId).get<Loops::Transform>().m_modelMatGlobal;
+
+        boundInWorldSpace.m_max = glm::vec3(globalMat * glm::vec4(bound.m_max, 1.0f));
+        boundInWorldSpace.m_min = glm::vec3(globalMat * glm::vec4(bound.m_min, 1.0f));
+
+        m_sceneBound.m_max = glm::vec3(std::max(m_sceneBound.m_max.x, boundInWorldSpace.m_max.x), std::max(m_sceneBound.m_max.y, boundInWorldSpace.m_max.y), std::max(m_sceneBound.m_max.z, boundInWorldSpace.m_max.z));
+        m_sceneBound.m_min = glm::vec3(std::min(m_sceneBound.m_min.x, boundInWorldSpace.m_min.x), std::min(m_sceneBound.m_min.y, boundInWorldSpace.m_min.y), std::min(m_sceneBound.m_min.z, boundInWorldSpace.m_min.z));
+    }
+}
+
+void Loops::BoundsManager::Update(uint32_t currentFrameInFlight, const flecs::world& world)
+{
+    UpdatePrimtiveBoundInWorldSpace(world);
+    // create BVH
+}
+
+std::tuple< const Loops::Bounds*, uint32_t> Loops::BoundsManager::GetPrimitiveBounds() const
+{
+    return { m_primitiveWorldBounds, m_primitiveBoundCount };
+}
+
+const std::unordered_map<uint32_t, Loops::BoundInfo>& Loops::BoundsManager::GetPrimtiveBoundInfo() const
+{
+    return m_primitiveBoundInfo;
 }

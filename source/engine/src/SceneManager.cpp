@@ -48,7 +48,7 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
 
 void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
 {
-    m_boundManager.Update(currentFrameInFlight);
+    //m_boundManager.Update(currentFrameInFlight);
 
     RenderData& renderData = m_renderDataList[currentFrameInFlight];
     renderData.m_drawableCount = 0;
@@ -107,35 +107,35 @@ Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::
     return view;
 }
 
-void Loops::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
-{
-    m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
-}
+//void Loops::SceneManager::CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId)
+//{
+//    //m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
+//}
 
 Loops::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
 {
-    {
-        //m_world.set_entity_range(0, MAX_ENTITES);
-        //m_world.enable_range_check();
+    //{
+    //    //m_world.set_entity_range(0, MAX_ENTITES);
+    //    //m_world.enable_range_check();
 
-        m_world.component<Transform>();
-        m_world.component<Mesh>();
+    //    m_world.component<Transform>();
+    //    m_world.component<Mesh>();
 
-        m_parentEntities.reserve(cm_maxEntities);
-    }
+    //    m_parentEntities.reserve(cm_maxEntities);
+    //}
 
-    VertexBuffer& vertBufWrapper = m_vertexBufferWrappers[m_vertexBufferWrapperCount];
-    vertBufWrapper.m_index = m_vertexBufferWrapperCount++;
-    assert(m_vertexBufferWrapperCount < MAX_WRAPPERS);
+    //VertexBuffer& vertBufWrapper = m_vertexBufferWrappers[m_vertexBufferWrapperCount];
+    //vertBufWrapper.m_index = m_vertexBufferWrapperCount++;
+    //assert(m_vertexBufferWrapperCount < MAX_WRAPPERS);
 
-    IndexBuffer& indBufWrapper = m_indexBufferWrappers[m_indexBufferWrapperCount];
-    indBufWrapper.m_index = m_indexBufferWrapperCount++;
-    assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
+    //IndexBuffer& indBufWrapper = m_indexBufferWrappers[m_indexBufferWrapperCount];
+    //indBufWrapper.m_index = m_indexBufferWrapperCount++;
+    //assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
-    m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh));
+    //m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh));
 }
 
-Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
+Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
 {
     {
         //m_world.set_entity_range(0, MAX_ENTITES);
@@ -157,7 +157,7 @@ Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, const
         indBufWrapper.m_index = m_indexBufferWrapperCount++;
         assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
-        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh, info.m_scale));
+        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, boundsManager, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh, info.m_scale));
     }
 }
 
@@ -215,7 +215,11 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
     Loops::Transform camTransform;
     //camTransform.m_position = glm::vec3(-65, 20, 0);
     //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
-    camTransform.m_position = glm::vec3(0, 0, -3);
+    // beautiful game camera
+    camTransform.m_position = glm::vec3(0, 30, -60);
+    camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
+
+    //camTransform.m_position = glm::vec3(0, 0, -5);
     m_mainCamera = std::make_unique<Loops::Camera>(camTransform, designDimension.m_width / (float)designDimension.m_height);
 }
 

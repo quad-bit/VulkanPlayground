@@ -255,7 +255,7 @@ namespace
 
 
     //https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfscenerendering/gltfscenerendering.cpp
-    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager,
+    void LoadNode(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
         const flecs::entity& parent, Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, /*uint32_t& numEntities,
         uint32_t& maxMeshViewsPerMesh, uint64_t& numVerticies*/ Loops::ModelMetadata& metadata, float scaleFactor)
     {
@@ -268,7 +268,7 @@ namespace
         {
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNode(input.nodes[inputNode.children[i]], input, world, sceneManager, e, vertexBuffer, indexBuffer, /*numEntities, maxMeshViewsPerMesh, numVerticies*/ metadata, scaleFactor);
+                LoadNode(input.nodes[inputNode.children[i]], input, world, sceneManager, boundsManager, e, vertexBuffer, indexBuffer, /*numEntities, maxMeshViewsPerMesh, numVerticies*/ metadata, scaleFactor);
             }
         }
 
@@ -309,7 +309,7 @@ namespace
                     for (size_t v = 0; v < vertexCount; v++)
                     {
                         Loops::Vertex vert{};
-                        vert.m_position = glm::vec3(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor);
+                        vert.m_position = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor, 1.0f);
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
                         ////vert.color = glm::vec3(1.0f);
@@ -335,16 +335,16 @@ namespace
                 //view.materialIndex = glTFPrimitive.material;
 
                 {
-                    const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
-                    sceneManager.CreateBounds(min, max, globalMat, view.m_viewIndex, e.id());
+                    //const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
+                    boundsManager.AddBound(min, max, view.m_viewIndex, e.id());
                 }
             }
             e.emplace<Loops::Mesh>(meshObj);
         }
     }
 
-    void LoadNodeCached(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager, const flecs::entity& parent,
-        Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, float scaleFactor)
+    void LoadNodeCached(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
+        const flecs::entity& parent, Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, float scaleFactor)
     {
         auto e = CreateEntity(inputNode, world, parent, scaleFactor);
 
@@ -353,7 +353,7 @@ namespace
         {
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNodeCached(input.nodes[inputNode.children[i]], input, world, sceneManager, e, vertexBuffer, indexBuffer, scaleFactor);
+                LoadNodeCached(input.nodes[inputNode.children[i]], input, world, sceneManager, boundsManager, e, vertexBuffer, indexBuffer, scaleFactor);
             }
         }
 
@@ -390,7 +390,7 @@ namespace
                     for (size_t v = 0; v < vertexCount; v++)
                     {
                         Loops::Vertex vert{};
-                        vert.m_position = glm::vec3(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor);
+                        vert.m_position = glm::vec4(glm::make_vec3(&positionBuffer[v * 3]) * scaleFactor, 1.0f);
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
                         ////vert.color = glm::vec3(1.0f);
@@ -419,8 +419,8 @@ namespace
                 //view.materialIndex = glTFPrimitive.material;
 
                 {
-                    const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
-                    sceneManager.CreateBounds(min, max, globalMat, view.m_viewIndex, e.id());
+                    //const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
+                    boundsManager.AddBound(min, max, view.m_viewIndex, e.id());
                 }
             }
             e.emplace<Loops::Mesh>(meshObj);
@@ -429,7 +429,7 @@ namespace
 }
 
 
-flecs::entity Loops::LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager,
+flecs::entity Loops::LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
     Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor)
 {
     //Loops::Benchmark benchMark("LoadGltf");
@@ -496,11 +496,11 @@ flecs::entity Loops::LoadGltf(const std::string_view& assetPath, flecs::world& w
         {
             vertexBuffer.m_vertexList.resize(metadata.m_numVerticies);
             indexBuffer.m_indexList.resize(metadata.m_numIndicies);
-            LoadNodeCached(node, glTFInput, world, sceneManager, modelParent, vertexBuffer, indexBuffer, scaleFactor);
+            LoadNodeCached(node, glTFInput, world, sceneManager, boundsManager, modelParent, vertexBuffer, indexBuffer, scaleFactor);
         }
         else
         {
-            LoadNode(node, glTFInput, world, sceneManager, modelParent, vertexBuffer, indexBuffer, metadata, scaleFactor);
+            LoadNode(node, glTFInput, world, sceneManager, boundsManager, modelParent, vertexBuffer, indexBuffer, metadata, scaleFactor);
         }
     }
 

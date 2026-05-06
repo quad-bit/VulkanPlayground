@@ -6,12 +6,13 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "SceneManager.h"
+#include "BoundsManager.h"
 #include "VulkanWrappers.h"
 #include "Components.h"
 
 namespace Loops
 {
-    flecs::entity LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager,
+    flecs::entity LoadGltf(const std::string_view& assetPath, flecs::world& world, Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
         Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, uint32_t& numEntities, uint32_t& maxMeshViewsPerMesh, float scaleFactor = 1.0f);
 }
 

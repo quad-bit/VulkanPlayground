@@ -25,12 +25,6 @@ We need to configure it to use the Vulkan range of 0.0 to 1.0 using the GLM_FORC
 
 namespace Loops
 {
-    struct Dimension
-    {
-        uint32_t m_width = 100;
-        uint32_t m_height = 100;
-    };
-
     bool HasChildren(flecs::entity e);
 
     namespace VkUtils

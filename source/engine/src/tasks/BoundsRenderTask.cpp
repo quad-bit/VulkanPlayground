@@ -1,22 +1,101 @@
-#include <memory>
+#include "tasks/BoundsRenderTask.h"
 
-#include "tasks/WireFrameTask.h"
-
-Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera) :
-    GraphicsTask("WireframeTask", info), m_pCamera(pCamera)
+Loops::Tasking::BoundsRenderTask::BoundsRenderTask(const GraphicsTaskInfo& info) : GraphicsTask("BoundsRenderTask", info)
 {
     CreateAttachments();
     Init();
 }
 
-Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const VkFormat& colorFormat, const std::unique_ptr<Loops::Camera>& pCamera) :
-    GraphicsTask("WireframeTask", info, colorViews, colorFormat), m_pCamera(pCamera)
+Loops::Tasking::BoundsRenderTask::BoundsRenderTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat) : 
+    GraphicsTask("BoundsRenderTask", info, colorViews, colorFormat)
 {
     Init();
 }
 
-void Loops::Tasking::WireFrameTask::Init()
+void Loops::Tasking::BoundsRenderTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, 
+    std::optional<uint64_t> waitValue, const Loops::Bounds* boundArray, size_t numBounds, const glm::mat4& viewProjectionMat)
+{
+    const uint32_t instanceCount = numBounds;
+    // Create transforms from bounds
+    {
+        for (uint32_t i = 0; i < numBounds; i++)
+        {
+            const Bounds& bound = boundArray[i];
+            glm::vec3 position = (bound.m_max + bound.m_min) / 2.0f;
+            glm::vec3 scale = glm::abs(bound.m_max - bound.m_min);
+            glm::vec3 rotation{ 0.0f };
+
+            auto translationMat = glm::translate(position);
+            auto scaleMat = glm::scale(scale);
+
+            glm::mat4 rotXMat = glm::rotate(rotation.x, glm::vec3(1, 0, 0));
+            glm::mat4 rotYMat = glm::rotate(rotation.y, glm::vec3(0, 1, 0));
+            glm::mat4 rotZMat = glm::rotate(rotation.z, glm::vec3(0, 0, 1));
+
+            auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+            m_transformArray[i] = viewProjectionMat * translationMat * rotationMat * scaleMat;
+        }
+
+        void* pData;
+        Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_BOUNDS, sizeof(glm::mat4) * numBounds, 0, &pData));
+        memcpy(pData, m_transformArray, sizeof(glm::mat4) * numBounds);
+        vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
+    }
+
+    // Build Command Buffers
+    {
+        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
+        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+
+        Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
+
+        vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
+        {
+            vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
+            vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
+
+            vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+            // Bind descriptor sets
+            // View set 0
+            // Transform set 1
+            VkDescriptorSet set {m_transformSets[frameInFlight] };
+            VkBindDescriptorSetsInfo bindInfo = {};
+            bindInfo.descriptorSetCount = 1;
+            bindInfo.firstSet = 0;
+            bindInfo.layout = m_pipelineLayout;
+            bindInfo.pDescriptorSets = &set;
+            bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+            bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
+            bindInfo.dynamicOffsetCount = 0;
+            bindInfo.pDynamicOffsets = nullptr;
+            //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
+            vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &set, 0, nullptr);
+
+            // Bind vertex and index buffer
+            VkDeviceSize offset{ 0 };
+            vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 1, &m_vertexBufferWrappers.m_vkVertexBuffer, &offset);
+            vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], m_indexBufferWrappers.m_vkIndexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+
+            // Launch draw
+            vkCmdDrawIndexed(m_commandBuffers[frameInFlight], m_cubeIndices.size(), instanceCount, 0, 0, 0);
+        }
+        vkCmdEndRendering(m_commandBuffers[frameInFlight]);
+
+        Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
+    }
+
+    Submit(frameInFlight, timelineSem, signalValue, waitValue);
+}
+
+void Loops::Tasking::BoundsRenderTask::Init()
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -35,57 +114,39 @@ void Loops::Tasking::WireFrameTask::Init()
     Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
 
     {
-        // set 0 for camera, set 1 for transform
-        m_setLayouts.resize(2);
+        //set 0 for transform
+        m_setLayouts.resize(1);
         {
             VkDescriptorSetLayoutBinding bindings[1]
             {
-                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
+                //{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
             };
 
             VkDescriptorSetLayoutCreateInfo createInfo{};
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
-        }
-
-        {
-            VkDescriptorSetLayoutBinding bindings[1]
-            {
-                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
-            };
-
-            VkDescriptorSetLayoutCreateInfo createInfo{};
-            createInfo.bindingCount = 1;
-            createInfo.pBindings = &bindings[0];
-            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[0]));
         }
 
         VkDescriptorPoolSize pool_sizes[1] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_info.m_maxFrameInFlights},
+            //{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 * m_info.m_maxFrameInFlights},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 * m_info.m_maxFrameInFlights},
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 3 * m_info.m_maxFrameInFlights; //camera 1, transforms 2
+        poolInfo.maxSets = 1 * m_info.m_maxFrameInFlights; //transforms 1
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
     }
 
-    VkPushConstantRange range{};
-    range.offset = 0;
-    range.size = sizeof(uint32_t);
-    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
-    pipelineLayoutCreateInfo.pPushConstantRanges = &range;
     pipelineLayoutCreateInfo.pSetLayouts = m_setLayouts.data();
-    pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
     pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
@@ -97,10 +158,10 @@ void Loops::Tasking::WireFrameTask::Init()
 
     for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
     {
-        m_colorInfoList[i].clearValue = clearValues;
+        //m_colorInfoList[i].clearValue = clearValues;
         m_colorInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
         m_colorInfoList[i].imageView = m_colorAttachmentViews[i];
-        m_colorInfoList[i].loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
+        m_colorInfoList[i].loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
         m_colorInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
         m_colorInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     }
@@ -111,7 +172,7 @@ void Loops::Tasking::WireFrameTask::Init()
         info.colorAttachmentCount = (1);
         info.layerCount = (1);
         info.pColorAttachments = &m_colorInfoList[i];
-        info.pDepthAttachment = nullptr;// &m_depthInfoList[i];
+        info.pDepthAttachment = nullptr;// no depth required
         info.renderArea = VkRect2D{ {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
         info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
         m_renderInfoList.push_back(std::move(info));
@@ -125,8 +186,8 @@ void Loops::Tasking::WireFrameTask::Init()
         pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 
         // Create pipeline
-        std::string vertSpvPath = std::string{ SPV_PATH } + "UnlitColorVert.spv";
-        std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitColorFrag.spv";
+        std::string vertSpvPath = std::string{ SPV_PATH } + "BoundsVert.spv";
+        std::string fragSpvPath = std::string{ SPV_PATH } + "BoundsFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
         std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
@@ -136,8 +197,8 @@ void Loops::Tasking::WireFrameTask::Init()
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
         // Describe the vertex input, i.e. two vertex input attributes in our case:
-        VkVertexInputBindingDescription vertexBindings{ 0, sizeof(Loops::Vertex), VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX };
-        VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_position) };
+        VkVertexInputBindingDescription vertexBindings{ 0, sizeof(BoundVertex), VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX };
+        VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(BoundVertex, BoundVertex::m_pos) };
 
         pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = &attributeDescriptions;
         pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindings;
@@ -157,7 +218,7 @@ void Loops::Tasking::WireFrameTask::Init()
         pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;
-        pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;
+        pipelineRasterizationStateCreateInfo.lineWidth = 1.40f;
 
         VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {};
         pipelineColorBlendAttachmentState.colorWriteMask = 0xF;
@@ -172,11 +233,11 @@ void Loops::Tasking::WireFrameTask::Init()
         pipelineDepthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
         pipelineDepthStencilStateCreateInfo.depthTestEnable = VK_FALSE;
         pipelineDepthStencilStateCreateInfo.depthWriteEnable = VK_FALSE;
-        pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_LESS;
+        pipelineDepthStencilStateCreateInfo.depthCompareOp = VK_COMPARE_OP_NEVER;
         pipelineDepthStencilStateCreateInfo.back.failOp = VK_STENCIL_OP_KEEP;
         pipelineDepthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
         pipelineDepthStencilStateCreateInfo.back.passOp = VK_STENCIL_OP_KEEP;
-        pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_GREATER;
+        pipelineDepthStencilStateCreateInfo.back.compareOp = VK_COMPARE_OP_NEVER;
         pipelineDepthStencilStateCreateInfo.stencilTestEnable = VK_FALSE;
         pipelineDepthStencilStateCreateInfo.front = pipelineDepthStencilStateCreateInfo.back;
 
@@ -202,13 +263,13 @@ void Loops::Tasking::WireFrameTask::Init()
 
         std::array<VkSpecializationMapEntry, 1> specializationMapEntries;
         specializationMapEntries[0].constantID = 0;
-        specializationMapEntries[0].size = sizeof(MAX_ENTITIES);
+        specializationMapEntries[0].size = sizeof(MAX_BOUNDS);
         specializationMapEntries[0].offset = 0;
 
         VkSpecializationInfo specializationInfo{};
-        specializationInfo.dataSize = sizeof(MAX_ENTITIES);
+        specializationInfo.dataSize = sizeof(MAX_BOUNDS);
         specializationInfo.mapEntryCount = specializationMapEntries.size();
-        specializationInfo.pData = &MAX_ENTITIES;
+        specializationInfo.pData = &MAX_BOUNDS;
         specializationInfo.pMapEntries = specializationMapEntries.data();
 
         VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {};
@@ -243,66 +304,14 @@ void Loops::Tasking::WireFrameTask::Init()
             nullptr, &m_pipeline));
     }
 
-    // Camera Uniform
-    {
-        //if (!m_pCamera)
-        //{
-        //    Loops::Transform camTransform;
-        //    //camTransform.m_position = glm::vec3(-65, 20, 0);
-        //    //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
-        //    camTransform.m_position = glm::vec3(0, 0, -3);
-        //    m_pCamera = std::make_unique<Loops::Camera>(camTransform, screenWidth / (float)screenHeight);
-        //}
-
-        const uint16_t numUniforms = 1;//maxFrameInFlight if camera is moving
-
-        Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_cameraUniforms, m_cameraUniformMemory, sizeof(SceneUniform)* numUniforms,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-        std::array<SceneUniform, numUniforms> uniformArray{};
-        for (auto& uniform : uniformArray)
-        {
-            assert(m_pCamera != nullptr);
-            uniform.cameraPos = m_pCamera->GetPosition();
-            uniform.projectionMat = m_pCamera->GetProjectionMat();
-            uniform.viewMat = m_pCamera->GetViewMatrix();
-        }
-
-        void* pData;
-        Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
-        memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
-        vkUnmapMemory(m_info.m_device, m_cameraUniformMemory);
-
-        {
-            m_viewSet.resize(numUniforms);
-            VkDescriptorSetAllocateInfo setAllocInfo{};
-            setAllocInfo.descriptorPool = m_descriptorPool;
-            setAllocInfo.descriptorSetCount = numUniforms;
-            setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
-            setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-
-            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, m_viewSet.data()));
-
-            for (uint16_t i = 0; i < numUniforms; i++)
-            {
-                VkDescriptorBufferInfo bufferInfo{ m_cameraUniforms, i * sizeof(SceneUniform), sizeof(SceneUniform) };
-                const VkWriteDescriptorSet writes
-                {
-                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
-                };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
-            }
-        }
-    }
-
     // Transform Uniform
     {
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
 
-        const size_t dataSizePerFrame = sizeof(glm::mat4) * MAX_ENTITIES;
+        const size_t dataSizePerFrame = sizeof(glm::mat4) * MAX_BOUNDS;
 
         Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
         /*void* pData;
         Loops::VkUtils::ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
@@ -325,121 +334,57 @@ void Loops::Tasking::WireFrameTask::Init()
                 VkDescriptorBufferInfo bufferInfo{ m_transformBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
-                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
                 };
                 vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
             }
         }
     }
-}
 
-void Loops::Tasking::WireFrameTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
-    const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager)
-{
-    void* pData;
-    Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_ENTITIES, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
-    memcpy(pData, renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
-    vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
-
-    // Build Command Buffers
     {
-        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
-        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
-
-        Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
-
-        VkCommandBufferBeginInfo beginInfo{};
-        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-        Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
-
-        vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
+        auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
         {
-            vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
-            vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
+            Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-            vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+            // copy data into vertex and index buffer
 
-            // Bind descriptor sets
-            // View set 0
-            // Transform set 1
-            VkDescriptorSet set[2]{ m_viewSet[0], m_transformSets[frameInFlight] };
-            VkBindDescriptorSetsInfo bindInfo = {};
-            bindInfo.descriptorSetCount = 2;
-            bindInfo.firstSet = 0;
-            bindInfo.layout = m_pipelineLayout;
-            bindInfo.pDescriptorSets = set;
-            bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
-            bindInfo.dynamicOffsetCount = 0;
-            bindInfo.pDynamicOffsets = nullptr;
-            //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
-            vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
+            auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_info.m_physicalDevice, m_info.m_device);
 
-            int boundVertexBuffer = -1, boundIndexBuffer = -1;
-            for (uint32_t i = 0; i < renderData.m_drawableCount; i++)
             {
-                const Loops::Drawable& drawable = renderData.m_drawables[i];
-
-                // Bind vertex and index buffer
-                if (boundVertexBuffer != drawable.m_vertexBufferId || boundIndexBuffer != drawable.m_indexBufferId)
-                {
-                    boundVertexBuffer = drawable.m_vertexBufferId;
-                    boundIndexBuffer = drawable.m_indexBufferId;
-                    auto& vertexBuffer = sceneManager.GetVertexBuffer(drawable.m_vertexBufferId);
-                    auto& indexBuffer = sceneManager.GetIndexBuffer(drawable.m_indexBufferId);
-
-                    VkDeviceSize offset{ 0 };
-                    vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 1, &vertexBuffer, &offset);
-                    vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
-                }
-
-                // Push Constant 
-                uint32_t matIndex = drawable.m_matIndex;
-                VkPushConstantsInfo info{};
-                info.layout = m_pipelineLayout;
-                info.offset = 0;
-                info.pValues = &matIndex;
-                info.size = sizeof(matIndex);
-                info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-                info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
-                //vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
-                vkCmdPushConstants(m_commandBuffers[frameInFlight], m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(matIndex), &matIndex);
-
-                // Launch draw
-                for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
-                {
-                    const Loops::MeshView& meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
-                    uint32_t numIndicies = meshView.m_indexCount;
-                    uint32_t firstIndex = meshView.m_firstIndex;
-                    vkCmdDrawIndexed(m_commandBuffers[frameInFlight], numIndicies, 1, firstIndex, 0, 0);
-                }
+                // map and copy 
+                void* pData;
+                Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, stagingMemory, 0, dataSize, 0, &pData));
+                memcpy(pData, data, dataSize);
+                vkUnmapMemory(m_info.m_device, stagingMemory);
             }
 
-            //std::array<VkBuffer, 2> vertexBuffs{ m_vertexBuffers[frameInFlight], m_uvBuffer };
-            //std::array<VkDeviceSize, 2> offsets{ 0, 0 };
-            //vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 2, vertexBuffs.data(), offsets.data());
+            Loops::VkUtils::CopyFromStagingBuffer(stagingBuffer, buffer, dataSize, m_info.m_device, m_info.m_graphicsQueue, m_info.m_queueFamilyIndex);
 
-            //vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], m_indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+            Loops::VkUtils::DestroyBuffer(m_info.m_device, stagingBuffer);
+            Loops::VkUtils::FreeMemory(m_info.m_device, stagingMemory);
+        };
 
-            //std::array<VkDescriptorSet, 3> sets{ m_viewSet[frameInFlight], m_transformSet[frameInFlight], m_samplerSet[frameInFlight] };
-            //vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 3, &sets[0], 0, nullptr);
+        const size_t verticiesDataSize = sizeof(glm::vec4) * m_cubeVerticies.size();
+        CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers.m_vkVertexBuffer,
+            m_vertexBufferWrappers.m_vertexBufferMemory, m_cubeVerticies.data());
 
-            //vkCmdDrawIndexed(m_commandBuffers[frameInFlight], m_numIndicies, 1, 0, 0, 0);
-        }
-        vkCmdEndRendering(m_commandBuffers[frameInFlight]);
-
-        Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
+        const size_t indiciesDataSize = sizeof(uint32_t) * m_cubeIndices.size();
+        CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers.m_vkIndexBuffer,
+            m_indexBufferWrappers.m_indexBufferMemory, m_cubeIndices.data());
     }
-
-    Submit(frameInFlight, timelineSem, signalValue, waitValue);
 }
 
-Loops::Tasking::WireFrameTask::~WireFrameTask()
+Loops::Tasking::BoundsRenderTask::~BoundsRenderTask()
 {
     vkFreeMemory(m_info.m_device, m_transformUniformMemory, nullptr);
     vkDestroyBuffer(m_info.m_device, m_transformBuffer, nullptr);
-    vkFreeMemory(m_info.m_device, m_cameraUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_cameraUniforms, nullptr);
+
+    {
+        Loops::VkUtils::DestroyBuffer(m_info.m_device, m_vertexBufferWrappers.m_vkVertexBuffer);
+        Loops::VkUtils::DestroyBuffer(m_info.m_device, m_indexBufferWrappers.m_vkIndexBuffer);
+        Loops::VkUtils::FreeMemory(m_info.m_device, m_vertexBufferWrappers.m_vertexBufferMemory);
+        Loops::VkUtils::FreeMemory(m_info.m_device, m_indexBufferWrappers.m_indexBufferMemory);
+    }
 }
+

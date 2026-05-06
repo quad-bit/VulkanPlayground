@@ -1,4 +1,5 @@
 #include "pipelines/WireframePipeline.h"
+#include "BoundsManager.h"
 #include <optional>
 
 Loops::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, std::unique_ptr<Loops::Camera>& pCamera) :
@@ -17,12 +18,14 @@ Loops::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, c
     taskInfo.m_renderDimensions = info.m_designDimensions;
     taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
-    m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(),
-        pVulkanManager->GetDefaultDepthImageView(), VK_FORMAT_B8G8R8A8_UNORM, pVulkanManager->GetDepthFormat(), pCamera);
+    m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM, pCamera);
+
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
 }
 
 Loops::Tasking::WireframePipeline::~WireframePipeline()
 {
+    m_pBoundsRenderTask.reset();
     m_pWireframeTask.reset();
 
     for (auto& sem : m_timelineSemaphores)
@@ -30,7 +33,7 @@ Loops::Tasking::WireframePipeline::~WireframePipeline()
     m_timelineSemaphores.clear();
 }
 
-void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Loops::SceneManager>& sceneManager,
+void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Loops::SceneManager>& sceneManager, const BoundsManager& boundsManager,
     const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiUtil>& imguiUtil)
 {
     if (m_timelineSemaphores[currentFrameInFlight]->GetFrameIndex() > 0)
@@ -49,11 +52,21 @@ void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, co
         Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
     }
 
-    // Trigger graphics tasks
+    // Trigger wireframe tasks
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::WIREFRAME_FINISHED);
         m_pWireframeTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, std::nullopt, sceneManager->GetRenderData(currentFrameInFlight), *sceneManager);
+    }
+
+    // Trigger bound render task
+    {
+        auto val = boundsManager.GetPrimitiveBounds();
+
+        uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
+        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::WIREFRAME_FINISHED);
+        m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
+            signalValue, waitValue, std::get<0>(val), std::get<1>(val), sceneManager->GetMainCamera()->GetProjectionMat() * sceneManager->GetMainCamera()->GetViewMatrix());
     }
 
     // Trigger imgui

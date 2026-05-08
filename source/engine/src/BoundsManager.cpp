@@ -1,5 +1,8 @@
 #include "BoundsManager.h"
 #include "Components.h"
+#include "Assertion.h"
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 
 Loops::BoundsManager::BoundsManager()
 {
@@ -90,6 +93,28 @@ void Loops::BoundsManager::UpdatePrimtiveBoundInWorldSpace(const flecs::world& w
     m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
     m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
 
+    auto RemoveRotation = [](const glm::mat4& mat) -> glm::mat4
+    {
+        glm::vec3 scale, translation, skew;
+        glm::vec4 perspective;
+        glm::quat rotation;
+
+        // Decompose the matrix into components
+        if (!glm::decompose(mat, scale, rotation, translation, skew, perspective))
+        {
+            ASSERT_MSG(0, "Matrix decomposition failed");
+            return glm::mat4(1.0f); // Return identity if failed
+        }
+
+        // Rebuild matrix without rotation
+        glm::mat4 noRotation = glm::mat4(1.0f);
+        noRotation = glm::translate(noRotation, translation);
+        noRotation = glm::scale(noRotation, scale);
+
+        return noRotation;
+    };
+
+
     for (uint32_t i = 0; i < m_primitiveBoundCount; i++)
     {
         const Bounds& bound = m_primitiveBounds[i];
@@ -98,8 +123,14 @@ void Loops::BoundsManager::UpdatePrimtiveBoundInWorldSpace(const flecs::world& w
 
         const glm::mat4& globalMat = world.entity(boundInfo.m_entityId).get<Loops::Transform>().m_modelMatGlobal;
 
-        boundInWorldSpace.m_max = glm::vec3(globalMat * glm::vec4(bound.m_max, 1.0f));
-        boundInWorldSpace.m_min = glm::vec3(globalMat * glm::vec4(bound.m_min, 1.0f));
+        // removing rotation
+        auto matWithoutRotation = RemoveRotation(globalMat);
+
+        boundInWorldSpace.m_max = glm::vec3(matWithoutRotation * glm::vec4(bound.m_max, 1.0f));
+        boundInWorldSpace.m_min = glm::vec3(matWithoutRotation * glm::vec4(bound.m_min, 1.0f));
+
+        //boundInWorldSpace.m_max = glm::vec3(globalMat * glm::vec4(bound.m_max, 1.0f));
+        //boundInWorldSpace.m_min = glm::vec3(globalMat * glm::vec4(bound.m_min, 1.0f));
 
         m_sceneBound.m_max = glm::vec3(std::max(m_sceneBound.m_max.x, boundInWorldSpace.m_max.x), std::max(m_sceneBound.m_max.y, boundInWorldSpace.m_max.y), std::max(m_sceneBound.m_max.z, boundInWorldSpace.m_max.z));
         m_sceneBound.m_min = glm::vec3(std::min(m_sceneBound.m_min.x, boundInWorldSpace.m_min.x), std::min(m_sceneBound.m_min.y, boundInWorldSpace.m_min.y), std::min(m_sceneBound.m_min.z, boundInWorldSpace.m_min.z));

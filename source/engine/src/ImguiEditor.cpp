@@ -36,7 +36,7 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
             {
                 if (ImGui::IsItemClicked())
                 {
-                    PLOGD << e.name();
+                    //PLOGD << e.name();
                     m_selectedNodeIndex = e.id();
                 }
 

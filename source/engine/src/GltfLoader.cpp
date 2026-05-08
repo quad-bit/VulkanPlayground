@@ -5,6 +5,7 @@
 #include <plog/Log.h>
 #include "Utils.h"
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/euler_angles.hpp>
 #include <filesystem>
 #include <limits>
 #include <algorithm>
@@ -100,15 +101,19 @@ namespace
             glm::quat q = glm::make_quat(inputNode.rotation.data());
             matrix *= glm::mat4(q);
 
-            glm::vec3 eulerRad = glm::eulerAngles(q);
+            //glm::vec3 eulerRad = glm::eulerAngles(q);
             // Convert radians to degrees for readability
-            transform.m_eulerAngles = glm::degrees(eulerRad);
+            //transform.m_eulerAngles = glm::degrees(eulerRad);
+
+            {
+                // with degrees the rotation is getting messed up because of the missing negative sign
+                transform.m_eulerAngles = glm::eulerAngles(q);
+            }
         }
         if (inputNode.scale.size() == 3)
         {
             transform.m_scale = glm::vec3(glm::make_vec3(inputNode.scale.data()));
             matrix = glm::scale(matrix, transform.m_scale);
-
         }
         if (inputNode.matrix.size() == 16)
         {

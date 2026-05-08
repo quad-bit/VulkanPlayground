@@ -22,7 +22,7 @@ void Loops::Tasking::BoundsRenderTask::Update(const uint32_t& frameInFlight, con
         {
             const Bounds& bound = boundArray[i];
             glm::vec3 position = (bound.m_max + bound.m_min) / 2.0f;
-            glm::vec3 scale = glm::abs(bound.m_max - bound.m_min);
+            glm::vec3 scale = glm::max(glm::vec3(1.0f), glm::abs(bound.m_max - bound.m_min));
             glm::vec3 rotation{ 0.0f };
 
             auto translationMat = glm::translate(position);

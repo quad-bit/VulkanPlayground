@@ -74,6 +74,7 @@ namespace Loops
         uint32_t GetFrameInFlightIndex() const;
         uint32_t GetMaxFramesInFlight() const;
         const VkDevice& GetLogicalDevice() const;
+        const VkInstance& GetInstance() const;
         const VkPhysicalDevice& GetPhysicalDevice() const;
         uint32_t GetQueueFamilyIndex() const;
         uint32_t GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore);

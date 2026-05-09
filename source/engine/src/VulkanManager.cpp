@@ -495,6 +495,11 @@ const std::vector<VkImage>& Loops::VulkanManager::GetDefaultDepthImages() const
     return m_depthAttachments;
 }
 
+const VkInstance& Loops::VulkanManager::GetInstance() const
+{
+    return m_instanceObj;
+}
+
 void Loops::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& semaphore, const VkSemaphore& imageAcquiredSemaphore,
     uint64_t waitValue, uint64_t signalValue)
 {

@@ -6,7 +6,7 @@
 #include "RenderData.h"
 #include "SceneManager.h"
 #include "Task.h"
-
+#include "VulkanWrappers.h"
 #include <optional>
 #include <memory>
 
@@ -19,13 +19,16 @@ namespace Loops::Tasking
         const uint16_t TRANSFORM_SET = 1;
 
         std::vector<VkDescriptorSet> m_transformSets;
-        VkBuffer m_transformBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory m_transformUniformMemory = VK_NULL_HANDLE;
+        VulkanBuffer m_transformBuffer;
 
         std::vector<VkDescriptorSet> m_viewSet;
-        VkBuffer m_cameraUniforms = VK_NULL_HANDLE;
-        VkDeviceMemory m_cameraUniformMemory = VK_NULL_HANDLE;
+        VulkanBuffer m_cameraBuffer;
         const std::unique_ptr<Loops::Camera>& m_pCamera;
+
+        void* m_transformUniformMemoryPointer = nullptr;
+        void* m_cameraUniformMemoryPointer = nullptr;
+        size_t m_transformUniformDataSizePerFrame;
+        size_t m_cameraUniformDataSizePerFrame;
 
         void Init();
 

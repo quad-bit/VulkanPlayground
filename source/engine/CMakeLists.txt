@@ -77,7 +77,7 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE 
         Vulkan::Vulkan glfw  
     PUBLIC 
-        glm::glm plog::plog imgui::imgui Taskflow::Taskflow flecs::flecs rapidjson
+        glm::glm plog::plog imgui::imgui Taskflow::Taskflow flecs::flecs rapidjson GPUOpen::VulkanMemoryAllocator
 )
 
 target_include_directories(${TARGET_NAME}

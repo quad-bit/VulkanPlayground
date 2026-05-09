@@ -26,6 +26,7 @@ find_package(Taskflow REQUIRED)
 find_package(plog REQUIRED)
 find_package(flecs REQUIRED)
 find_package(RapidJSON CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 
 FIND_PATH(TINYGLTF_INCLUDE_DIRS "tiny_gltf.h")
 

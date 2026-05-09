@@ -1,4 +1,5 @@
 #include "tasks/BoundsRenderTask.h"
+#include "memory/MemoryManager.h"
 
 Loops::Tasking::BoundsRenderTask::BoundsRenderTask(const GraphicsTaskInfo& info) : GraphicsTask("BoundsRenderTask", info)
 {
@@ -37,10 +38,8 @@ void Loops::Tasking::BoundsRenderTask::Update(const uint32_t& frameInFlight, con
             m_transformArray[i] = viewProjectionMat * translationMat * rotationMat * scaleMat;
         }
 
-        void* pData;
-        Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_BOUNDS, sizeof(glm::mat4) * numBounds, 0, &pData));
-        memcpy(pData, m_transformArray, sizeof(glm::mat4) * numBounds);
-        vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
+        ASSERT_MSG(m_transformDataMemoryPointer != nullptr, "not yet mapped");
+        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformDataMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), m_transformArray, sizeof(glm::mat4) * numBounds);
     }
 
     // Build Command Buffers
@@ -308,15 +307,14 @@ void Loops::Tasking::BoundsRenderTask::Init()
     {
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
 
-        const size_t dataSizePerFrame = sizeof(glm::mat4) * MAX_BOUNDS;
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_BOUNDS);
+        m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
-        Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
-            VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        Loops::VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
-        /*void* pData;
-        Loops::VkUtils::ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
-        memcpy(pData, uniformArray.data(), sizeof(SceneUniform) * numUniforms);
-        vkUnmapMemory(m_device, m_cameraUniformMemory);*/
+        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformDataMemoryPointer);
+        ASSERT_MSG(m_transformDataMemoryPointer != nullptr, "not mapped");
 
         {
             m_transformSets.resize(numUniforms);
@@ -331,7 +329,7 @@ void Loops::Tasking::BoundsRenderTask::Init()
 
                 Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
 
-                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
@@ -342,13 +340,12 @@ void Loops::Tasking::BoundsRenderTask::Init()
     }
 
     {
-        auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
+        auto CreateBufferAndCopyDataVMA = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VmaAllocation& vmaAllocation, void* data) -> void
         {
-            Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            Loops::VkUtils::CreateBufferVma(dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
+                Loops::Memory::MemoryManager::GetVmaAllocator(), buffer, vmaAllocation);
 
             // copy data into vertex and index buffer
-
             auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_info.m_physicalDevice, m_info.m_device);
 
             {
@@ -366,25 +363,23 @@ void Loops::Tasking::BoundsRenderTask::Init()
         };
 
         const size_t verticiesDataSize = sizeof(glm::vec4) * m_cubeVerticies.size();
-        CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers.m_vkVertexBuffer,
-            m_vertexBufferWrappers.m_vertexBufferMemory, m_cubeVerticies.data());
+        CreateBufferAndCopyDataVMA(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers.m_vkVertexBuffer, 
+            m_vertexBufferWrappers.m_vmaAllocation, m_cubeVerticies.data());
 
         const size_t indiciesDataSize = sizeof(uint32_t) * m_cubeIndices.size();
-        CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers.m_vkIndexBuffer,
-            m_indexBufferWrappers.m_indexBufferMemory, m_cubeIndices.data());
+        CreateBufferAndCopyDataVMA(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers.m_vkIndexBuffer, 
+            m_indexBufferWrappers.m_vmaAllocation, m_cubeIndices.data());
     }
 }
 
 Loops::Tasking::BoundsRenderTask::~BoundsRenderTask()
 {
-    vkFreeMemory(m_info.m_device, m_transformUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_transformBuffer, nullptr);
+    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
     {
-        Loops::VkUtils::DestroyBuffer(m_info.m_device, m_vertexBufferWrappers.m_vkVertexBuffer);
-        Loops::VkUtils::DestroyBuffer(m_info.m_device, m_indexBufferWrappers.m_vkIndexBuffer);
-        Loops::VkUtils::FreeMemory(m_info.m_device, m_vertexBufferWrappers.m_vertexBufferMemory);
-        Loops::VkUtils::FreeMemory(m_info.m_device, m_indexBufferWrappers.m_indexBufferMemory);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_vertexBufferWrappers.m_vkVertexBuffer, m_vertexBufferWrappers.m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_indexBufferWrappers.m_vkIndexBuffer, m_indexBufferWrappers.m_vmaAllocation);
     }
 }
 

@@ -44,11 +44,11 @@ namespace Loops::Tasking
         Loops::IndexBuffer m_indexBufferWrappers;
 
         std::vector<VkDescriptorSet> m_transformSets;
-        VkBuffer m_transformBuffer = VK_NULL_HANDLE;
-        VkDeviceMemory m_transformUniformMemory = VK_NULL_HANDLE;
-        std::vector<VkDescriptorSet> m_transformSet;
 
         glm::mat4 m_transformArray[MAX_BOUNDS];
+        Loops::VulkanBuffer m_transformBuffer;
+        size_t m_transformUniformDataSizePerFrame;
+        void* m_transformDataMemoryPointer = nullptr;
 
         void Init();
 

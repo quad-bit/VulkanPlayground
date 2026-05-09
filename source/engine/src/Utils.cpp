@@ -260,6 +260,20 @@ void Loops::VkUtils::CreateBufferAndMemory(const VkPhysicalDevice & physicalDevi
     ErrorCheck(vkBindBufferMemory(device, buffer, memory, 0));
 }
 
+void Loops::VkUtils::CreateBufferVma( size_t dataSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryFlag, VmaAllocator& allocator, VkBuffer& buffer, VmaAllocation& vmaAllocation)
+{
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = dataSize;
+    bufferInfo.usage = usage;
+
+    VmaAllocationCreateInfo vmaallocInfo = {};
+    vmaallocInfo.usage = memoryFlag;
+
+    //allocate the buffer
+    Loops::VkUtils::ErrorCheck(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &buffer, &vmaAllocation, nullptr));
+}
+
 void Loops::VkUtils::DestroyBuffer(const VkDevice & device, const VkBuffer& buffer)
 {
     vkDestroyBuffer(device, buffer, nullptr);

@@ -6,6 +6,7 @@
 #include <tuple>
 #include <vector>
 #include <string>
+#include <vk_mem_alloc.h>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
@@ -76,6 +77,11 @@ namespace Loops
             const VkPhysicalDevice& physicalDevice, const VkDevice& device,
             VkBuffer& buffer, VkDeviceMemory& memory, const size_t& dataSize,
             const VkBufferUsageFlags& usage, const VkMemoryPropertyFlags& memProps
+        );
+
+        void CreateBufferVma(
+            size_t dataSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryFlag,
+            VmaAllocator& allocator, VkBuffer& buffer, VmaAllocation& vmaAllocation
         );
 
         void DestroyBuffer(

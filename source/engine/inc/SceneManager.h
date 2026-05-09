@@ -55,9 +55,6 @@ namespace Loops
         VkQueue m_graphicsQueue = VK_NULL_HANDLE;
         uint32_t m_queueFamilyIndex = 0;
 
-        //VkBuffer m_vertexBuffer, m_indexBuffer;
-        //VkDeviceMemory m_vertexBufferMemory, m_indexBufferMemory;
-
         const uint32_t cm_maxEntities;
         uint32_t m_maxEntities = 0;
         uint32_t m_maxMeshViewsPerMesh = 0;
@@ -73,7 +70,7 @@ namespace Loops
 
         flecs::world m_world;
 
-        SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities);
+        //SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities);
         SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities);
 
         ~SceneManager();

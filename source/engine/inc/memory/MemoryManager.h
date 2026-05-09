@@ -6,13 +6,23 @@
 #include "LinearPoolAllocator.h"
 #include "StackPoolAllocator.h"
 
+#include <vulkan/vulkan.h>
+#include <vma/vk_mem_alloc.h>
+
+
 namespace Loops::Memory
 {
     class MemoryManager
     {
     private:
 
+        static VmaAllocator sm_vma;
     public:
+
+        static void InitVMA(const VkPhysicalDevice& physicalDevice, const VkDevice& logicalDevice, const VkInstance& instance);
+        static void DeInitVMA();
+        static VmaAllocator& GetVmaAllocator();
+
         MemoryManager()
         {
             /*

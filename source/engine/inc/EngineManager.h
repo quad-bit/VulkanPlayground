@@ -37,36 +37,35 @@ namespace Loops
 
     class EngineManager
     {
-        private:
-            std::unique_ptr<Loops::SceneManager> m_pSceneManager;
-            std::unique_ptr<Loops::BoundsManager> m_pBoundsManager;
-            std::unique_ptr<WindowManager> m_pWindowManagerObj;
-            std::unique_ptr<VulkanManager> m_pVulkanManager;
-            std::unique_ptr<Loops::ImguiUtil > m_pImguiUtil;
-            std::unique_ptr<Loops::ImguiEditor> m_pEditor;
-            std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
-            std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
-            BoundsManager m_boundsManager;
+    private:
+        std::unique_ptr<Loops::SceneManager> m_pSceneManager;
+        std::unique_ptr<Loops::BoundsManager> m_pBoundsManager;
+        std::unique_ptr<WindowManager> m_pWindowManagerObj;
+        std::unique_ptr<VulkanManager> m_pVulkanManager;
+        std::unique_ptr<Loops::ImguiUtil > m_pImguiUtil;
+        std::unique_ptr<Loops::ImguiEditor> m_pEditor;
+        std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
+        std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
+        BoundsManager m_boundsManager;
 
-            uint32_t m_maxFramesInFlight;
-            std::unique_ptr<Timer> m_pTimer;
+        uint32_t m_maxFramesInFlight;
+        std::unique_ptr<Timer> m_pTimer;
 
-            std::unique_ptr<Tasking::WireframePipeline> m_pWireframePipeline;
-            AppCallbacks m_appCallbacks;
+        std::unique_ptr<Tasking::WireframePipeline> m_pWireframePipeline;
+        AppCallbacks m_appCallbacks;
 
-            void Init();
+        void Init();
+    public:
 
-        public:
-            EngineManager(const EngineInfo& info, const AppCallbacks& callbacks = {});
+        EngineManager(const EngineInfo& info, const AppCallbacks& callbacks = {});
 
-            void DeInit();
-            void Loop();
+        void DeInit();
+        void Loop();
 
-            const ImguiUtil& GetImguiUtil() const;
-            const SceneManager& GetSceneManager() const;
-            const VulkanManager& GetVulkanManager() const;
-            uint32_t GetMaxFrameInFlights() const;
-
+        const ImguiUtil& GetImguiUtil() const;
+        const SceneManager& GetSceneManager() const;
+        const VulkanManager& GetVulkanManager() const;
+        uint32_t GetMaxFrameInFlights() const;
     };
 }
 

@@ -9,6 +9,7 @@
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 
+
 Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCallbacks& callbacks) : m_appCallbacks(callbacks)
 {
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
@@ -26,6 +27,11 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_pVulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = m_pVulkanManager->Init(m_pWindowManagerObj->glfwWindow);
+
+    // VMA
+    {
+        Memory::MemoryManager::InitVMA(m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetInstance());
+    }
 
     m_pInputManager = std::make_unique<IO::InputManager>(m_pWindowManagerObj->glfwWindow);
 
@@ -109,13 +115,13 @@ void Loops::EngineManager::DeInit()
             m_pEditor = nullptr;
         }
 
-        m_pSceneManager->DeInitialise();
-
         if (m_pWireframePipeline)
         {
             m_pWireframePipeline.reset();
             m_pWireframePipeline = nullptr;
         }
+
+        m_pSceneManager->DeInitialise();
 
         if (m_pImguiUtil)
         {
@@ -129,6 +135,8 @@ void Loops::EngineManager::DeInit()
             m_pInputManager->DeInit();
             m_pInputManager.reset();
         }
+
+        Memory::MemoryManager::DeInitVMA();
 
         m_pVulkanManager->DeInit();
         m_pWindowManagerObj->DeInit();

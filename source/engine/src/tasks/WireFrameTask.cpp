@@ -1,5 +1,6 @@
 #include <memory>
-
+#include "Utils.h"
+#include "memory/MemoryManager.h"
 #include "tasks/WireFrameTask.h"
 
 Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera) :
@@ -254,24 +255,26 @@ void Loops::Tasking::WireFrameTask::Init()
         //    m_pCamera = std::make_unique<Loops::Camera>(camTransform, screenWidth / (float)screenHeight);
         //}
 
-        const uint16_t numUniforms = 1;//maxFrameInFlight if camera is moving
+        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(SceneUniform));
+        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
-        Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_cameraUniforms, m_cameraUniformMemory, sizeof(SceneUniform)* numUniforms,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
+        ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not mapped");
 
-        std::array<SceneUniform, numUniforms> uniformArray{};
-        for (auto& uniform : uniformArray)
-        {
-            assert(m_pCamera != nullptr);
-            uniform.cameraPos = m_pCamera->GetPosition();
-            uniform.projectionMat = m_pCamera->GetProjectionMat();
-            uniform.viewMat = m_pCamera->GetViewMatrix();
-        }
+        //std::vector<SceneUniform> uniformArray{numUniforms};
+        //for (auto& uniform : uniformArray)
+        //{
+        //    assert(m_pCamera != nullptr);
+        //    uniform.cameraPos = m_pCamera->GetPosition();
+        //    uniform.projectionMat = m_pCamera->GetProjectionMat();
+        //    uniform.viewMat = m_pCamera->GetViewMatrix();
+        //}
 
-        void* pData;
-        Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
-        memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
-        vkUnmapMemory(m_info.m_device, m_cameraUniformMemory);
+        //void* pData;
+        //Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
+        //memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
 
         {
             m_viewSet.resize(numUniforms);
@@ -285,7 +288,7 @@ void Loops::Tasking::WireFrameTask::Init()
 
             for (uint16_t i = 0; i < numUniforms; i++)
             {
-                VkDescriptorBufferInfo bufferInfo{ m_cameraUniforms, i * sizeof(SceneUniform), sizeof(SceneUniform) };
+                VkDescriptorBufferInfo bufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(SceneUniform) };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
@@ -299,15 +302,14 @@ void Loops::Tasking::WireFrameTask::Init()
     {
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
 
-        const size_t dataSizePerFrame = sizeof(glm::mat4) * MAX_ENTITIES;
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+        m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
-        Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_transformBuffer, m_transformUniformMemory, dataSizePerFrame * numUniforms,
-            VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
-        /*void* pData;
-        Loops::VkUtils::ErrorCheck(vkMapMemory(m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform) * numUniforms, 0, &pData));
-        memcpy(pData, uniformArray.data(), sizeof(SceneUniform) * numUniforms);
-        vkUnmapMemory(m_device, m_cameraUniformMemory);*/
+        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
+        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not mapped");
 
         {
             m_transformSets.resize(numUniforms);
@@ -322,7 +324,7 @@ void Loops::Tasking::WireFrameTask::Init()
 
                 Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
 
-                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
@@ -336,10 +338,17 @@ void Loops::Tasking::WireFrameTask::Init()
 void Loops::Tasking::WireFrameTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
     const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager)
 {
-    void* pData;
-    Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_ENTITIES, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
-    memcpy(pData, renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
-    vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
+    ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
+    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
+
+    assert(m_pCamera != nullptr);
+    SceneUniform uniform{};
+    uniform.cameraPos = m_pCamera->GetPosition();
+    uniform.projectionMat = m_pCamera->GetProjectionMat();
+    uniform.viewMat = m_pCamera->GetViewMatrix();
+
+    ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
+    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(SceneUniform));
 
     // Build Command Buffers
     {
@@ -438,8 +447,9 @@ void Loops::Tasking::WireFrameTask::Update(const uint32_t& frameInFlight, const 
 
 Loops::Tasking::WireFrameTask::~WireFrameTask()
 {
-    vkFreeMemory(m_info.m_device, m_transformUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_transformBuffer, nullptr);
-    vkFreeMemory(m_info.m_device, m_cameraUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_cameraUniforms, nullptr);
+    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+
+    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 }

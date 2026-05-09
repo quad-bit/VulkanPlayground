@@ -3,6 +3,7 @@
 #include "SceneManager.h"
 #include "GltfLoader.h"
 #include "Components.h"
+#include "memory/MemoryManager.h"
 #include <plog/Log.h>
 #include <stack>
 
@@ -112,8 +113,8 @@ Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::
 //    //m_boundManager.AddBound(min, max, globalMat, submeshId, entityId);
 //}
 
-Loops::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
-{
+//Loops::SceneManager::SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities): cm_maxEntities(maxEntities)
+//{
     //{
     //    //m_world.set_entity_range(0, MAX_ENTITES);
     //    //m_world.enable_range_check();
@@ -133,7 +134,7 @@ Loops::SceneManager::SceneManager(const std::string_view& assetPath, const uint3
     //assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
     //m_parentEntities.emplace_back(LoadGltf(assetPath, m_world, *this, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh));
-}
+//}
 
 Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
 {
@@ -166,8 +167,8 @@ Loops::SceneManager::~SceneManager()
     m_mainCamera.reset();
 }
 
-void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice,
-    const VkQueue& graphicsQueue, uint32_t queueFamilyIndex, uint32_t maxFrameInFlights, const Dimension& screenDimension, const Dimension& designDimension)
+void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDevice& physicalDevice, const VkQueue& graphicsQueue, uint32_t queueFamilyIndex,
+    uint32_t maxFrameInFlights, const Dimension& screenDimension, const Dimension& designDimension)
 {
     m_device = device;
     m_physicalDevice = physicalDevice;
@@ -176,13 +177,22 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
     m_maxFrameInFlights = maxFrameInFlights;
     m_renderDataList.resize(maxFrameInFlights);
 
-    auto CreateAndCopyData = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VkDeviceMemory& memory, void* data) -> void
+    auto CreateBufferAndCopyDataVMA = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VmaAllocation& vmaAllocation, void* data) -> void
     {
-        Loops::VkUtils::CreateBufferAndMemory(m_physicalDevice, m_device, buffer, memory, dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        //this is the total size, in bytes, of the buffer we are allocating
+        bufferInfo.size = dataSize;
+        //this buffer is going to be used as a Vertex Buffer
+        bufferInfo.usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+        VmaAllocationCreateInfo vmaallocInfo = {};
+        vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+        //allocate the buffer
+        Loops::VkUtils::ErrorCheck(vmaCreateBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), &bufferInfo, &vmaallocInfo, &buffer, &vmaAllocation, nullptr));
 
         // copy data into vertex and index buffer
-
         auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
 
         {
@@ -203,12 +213,18 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
         const size_t verticiesDataSize = sizeof(Vertex) * m_vertexBufferWrappers[i].m_vertexList.size();
-        CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer, 
-            m_vertexBufferWrappers[i].m_vertexBufferMemory, m_vertexBufferWrappers[i].m_vertexList.data());
+        CreateBufferAndCopyDataVMA(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer,
+            m_vertexBufferWrappers[i].m_vmaAllocation, m_vertexBufferWrappers[i].m_vertexList.data());
 
         const size_t indiciesDataSize = sizeof(uint32_t) * m_indexBufferWrappers[i].m_indexList.size();
-        CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
-            m_indexBufferWrappers[i].m_indexBufferMemory, m_indexBufferWrappers[i].m_indexList.data());
+        CreateBufferAndCopyDataVMA(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
+            m_indexBufferWrappers[i].m_vmaAllocation, m_indexBufferWrappers[i].m_indexList.data());
+
+        //CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer, 
+            //m_vertexBufferWrappers[i].m_vertexBufferMemory, m_vertexBufferWrappers[i].m_vertexList.data());
+
+        //CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
+          //m_indexBufferWrappers[i].m_indexBufferMemory, m_indexBufferWrappers[i].m_indexList.data());
     }
 
 
@@ -228,10 +244,8 @@ void Loops::SceneManager::DeInitialise()
     m_mainCamera.reset();
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
-        Loops::VkUtils::DestroyBuffer(m_device, m_vertexBufferWrappers[i].m_vkVertexBuffer);
-        Loops::VkUtils::DestroyBuffer(m_device, m_indexBufferWrappers[i].m_vkIndexBuffer);
-        Loops::VkUtils::FreeMemory(m_device, m_vertexBufferWrappers[i].m_vertexBufferMemory);
-        Loops::VkUtils::FreeMemory(m_device, m_indexBufferWrappers[i].m_indexBufferMemory);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_vertexBufferWrappers[i].m_vkVertexBuffer, m_vertexBufferWrappers[i].m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_indexBufferWrappers[i].m_vkIndexBuffer, m_indexBufferWrappers[i].m_vmaAllocation);
     }
 }
 

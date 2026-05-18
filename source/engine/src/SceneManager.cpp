@@ -45,6 +45,21 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
     {
         UpdateGlobalMatrix(UpdateGlobalMatrix, parent);
     }
+
+    // camera
+    {
+        Loops::Transform t = m_mainCamera->m_transform;
+        auto translationMat = glm::translate(t.m_position);
+        auto scaleMat = glm::scale(t.m_scale);
+
+        glm::mat4 rotXMat = glm::rotate(t.m_eulerAngles.x, glm::vec3(1, 0, 0));
+        glm::mat4 rotYMat = glm::rotate(t.m_eulerAngles.y, glm::vec3(0, 1, 0));
+        glm::mat4 rotZMat = glm::rotate(t.m_eulerAngles.z, glm::vec3(0, 0, 1));
+
+        auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+        t.m_modelMat = translationMat * rotationMat * scaleMat;
+    }
 }
 
 void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
@@ -219,20 +234,14 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
         const size_t indiciesDataSize = sizeof(uint32_t) * m_indexBufferWrappers[i].m_indexList.size();
         CreateBufferAndCopyDataVMA(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
             m_indexBufferWrappers[i].m_vmaAllocation, m_indexBufferWrappers[i].m_indexList.data());
-
-        //CreateAndCopyData(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer, 
-            //m_vertexBufferWrappers[i].m_vertexBufferMemory, m_vertexBufferWrappers[i].m_vertexList.data());
-
-        //CreateAndCopyData(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
-          //m_indexBufferWrappers[i].m_indexBufferMemory, m_indexBufferWrappers[i].m_indexList.data());
     }
-
 
     Loops::Transform camTransform;
     //camTransform.m_position = glm::vec3(-65, 20, 0);
     //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
+
     // beautiful game camera
-    camTransform.m_position = glm::vec3(0, 30, -60);
+    camTransform.m_position = glm::vec3(0, 30, -70);
     camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
     //camTransform.m_position = glm::vec3(0, 0, -5);

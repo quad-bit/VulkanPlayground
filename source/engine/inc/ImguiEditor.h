@@ -4,6 +4,7 @@
 #include "imgui.h"
 #include "ImguiUtil.h"
 #include "SceneManager.h"
+#include "BoundsManager.h"
 #include<flecs.h>
 
 namespace Loops
@@ -13,11 +14,11 @@ namespace Loops
     private:
         const ImguiUtil& cm_utilObj;
         const SceneManager& cm_sceneManager;
-
+        BoundsManager& cm_boundsManager;
         int m_selectedNodeIndex = 0;
 
     public:
-        ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager);
+        ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager);
     };
 }
 

@@ -3,8 +3,8 @@
 #include <string>
 #include "Components.h"
 
-
-Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager) : cm_utilObj(utilObj), cm_sceneManager(sceneManager)
+Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager) :
+    cm_utilObj(utilObj), cm_sceneManager(sceneManager), cm_boundsManager(boundsManager)
 {
     m_selectedNodeIndex = cm_sceneManager.GetParentList()[0].id();
 
@@ -69,41 +69,43 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
         ImGui::Begin("Transform");
 
-        ImGui::BeginTable("TransformVec", 4, ImGuiTableFlags_Borders);
-        //for (int row = 0; row < 3; row++)
+        if (ImGui::BeginTable("TransformVec", 4, ImGuiTableFlags_Borders))
         {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Position");
-            for (int col = 1; col < 4; col++)
+            //for (int row = 0; row < 3; row++)
             {
-                ImGui::TableSetColumnIndex(col);
-                std::string cell_id = "##pos_" + std::to_string(0) + "_" + std::to_string(col);
-                ImGui::SetNextItemWidth(60);
-                ImGui::InputFloat(cell_id.c_str(), &position[col-1], 0.0f, 0.0f, "%.3f");
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Position");
+                for (int col = 1; col < 4; col++)
+                {
+                    ImGui::TableSetColumnIndex(col);
+                    std::string cell_id = "##pos_" + std::to_string(0) + "_" + std::to_string(col);
+                    ImGui::SetNextItemWidth(60);
+                    ImGui::InputFloat(cell_id.c_str(), &position[col - 1], 0.0f, 0.0f, "%.3f");
+                }
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Scale");
+                for (int col = 1; col < 4; col++)
+                {
+                    ImGui::TableSetColumnIndex(col);
+                    std::string cell_id = "##scale_" + std::to_string(1) + "_" + std::to_string(col);
+                    ImGui::SetNextItemWidth(60);
+                    ImGui::InputFloat(cell_id.c_str(), &scale[col - 1], 0.0f, 0.0f, "%.3f");
+                }
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Angles");
+                for (int col = 1; col < 4; col++)
+                {
+                    ImGui::TableSetColumnIndex(col);
+                    std::string cell_id = "##ang_" + std::to_string(2) + "_" + std::to_string(col);
+                    ImGui::SetNextItemWidth(60);
+                    ImGui::InputFloat(cell_id.c_str(), &angles[col - 1], 0.0f, 0.0f, "%.3f");
+                }
             }
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Scale");
-            for (int col = 1; col < 4; col++)
-            {
-                ImGui::TableSetColumnIndex(col);
-                std::string cell_id = "##scale_" + std::to_string(1) + "_" + std::to_string(col);
-                ImGui::SetNextItemWidth(60);
-                ImGui::InputFloat(cell_id.c_str(), &scale[col-1], 0.0f, 0.0f, "%.3f");
-            }
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Angles");
-            for (int col = 1; col < 4; col++)
-            {
-                ImGui::TableSetColumnIndex(col);
-                std::string cell_id = "##ang_" + std::to_string(2) + "_" + std::to_string(col);
-                ImGui::SetNextItemWidth(60);
-                ImGui::InputFloat(cell_id.c_str(), &angles[col-1], 0.0f, 0.0f, "%.3f");
-            }
+            ImGui::EndTable();
         }
-        ImGui::EndTable();
 
         // Create a table with 4 columns
         if (ImGui::BeginTabBar("Transformations"))
@@ -156,28 +158,6 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
             }
             ImGui::EndTabBar();
         }
-
-        //ImGui::Text("ModelMatrix");
-        //if (ImGui::BeginTable("MatrixTable", 4, ImGuiTableFlags_Borders))
-        //{
-        //    for (int row = 0; row < 4; row++)
-        //    {
-        //        ImGui::TableNextRow();
-        //        for (int col = 0; col < 4; col++)
-        //        {
-        //            ImGui::TableSetColumnIndex(col);
-
-        //            // Create a unique ID for each cell
-        //            std::string cell_id = "##cell_" + std::to_string(row) + "_" + std::to_string(col);
-
-        //            // Editable float input for each matrix element
-        //            ImGui::SetNextItemWidth(60);
-        //            ImGui::InputFloat(cell_id.c_str(), &mat[col][row], 0.0f, 0.0f, "%.3f");
-        //        }
-        //    }
-        //    ImGui::EndTable();
-        //}
-
         ImGui::End();
     };
 
@@ -198,8 +178,64 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
         }
     };
 
+    auto CreateBvhPanel = [this]()
+        {
+            const Loops::BvhCreationMethod& creationMethod = cm_boundsManager.GetCreationMethod();
+            const Loops::SplitMethod& splitMethod = cm_boundsManager.GetSplitType();
+
+            /*std::string splitMethodText, creationMethodText;
+            if (creationMethod == Loops::BvhCreationMethod::LINEAR)
+                creationMethodText = "LINEAR_MORTON";
+            else
+                creationMethodText = "RECURSIVE";
+
+            if (splitMethod == Loops::SplitMethod::EQUAL_COUNT)
+                splitMethodText = "EQUAL_COUNT";
+            else if (splitMethod == Loops::SplitMethod::MID)
+                splitMethodText = "MID";
+            else
+                splitMethodText = "SURFACE AREA HEURISTICS";*/
+
+            {
+                if (ImGui::Begin("BVH settings"))
+                {
+                    ImVec2 currentCurPos = ImGui::GetCursorPos();
+
+                    ImGui::RadioButton("Recursive", creationMethod == Loops::BvhCreationMethod::RECURSIVE);
+                    {
+                        ImGui::SetCursorPosX(currentCurPos.x + 10);
+                        ImGui::BeginGroup();
+                        //currentCurPos = ImGui::GetCursorPos();
+                        if (ImGui::RadioButton("Equal count", splitMethod == SplitMethod::EQUAL_COUNT))
+                        {
+                            cm_boundsManager.SetSplitType(SplitMethod::EQUAL_COUNT);
+                        }
+                        else if (ImGui::RadioButton("Mid", splitMethod == SplitMethod::MID))
+                        {
+                            cm_boundsManager.SetSplitType(SplitMethod::MID);
+                        }
+                        else if (ImGui::RadioButton("SAH", splitMethod == SplitMethod::SAH))
+                        {
+                            cm_boundsManager.SetSplitType(SplitMethod::SAH);
+                        }
+                        ImGui::EndGroup();
+                    }
+
+                    auto pos = ImVec2(ImGui::GetWindowSize().x * 0.5f, currentCurPos.y);
+                    ImGui::SetCursorPos(pos);
+                    if (ImGui::RadioButton("Linear Morton", creationMethod == Loops::BvhCreationMethod::LINEAR))
+                    {
+
+                    }
+
+                    ImGui::End();
+                }
+            }
+        };
+
     cm_utilObj.AddPersistentDrawCalls(CreateSceneHierarchyPanel);
     cm_utilObj.AddPersistentDrawCalls(CreateTransformPanel);
     cm_utilObj.AddPersistentDrawCalls(CreateMeshPanel);
+    cm_utilObj.AddPersistentDrawCalls(CreateBvhPanel);
 }
 

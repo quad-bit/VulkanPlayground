@@ -206,7 +206,7 @@ void Loops::Tasking::BoundsRenderTask::Init()
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {};
         pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
         pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
 
         VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
@@ -370,6 +370,107 @@ void Loops::Tasking::BoundsRenderTask::Init()
         CreateBufferAndCopyDataVMA(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers.m_vkIndexBuffer, 
             m_indexBufferWrappers.m_vmaAllocation, m_cubeIndices.data());
     }
+}
+
+void Loops::Tasking::BoundsRenderTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue,
+    std::optional<uint64_t> waitValue, const Loops::Bounds* primitiveBoundArray, size_t numPrimitiveBounds, 
+    const Loops::Bounds* bvhNodeBoundArray, size_t numBvhNodeBounds, const glm::mat4& viewProjectionMat)
+{
+    const uint32_t instanceCount = numPrimitiveBounds + numBvhNodeBounds;
+    // Create transforms from bounds
+    {
+        for (uint32_t i = 0; i < numPrimitiveBounds; i++)
+        {
+            const Bounds& bound = primitiveBoundArray[i];
+            glm::vec3 position = (bound.m_max + bound.m_min) / 2.0f;
+            glm::vec3 scale = glm::max(glm::vec3(1.0f), glm::abs(bound.m_max - bound.m_min));
+            glm::vec3 rotation{ 0.0f };
+
+            auto translationMat = glm::translate(position);
+            auto scaleMat = glm::scale(scale);
+
+            glm::mat4 rotXMat = glm::rotate(rotation.x, glm::vec3(1, 0, 0));
+            glm::mat4 rotYMat = glm::rotate(rotation.y, glm::vec3(0, 1, 0));
+            glm::mat4 rotZMat = glm::rotate(rotation.z, glm::vec3(0, 0, 1));
+
+            auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+            m_transformArray[i] = viewProjectionMat * translationMat * rotationMat * scaleMat;
+        }
+
+        for (uint32_t i = 0; i < numBvhNodeBounds; i++)
+        {
+            const Bounds& bound = bvhNodeBoundArray[i];
+            glm::vec3 position = (bound.m_max + bound.m_min) / 2.0f;
+            glm::vec3 scale = glm::max(glm::vec3(1.0f), glm::abs(bound.m_max - bound.m_min));
+            glm::vec3 rotation{ 0.0f };
+
+            auto translationMat = glm::translate(position);
+            auto scaleMat = glm::scale(scale);
+
+            glm::mat4 rotXMat = glm::rotate(rotation.x, glm::vec3(1, 0, 0));
+            glm::mat4 rotYMat = glm::rotate(rotation.y, glm::vec3(0, 1, 0));
+            glm::mat4 rotZMat = glm::rotate(rotation.z, glm::vec3(0, 0, 1));
+
+            auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+            m_transformArray[i + numPrimitiveBounds] = viewProjectionMat * translationMat * rotationMat * scaleMat;
+        }
+
+        ASSERT_MSG(m_transformDataMemoryPointer != nullptr, "not yet mapped");
+        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformDataMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), m_transformArray, sizeof(glm::mat4) * instanceCount);
+    }
+
+    // Build Command Buffers
+    {
+        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
+        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+
+        Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
+
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+        Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
+
+        vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
+        {
+            vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
+            vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
+
+            vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+
+            // Bind descriptor sets
+            // View set 0
+            // Transform set 1
+            VkDescriptorSet set{ m_transformSets[frameInFlight] };
+            VkBindDescriptorSetsInfo bindInfo = {};
+            bindInfo.descriptorSetCount = 1;
+            bindInfo.firstSet = 0;
+            bindInfo.layout = m_pipelineLayout;
+            bindInfo.pDescriptorSets = &set;
+            bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+            bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
+            bindInfo.dynamicOffsetCount = 0;
+            bindInfo.pDynamicOffsets = nullptr;
+            //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
+            vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &set, 0, nullptr);
+
+            // Bind vertex and index buffer
+            VkDeviceSize offset{ 0 };
+            vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 1, &m_vertexBufferWrappers.m_vkVertexBuffer, &offset);
+            vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], m_indexBufferWrappers.m_vkIndexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+
+            // Launch draw
+            vkCmdDrawIndexed(m_commandBuffers[frameInFlight], m_cubeIndices.size(), instanceCount, 0, 0, 0);
+        }
+        vkCmdEndRendering(m_commandBuffers[frameInFlight]);
+
+        Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
+    }
+
+    Submit(frameInFlight, timelineSem, signalValue, waitValue);
 }
 
 Loops::Tasking::BoundsRenderTask::~BoundsRenderTask()

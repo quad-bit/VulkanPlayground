@@ -22,6 +22,12 @@ namespace Loops::Tasking
         uint32_t m_maxFrameInFlights;
     };
 
+    enum class PipelineType
+    {
+        WIREFRAME,
+        BVH_RENDER
+    };
+
     class Pipeline
     {
     private:

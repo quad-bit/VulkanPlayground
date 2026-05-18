@@ -1,5 +1,4 @@
 #include <memory>
-
 #include "tasks/ColorUnlitTask.h"
 
 Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera) :
@@ -70,7 +69,7 @@ void Loops::Tasking::ColorUnlitTask::Init()
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 3 * m_info.m_maxFrameInFlights; //camera 1, transforms 2
+        poolInfo.maxSets = 4 * m_info.m_maxFrameInFlights; //camera 1, transforms 2
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -148,7 +147,7 @@ void Loops::Tasking::ColorUnlitTask::Init()
 
         // Describe the vertex input, i.e. two vertex input attributes in our case:
         VkVertexInputBindingDescription vertexBindings{ 0, sizeof(Loops::Vertex), VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX };
-        VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_position) };
+        VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_position) };
 
         pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = &attributeDescriptions;
         pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindings;
@@ -157,13 +156,13 @@ void Loops::Tasking::ColorUnlitTask::Init()
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {};
         pipelineInputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+        pipelineInputAssemblyStateCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
         pipelineInputAssemblyStateCreateInfo.primitiveRestartEnable = VK_FALSE;
 
         VkPipelineRasterizationStateCreateInfo pipelineRasterizationStateCreateInfo = {};
         pipelineRasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_LINE;
-        pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE;
+        pipelineRasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+        pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
         pipelineRasterizationStateCreateInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
         pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
@@ -254,23 +253,15 @@ void Loops::Tasking::ColorUnlitTask::Init()
             nullptr, &m_pipeline));
     }
 
+#if 0
     // Camera Uniform
     {
-        //if (!m_pCamera)
-        //{
-        //    Loops::Transform camTransform;
-        //    //camTransform.m_position = glm::vec3(-65, 20, 0);
-        //    //camTransform.m_eulerAngles = glm::vec3(glm::radians(15.0f), glm::radians(90.0f), 0);
-        //    camTransform.m_position = glm::vec3(0, 0, -3);
-        //    m_pCamera = std::make_unique<Loops::Camera>(camTransform, screenWidth / (float)screenHeight);
-        //}
-
-        const uint16_t numUniforms = 1;//maxFrameInFlight if camera is moving
+        const uint16_t numUniforms = m_info.m_maxFrameInFlights;//maxFrameInFlight if camera is moving
 
         Loops::VkUtils::CreateBufferAndMemory(m_info.m_physicalDevice, m_info.m_device, m_cameraUniforms, m_cameraUniformMemory, sizeof(SceneUniform)* numUniforms,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-        std::array<SceneUniform, numUniforms> uniformArray{};
+        std::vector<SceneUniform> uniformArray(numUniforms);
         for (auto& uniform : uniformArray)
         {
             assert(m_pCamera != nullptr);
@@ -279,10 +270,10 @@ void Loops::Tasking::ColorUnlitTask::Init()
             uniform.viewMat = m_pCamera->GetViewMatrix();
         }
 
-        void* pData;
+        /*void* pData;
         Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
         memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
-        vkUnmapMemory(m_info.m_device, m_cameraUniformMemory);
+        vkUnmapMemory(m_info.m_device, m_cameraUniformMemory);*/
 
         {
             m_viewSet.resize(numUniforms);
@@ -342,15 +333,92 @@ void Loops::Tasking::ColorUnlitTask::Init()
             }
         }
     }
+#endif
+
+    // Camera Uniform
+    {
+        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(SceneUniform));
+        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
+
+        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
+        ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not mapped");
+
+        {
+            m_viewSet.resize(numUniforms);
+            VkDescriptorSetAllocateInfo setAllocInfo{};
+            setAllocInfo.descriptorPool = m_descriptorPool;
+            setAllocInfo.descriptorSetCount = numUniforms;
+            setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
+            setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, m_viewSet.data()));
+
+            for (uint16_t i = 0; i < numUniforms; i++)
+            {
+                VkDescriptorBufferInfo bufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(SceneUniform) };
+                const VkWriteDescriptorSet writes
+                {
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
+                };
+                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+            }
+        }
+    }
+
+    // Transform Uniform
+    {
+        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
+
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+        m_transformUniformDataSizePerFrame = dataSizePerFrame;
+
+        VkUtils::CreateBufferVma(dataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+
+        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
+        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not mapped");
+
+        {
+            m_transformSets.resize(numUniforms);
+
+            for (uint16_t i = 0; i < numUniforms; i++)
+            {
+                VkDescriptorSetAllocateInfo setAllocInfo{};
+                setAllocInfo.descriptorPool = m_descriptorPool;
+                setAllocInfo.descriptorSetCount = 1;
+                setAllocInfo.pSetLayouts = &m_setLayouts[TRANSFORM_SET];
+                setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
+
+                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                const VkWriteDescriptorSet writes
+                {
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
+                };
+                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+            }
+        }
+    }
+
 }
 
 void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
     const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager)
 {
-    void* pData;
-    Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_transformUniformMemory, frameInFlight * sizeof(glm::mat4) * MAX_ENTITIES, sizeof(glm::mat4) * renderData.m_drawableCount, 0, &pData));
-    memcpy(pData, renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
-    vkUnmapMemory(m_info.m_device, m_transformUniformMemory);
+    ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
+    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
+
+    assert(m_pCamera != nullptr);
+    SceneUniform uniform{};
+    uniform.cameraPos = m_pCamera->GetPosition();
+    uniform.projectionMat = m_pCamera->GetProjectionMat();
+    uniform.viewMat = m_pCamera->GetViewMatrix();
+
+    ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
+    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(SceneUniform));
 
     // Build Command Buffers
     {
@@ -449,8 +517,9 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
 
 Loops::Tasking::ColorUnlitTask::~ColorUnlitTask()
 {
-    vkFreeMemory(m_info.m_device, m_transformUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_transformBuffer, nullptr);
-    vkFreeMemory(m_info.m_device, m_cameraUniformMemory, nullptr);
-    vkDestroyBuffer(m_info.m_device, m_cameraUniforms, nullptr);
+    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+
+    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 }

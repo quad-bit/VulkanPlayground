@@ -3,6 +3,11 @@
 Loops::Camera::Camera(const Loops::Transform& transform, float aspectRatio,
     glm::vec3 up, CameraType projectionType) : m_transform(transform), m_aspect(aspectRatio), m_projectionType(projectionType)
 {
+    Init();
+}
+
+void Loops::Camera::Init()
+{
     // FOR NOW CAMERA DOESN'T HAS A PARENT
     auto translationMat = glm::translate(m_transform.m_position);
     auto scaleMat = glm::scale(m_transform.m_scale);
@@ -21,7 +26,7 @@ Loops::Camera::Camera(const Loops::Transform& transform, float aspectRatio,
     glm::vec3 globalPosition = glm::vec3(m_transform.m_modelMat[3]);
     m_viewMat = glm::lookAt(globalPosition, globalPosition + camFront, camUp);
 
-    switch (projectionType)
+    switch (m_projectionType)
     {
     case CameraType::ORTHOGONAL:
         //ASSERT_MSG_DEBUG(0, "Need the correct design");
@@ -50,7 +55,12 @@ glm::vec3 Loops::Camera::GetPosition()
     return m_transform.m_position;
 }
 
-//
+void Loops::Camera::UpdateCamera()
+{
+    Init();
+}
+
+
 //void Camera::UpdateLocalAxes()
 //{
 //    glm::vec3 front;

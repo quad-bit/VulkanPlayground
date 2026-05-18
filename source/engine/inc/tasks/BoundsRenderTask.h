@@ -24,6 +24,7 @@ namespace Loops::Tasking
             glm::vec4(-0.5f, 0.5f, 0.5f, 1.0f)
         };
 
+#if 0
         std::vector<uint32_t> m_cubeIndices =
         {
             0, 1, 3, 3, 1, 2,
@@ -33,6 +34,16 @@ namespace Loops::Tasking
             3, 2, 7, 7, 2, 6,
             4, 5, 0, 0, 5, 1
         };
+#else
+        std::vector<uint32_t> m_cubeIndices =
+        {
+            0, 1, 1, 2, 2, 3, 3, 0,
+            1, 5, 5, 6, 6, 2,
+            6, 7, 7, 3,
+            7, 4, 4, 5,
+            4,0
+        };
+#endif
 
         const uint16_t TRANSFORM_SET = 0;
         struct BoundVertex
@@ -59,6 +70,11 @@ namespace Loops::Tasking
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::Bounds* boundArray, size_t numBounds, const glm::mat4& viewProjectionMat);
+
+        void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
+            const Loops::Bounds* primitiveBoundArray, size_t numPrimitiveBounds, const Loops::Bounds* bvhNodeBoundArray, size_t numBvhNodeBounds,
+            const glm::mat4& viewProjectionMat);
+
 
         ~BoundsRenderTask();
     };

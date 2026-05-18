@@ -43,41 +43,88 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_maxFramesInFlight = m_pVulkanManager->GetMaxFramesInFlight();
 
-    /*
     {
         auto func = [this](const Events::Event* event)
             {
-                PLOGD << (static_cast<const Events::KeyInputEvent*>(event))->keyname;
-                if ((static_cast<const Events::KeyInputEvent*>(event))->keyState == Events::KeyState::DOWN)
-                    PLOGD << "DOWN " << this->GetMaxFrameInFlights();
+                if ((static_cast<const Events::KeyInputEvent*>(event))->keyState == Events::KeyState::PRESSED && 
+                    strcmp ((static_cast<const Events::KeyInputEvent*>(event))->keyname, "SPACE") == 0)
+                {
+                    //PLOGD << (static_cast<const Events::KeyInputEvent*>(event))->keyname;
+                    ToggleGamePlayPauseState();
+                }
             };
 
         Events::EventBus::GetInstance()->Subscribe<Events::KeyInputEvent>(func);
 
 
-        Events::KeyInputEvent testEvent;
-        testEvent.keyname = "Control";
-        testEvent.keyState = Events::KeyState::DOWN;
+        /*Events::KeyInputEvent testEvent;
+        testEvent.keyname = "SPACE";
+        testEvent.keyState = Events::KeyState::RELEASED;
 
-        Events::EventBus::GetInstance()->Publish<Events::KeyInputEvent>(&testEvent);
+        Events::EventBus::GetInstance()->Publish<Events::KeyInputEvent>(&testEvent);*/
     }
-    */
 
-    // pipeline creation
-    {
-        Tasking::PipelineInfo pipelineInfo{};
-        pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
-        pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-        pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
-        pipelineInfo.m_graphicsQueue = m_pVulkanManager->GetGraphicsQueue();
-        pipelineInfo.m_graphicsQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-        pipelineInfo.m_maxFrameInFlights = m_pVulkanManager->GetMaxFramesInFlight();
-        pipelineInfo.m_physicalDevice = m_pVulkanManager->GetPhysicalDevice();
-        pipelineInfo.m_screenDimensions = info.m_screenSize;
-        pipelineInfo.m_designDimensions = info.m_designSize;
+    auto SetupWireframePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+        {
+            m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+        };
 
-        m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
-    }
+    auto SetupBvhRenderPipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+        {
+            m_pBvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+        };
+
+    auto SetupPipeline = [this, &info, &SetupWireframePipeline, &SetupBvhRenderPipeline](const std::vector<Tasking::PipelineType>& pipelineTypes)
+        {
+            m_activePipeline = info.m_pipelines[0];
+
+            Tasking::PipelineInfo pipelineInfo{};
+            pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
+            pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
+            pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
+            pipelineInfo.m_graphicsQueue = m_pVulkanManager->GetGraphicsQueue();
+            pipelineInfo.m_graphicsQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
+            pipelineInfo.m_maxFrameInFlights = m_pVulkanManager->GetMaxFramesInFlight();
+            pipelineInfo.m_physicalDevice = m_pVulkanManager->GetPhysicalDevice();
+            pipelineInfo.m_screenDimensions = info.m_screenSize;
+            pipelineInfo.m_designDimensions = info.m_designSize;
+
+            for (auto& type : info.m_pipelines)
+            {
+                switch (type)
+                {
+                    case Tasking::PipelineType::WIREFRAME:
+                        SetupWireframePipeline(pipelineInfo);
+                        break;
+
+                    case Tasking::PipelineType::BVH_RENDER:
+                        SetupBvhRenderPipeline(pipelineInfo);
+                        break;
+
+                    default :
+                        break;
+                }
+            }
+        };
+
+    ASSERT_MSG(info.m_pipelines.size() > 0, "Pipeline info required");
+    SetupPipeline(info.m_pipelines);
+
+    //// pipeline creation
+    //{
+    //    Tasking::PipelineInfo pipelineInfo{};
+    //    pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
+    //    pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
+    //    pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
+    //    pipelineInfo.m_graphicsQueue = m_pVulkanManager->GetGraphicsQueue();
+    //    pipelineInfo.m_graphicsQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
+    //    pipelineInfo.m_maxFrameInFlights = m_pVulkanManager->GetMaxFramesInFlight();
+    //    pipelineInfo.m_physicalDevice = m_pVulkanManager->GetPhysicalDevice();
+    //    pipelineInfo.m_screenDimensions = info.m_screenSize;
+    //    pipelineInfo.m_designDimensions = info.m_designSize;
+
+    //    m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+    //}
 
     // imgui
     m_pImguiUtil = std::make_unique<Loops::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
@@ -87,7 +134,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_pImguiUtil->Init();
 
-    m_pEditor = std::make_unique<Loops::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager);
+    m_pEditor = std::make_unique<Loops::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager, m_boundsManager);
 
     Init();
 }
@@ -96,7 +143,7 @@ void Loops::EngineManager::Init()
 {
     for (auto& onStartFunc : m_appCallbacks.m_Start)
     {
-        onStartFunc(m_pSceneManager->m_world);
+        onStartFunc(m_pSceneManager->m_world, m_pSceneManager->GetMainCamera());
     }
 }
 
@@ -119,6 +166,12 @@ void Loops::EngineManager::DeInit()
         {
             m_pWireframePipeline.reset();
             m_pWireframePipeline = nullptr;
+        }
+
+        if (m_pBvhRenderPipeline)
+        {
+            m_pBvhRenderPipeline.reset();
+            m_pBvhRenderPipeline = nullptr;
         }
 
         m_pSceneManager->DeInitialise();
@@ -181,6 +234,11 @@ uint32_t Loops::EngineManager::GetMaxFrameInFlights() const
     return m_maxFramesInFlight;
 }
 
+void Loops::EngineManager::ToggleGamePlayPauseState()
+{
+    m_isGameplayPaused = m_isGameplayPaused ? false : true;
+}
+
 void Loops::EngineManager::Loop()
 {
     while (m_pWindowManagerObj->Update())
@@ -191,16 +249,31 @@ void Loops::EngineManager::Loop()
 
         m_pImguiUtil->NewFrame();
 
-        for (auto& onUpdate : m_appCallbacks.m_Update)
+        if (!m_isGameplayPaused)
         {
-            onUpdate(m_pTimer->GetDeltaTime());
-        }
+            for (auto& onUpdate : m_appCallbacks.m_Update)
+            {
+                onUpdate(m_pTimer->GetDeltaTime());
+            }
 
-        m_pSceneManager->Update(currentFrameInFlight);
-        m_boundsManager.Update(currentFrameInFlight, m_pSceneManager->m_world);
+            m_pSceneManager->Update(currentFrameInFlight);
+            m_boundsManager.Update(currentFrameInFlight, m_pSceneManager->m_world);
+        }
         m_pSceneManager->Prepare(currentFrameInFlight);
 
-        m_pWireframePipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiUtil);
+        switch (m_activePipeline)
+        {
+        case Tasking::PipelineType::WIREFRAME:
+            m_pWireframePipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiUtil);
+            break;
+
+        case Tasking::PipelineType::BVH_RENDER:
+            m_pBvhRenderPipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiUtil);
+            break;
+
+        default:
+            break;
+        }
         m_pTimer->EndFrame();
     }
 }

@@ -30,6 +30,7 @@ set(CORE_FILES
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
+    inc/pipelines/BvhRenderPipeline.h
 
     inc/input/InputManager.h
     inc/input/MouseInputManager.h
@@ -62,6 +63,7 @@ set(CORE_FILES
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
+    src/pipelines/BvhRenderPipeline.cpp
 
     src/memory/MemoryManager.cpp
     src/memory/LinearPoolAllocator.cpp

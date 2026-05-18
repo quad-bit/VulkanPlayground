@@ -32,6 +32,8 @@ namespace Loops
 
         Camera() = delete;
 
+        void Init();
+
     public:
 
         Loops::Transform m_transform;
@@ -43,7 +45,7 @@ namespace Loops
         const glm::mat4& GetViewMatrix();
         const glm::mat4& GetProjectionMat();
         glm::vec3 GetPosition();
-
+        void UpdateCamera();
     };
 }
 

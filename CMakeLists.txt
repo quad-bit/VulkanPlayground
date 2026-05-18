@@ -42,3 +42,4 @@ add_subdirectory(source/engine projects/core)
 
 message ("\nConfiguring app ..")
 add_subdirectory(source/app/gltf projects/apps/gltf)
+add_subdirectory(source/app/bvhDemo projects/apps/bvhDemo)

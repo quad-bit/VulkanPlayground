@@ -7,17 +7,19 @@
 namespace Loops
 {
     // For now change this manually based on the model being loaded
-    const uint32_t MAX_ENTITIES = 1000;
+    const uint32_t MAX_ENTITIES = 100;
     const uint32_t MAX_MESH_VIEWS_PER_MESH = 10;
 
-    constexpr uint32_t MAX_TREE_NODES = 50;
-    constexpr uint32_t MAX_BOUNDS = MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH + MAX_TREE_NODES;
+    constexpr uint32_t NUM_PRIMITIVE_BOUNDS = MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH;
+    constexpr uint32_t NUM_BVH_NODES = 2 * NUM_PRIMITIVE_BOUNDS - 1;
+    constexpr uint32_t MAX_BOUNDS = NUM_PRIMITIVE_BOUNDS + NUM_BVH_NODES;
+    constexpr uint32_t MAX_PRIMITIVES_PER_LEAF = 1;
 
     struct alignas(4) Bounds
     {
         //glm::vec3 m_center{ 0.0f }; // CALCULATE CENTER
-        glm::vec3 m_min{ 0.0f };
-        glm::vec3 m_max{ 0.0f };
+        glm::vec3 m_max{ std::numeric_limits<float>::lowest() };
+        glm::vec3 m_min{ std::numeric_limits<float>::max() };
         uint32_t m_boundIndex = 0;
     };
 

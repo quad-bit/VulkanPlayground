@@ -10,51 +10,64 @@ class ApplicationHandler
 {
 private:
     flecs::world& m_world;
-    flecs::entity m_knight;
-    flecs::entity m_suzanne;
+    flecs::entity m_cone;
+    //flecs::entity m_suzanne;
 
 public:
-    ApplicationHandler(flecs::world& world) : m_world(world)
+    ApplicationHandler(flecs::world& world, std::unique_ptr<Loops::Camera>& camera) : m_world(world)
     {
-        m_suzanne = m_world.lookup("Suzanne_Root::Suzanne");
-        Loops::Transform& t = m_suzanne.get_mut<Loops::Transform>();
-        t.m_position.y = 30.0f;
+        m_cone = m_world.lookup("bvhDemo_Root::Cone");
 
-        m_knight = m_world.lookup("ABeautifulGame_Root::Knight_W1");
+        /*m_knight = m_world.lookup("ABeautifulGame_Root::Knight_W1");
         if (!m_knight.is_valid())
         {
             assert(0);
-        }
+        }*/
+
+        Loops::ASSERT_MSG(camera != nullptr, "Camera null");
+
+        Loops::Transform& camTransform = camera->m_transform;
+        //camTransform.m_position = glm::vec3(0, 5, -15);
+        //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
+
+        camTransform.m_position = glm::vec3(20, 0, 0);
+        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-90.0f), 0);
+
+        //camTransform.m_position = glm::vec3(0, 15, 0);
+        //camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), glm::radians(0.0f), 0);
+
+        camera->UpdateCamera();
     }
 
     void Update(const double& deltaTime)
     {
-        if (m_knight.is_valid())
+        if (m_cone.is_valid())
         {
             const float speed = 2.0f;
-            Loops::Transform& t = m_knight.get_mut<Loops::Transform>();
-            t.m_eulerAngles.y += deltaTime * speed;
+            Loops::Transform& t = m_cone.get_mut<Loops::Transform>();
+            t.m_eulerAngles.z += deltaTime * speed;
+            //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
         }
 
-        if (m_suzanne.is_valid())
-        {
-            Loops::Transform& t = m_suzanne.get_mut<Loops::Transform>();
-            static float totalTime = 0;
-            auto pingPong = [](float time, float length) -> float
-            {
-                float t = fmod(time, length * 2.0f);
-                return length - fabs(t - length);
-            };
+        //if (m_suzanne.is_valid())
+        //{
+        //    Loops::Transform& t = m_suzanne.get_mut<Loops::Transform>();
+        //    static float totalTime = 0;
+        //    auto pingPong = [](float time, float length) -> float
+        //    {
+        //        float t = fmod(time, length * 2.0f);
+        //        return length - fabs(t - length);
+        //    };
 
-            glm::vec3 startPos(50.0f, 0.0f, 0.0f);
-            glm::vec3 endPos(-50.0f, 0.0f, 0.0f);
-            float duration = 2.0f;
-            totalTime += deltaTime;
+        //    glm::vec3 startPos(50.0f, 0.0f, 0.0f);
+        //    glm::vec3 endPos(-50.0f, 0.0f, 0.0f);
+        //    float duration = 2.0f;
+        //    totalTime += deltaTime;
 
-            float val = pingPong(totalTime, duration)/duration;
+        //    float val = pingPong(totalTime, duration)/duration;
 
-            t.m_position.x = glm::lerp(startPos.x, endPos.x, val);// 1.0f - (float)glm::exp(-10.0f * deltaTime));
-        }
+        //    t.m_position.x = glm::lerp(startPos.x, endPos.x, val);// 1.0f - (float)glm::exp(-10.0f * deltaTime));
+        //}
     }
 
     ~ApplicationHandler()
@@ -82,21 +95,19 @@ int main()
 
     //executor.run(taskflow).wait();
 
-    auto chessPath = std::string{ ASSETS_PATH } + "/models/ABeautifulGame/glTF/ABeautifulGame.gltf";
-    auto suzzanePath = std::string{ ASSETS_PATH } + "/models/Suzanne/Suzanne.gltf";
+    auto bvhDemo = std::string{ ASSETS_PATH } + "/models/bvhDemo/bvhDemo.gltf";
 
     std::vector<Loops::ModelLoadInfo> gltfInfo;
-    gltfInfo.push_back({ 100.0f, chessPath.c_str() });
-    gltfInfo.push_back({ 5.0f, suzzanePath.c_str() });
+    gltfInfo.push_back({ 1.0f, bvhDemo.c_str() });
 
     constexpr uint32_t windowWidth = 1280;
     constexpr uint32_t windowHeight = 720;
 
     Loops::EngineInfo info{};
     info.m_designSize = Loops::Dimension(windowWidth, windowHeight);
-    info.m_gltfInfos = gltfInfo;
     info.m_screenSize = Loops::Dimension(windowWidth, windowHeight);
-    info.m_pipelines = { Loops::Tasking::PipelineType::WIREFRAME };
+    info.m_gltfInfos = gltfInfo;
+    info.m_pipelines = { Loops::Tasking::PipelineType::BVH_RENDER };
 
     Loops::AppCallbacks callback{};
     {

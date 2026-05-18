@@ -11,6 +11,7 @@
 #include "ImguiUtil.h"
 #include "Utils.h"
 #include "pipelines/WireframePipeline.h"
+#include "pipelines/BvhRenderPipeline.h"
 #include "Timer.h"
 #include "ImguiEditor.h"
 
@@ -23,12 +24,13 @@ namespace Loops
     {
         Dimension m_screenSize{ 1280, 720 }, m_designSize{ 1280, 720 };
         std::vector<Loops::ModelLoadInfo> m_gltfInfos;
+        std::vector<Tasking::PipelineType> m_pipelines;
         bool m_enableEditor = true;
     };
 
     struct AppCallbacks
     {
-        std::vector < std::function<void(flecs::world&)>> m_Start;
+        std::vector < std::function<void(flecs::world&, std::unique_ptr<Loops::Camera>&)>> m_Start;
         std::vector < std::function<void(const double&)>> m_Update;
         std::vector < std::function<void()>> m_PreRender;
         std::vector < std::function<void()>> m_Exit;
@@ -51,7 +53,11 @@ namespace Loops
         uint32_t m_maxFramesInFlight;
         std::unique_ptr<Timer> m_pTimer;
 
-        std::unique_ptr<Tasking::WireframePipeline> m_pWireframePipeline;
+        bool m_isGameplayPaused = false;
+
+        std::unique_ptr<Tasking::WireframePipeline> m_pWireframePipeline = nullptr;
+        std::unique_ptr<Tasking::BvhRenderPipeline> m_pBvhRenderPipeline = nullptr;
+        Tasking::PipelineType m_activePipeline;
         AppCallbacks m_appCallbacks;
 
         void Init();
@@ -66,6 +72,7 @@ namespace Loops
         const SceneManager& GetSceneManager() const;
         const VulkanManager& GetVulkanManager() const;
         uint32_t GetMaxFrameInFlights() const;
+        void ToggleGamePlayPauseState();
     };
 }
 

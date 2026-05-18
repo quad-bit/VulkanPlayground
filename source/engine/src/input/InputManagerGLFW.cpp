@@ -282,7 +282,7 @@ namespace
         }
 
         ImGuiIO& io = ImGui::GetIO();
-        if (io.WantCaptureMouse)
+        if (io.WantCaptureKeyboard)
         {
             Loops::ImguiUtil::KeyCallback(window, key, scancode, action, mods);
             return;

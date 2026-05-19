@@ -64,7 +64,7 @@ namespace Loops
         std::vector<Loops::RenderData> m_renderDataList;
 
         //Loops::BoundsManager m_boundManager;
-        std::unique_ptr<Camera> m_mainCamera;
+        flecs::entity m_cameraEntity;
 
     public:
 
@@ -97,8 +97,6 @@ namespace Loops
 
         const VkBuffer& GetVertexBuffer(uint32_t id) const;
         const VkBuffer& GetIndexBuffer(uint32_t id) const;
-
-        std::unique_ptr<Camera>& GetMainCamera();
     };
 }
 

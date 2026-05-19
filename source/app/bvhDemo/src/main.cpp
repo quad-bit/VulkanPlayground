@@ -11,22 +11,19 @@ class ApplicationHandler
 private:
     flecs::world& m_world;
     flecs::entity m_cone;
-    //flecs::entity m_suzanne;
+    flecs::entity m_cube;
+    flecs::entity m_camera;
 
 public:
-    ApplicationHandler(flecs::world& world, std::unique_ptr<Loops::Camera>& camera) : m_world(world)
+    ApplicationHandler(flecs::world& world) : m_world(world)
     {
         m_cone = m_world.lookup("bvhDemo_Root::Cone");
+        m_cube = m_world.lookup("bvhDemo_Root::Cube.001");
+        m_camera = m_world.lookup("MainCamera");
 
-        /*m_knight = m_world.lookup("ABeautifulGame_Root::Knight_W1");
-        if (!m_knight.is_valid())
-        {
-            assert(0);
-        }*/
+        Loops::ASSERT_MSG(m_camera.is_valid(), "Camera not found");
 
-        Loops::ASSERT_MSG(camera != nullptr, "Camera null");
-
-        Loops::Transform& camTransform = camera->m_transform;
+        Loops::Transform& camTransform = m_camera.get_mut<Loops::Transform>();
         //camTransform.m_position = glm::vec3(0, 5, -15);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
@@ -35,8 +32,6 @@ public:
 
         //camTransform.m_position = glm::vec3(0, 15, 0);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), glm::radians(0.0f), 0);
-
-        camera->UpdateCamera();
     }
 
     void Update(const double& deltaTime)
@@ -49,25 +44,27 @@ public:
             //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
         }
 
-        //if (m_suzanne.is_valid())
-        //{
-        //    Loops::Transform& t = m_suzanne.get_mut<Loops::Transform>();
-        //    static float totalTime = 0;
-        //    auto pingPong = [](float time, float length) -> float
-        //    {
-        //        float t = fmod(time, length * 2.0f);
-        //        return length - fabs(t - length);
-        //    };
+#if 0
+        if (m_cube.is_valid())
+        {
+            Loops::Transform& t = m_cube.get_mut<Loops::Transform>();
+            static float totalTime = 0;
+            auto pingPong = [](float time, float length) -> float
+            {
+                float t = fmod(time, length * 2.0f);
+                return length - fabs(t - length);
+            };
 
-        //    glm::vec3 startPos(50.0f, 0.0f, 0.0f);
-        //    glm::vec3 endPos(-50.0f, 0.0f, 0.0f);
-        //    float duration = 2.0f;
-        //    totalTime += deltaTime;
+            glm::vec3 startPos(5.0f, 0.0f, 0.0f);
+            glm::vec3 endPos(-5.0f, 0.0f, 0.0f);
+            float duration = 2.0f;
+            totalTime += deltaTime;
 
-        //    float val = pingPong(totalTime, duration)/duration;
+            float val = pingPong(totalTime, duration)/duration;
 
-        //    t.m_position.x = glm::lerp(startPos.x, endPos.x, val);// 1.0f - (float)glm::exp(-10.0f * deltaTime));
-        //}
+            t.m_position.x = glm::lerp(startPos.x, endPos.x, val);// 1.0f - (float)glm::exp(-10.0f * deltaTime));
+        }
+#endif
     }
 
     ~ApplicationHandler()
@@ -112,9 +109,9 @@ int main()
     Loops::AppCallbacks callback{};
     {
         std::unique_ptr<ApplicationHandler> pAppHandler;
-        auto init = [&pAppHandler](flecs::world& world, std::unique_ptr<Loops::Camera>& camera)
+        auto init = [&pAppHandler](flecs::world& world)
             {
-                pAppHandler = std::make_unique<ApplicationHandler>(world, camera);
+                pAppHandler = std::make_unique<ApplicationHandler>(world);
             };
 
         callback.m_Start.push_back(init);

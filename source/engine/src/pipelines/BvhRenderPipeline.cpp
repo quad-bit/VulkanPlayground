@@ -2,7 +2,7 @@
 #include "BoundsManager.h"
 #include <optional>
 
-Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, std::unique_ptr<Loops::Camera>& pCamera) :
+Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager) :
     Pipeline(info)
 {
     {
@@ -19,7 +19,7 @@ Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, c
     taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
     m_pColorUnlitTask = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
-        VK_FORMAT_B8G8R8A8_UNORM, pVulkanManager->GetDepthFormat(), pCamera);
+        VK_FORMAT_B8G8R8A8_UNORM, pVulkanManager->GetDepthFormat());
 
     m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
 }
@@ -67,14 +67,14 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
 
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
         uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
-
+        auto& cameraData = sceneManager->GetRenderData(currentFrameInFlight).m_cameraData;
 #if 0
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, waitValue, primitiveBoundArray, numPrimitiveBounds, sceneManager->GetMainCamera()->GetProjectionMat() * sceneManager->GetMainCamera()->GetViewMatrix());
 #else
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue,
             primitiveBoundArray, numPrimitiveBounds, primitiveNodeBoundArray, numPrimitiveNodeBounds,
-            sceneManager->GetMainCamera()->GetProjectionMat() * sceneManager->GetMainCamera()->GetViewMatrix());
+            cameraData.m_projectionMat * cameraData.m_viewMat);
 #endif
     }
 

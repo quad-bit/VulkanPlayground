@@ -30,7 +30,7 @@ namespace Loops
 
     struct AppCallbacks
     {
-        std::vector < std::function<void(flecs::world&, std::unique_ptr<Loops::Camera>&)>> m_Start;
+        std::vector < std::function<void(flecs::world&)>> m_Start;
         std::vector < std::function<void(const double&)>> m_Update;
         std::vector < std::function<void()>> m_PreRender;
         std::vector < std::function<void()>> m_Exit;

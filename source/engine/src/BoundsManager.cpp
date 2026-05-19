@@ -379,6 +379,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildBVHRecursive(Bounds* primitiveBoundsA
                             glm::vec3 centroid = (primitiveBoundsArray[i].m_max + primitiveBoundsArray[i].m_min) / 2.0f;
 
                             // get a normalised value and then multiply with numBuckets to get the bucket value
+                            // in the axis with maximum extent
                             int bucketIndex = numBuckets * Offset(bvhData.m_centroidBounds, centroid)[dim];
                             if (bucketIndex == numBuckets)
                                 bucketIndex = numBuckets - 1;
@@ -395,18 +396,29 @@ Loops::BVHNode* Loops::BoundsManager::BuildBVHRecursive(Bounds* primitiveBoundsA
                             Bounds b0, b1;
                             uint32_t count0 = 0, count1 = 0;
 
+                            // Create bucket from 0-k and k-numBuckets, move k gradually from 1 to numBuckets - 1,
+                            // the last bucket will not have the boundary
                             for (uint32_t j = 0; j <= i; j++)
                             {
-                                b0 = Union(b0, buckets[i].bound);
-                                count0 += buckets[i].m_count;
+                                b0 = Union(b0, buckets[j].bound);
+                                count0 += buckets[j].m_count;
                             }
 
-                            for (uint32_t j = i + 1; j < numBuckets; j++)
+                            for (uint32_t j = i + 1; j < numBuckets - 1; j++)
                             {
-                                b1 = Union(b1, buckets[i].bound);
-                                count1 += buckets[i].m_count;
+                                b1 = Union(b1, buckets[j].bound);
+                                count1 += buckets[j].m_count;
                             }
-                            cost[i] = .125f + count0 * SurfaceArea(b0) + count1 * SurfaceArea(b1);
+
+                            // cost ray travelling through the node
+                            // estimated intersection cost set to 1 and then traversal cost is set to 1/8
+                            // its always measured in relative terms rather than absolute but absolute values 
+                            // can be calculated and used 
+                            const float traversalCost = 0.125f;
+
+                            // probability of intersection with primitives within node will be directly proportional to the surface area of bucket divided by 
+                            // area of centeroid bounds (from start to end)
+                            cost[i] = traversalCost + (count0 * SurfaceArea(b0) + count1 * SurfaceArea(b1))/SurfaceArea(bvhData.m_centroidBounds);
                             if (cost[i] < minCost)
                             {
                                 minCost = cost[i];
@@ -417,7 +429,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildBVHRecursive(Bounds* primitiveBoundsA
                         float leafCost = numBoundsInNode;
                         if (numBoundsInNode > MAX_PRIMITIVES_PER_LEAF || minCost < leafCost)
                         {
-                            // split bucket
+                            // split primitives based on the container bucket
                             Bounds* midPtr = std::partition(&primitiveBoundsArray[start], &primitiveBoundsArray[end], 
                                 [dim, &bvhData, &minCostSplitBucketIndex](const Bounds& bound)
                                 {

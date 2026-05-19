@@ -66,12 +66,12 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     auto SetupWireframePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+            m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager);
         };
 
     auto SetupBvhRenderPipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            m_pBvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
+            m_pBvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, m_pVulkanManager);
         };
 
     auto SetupPipeline = [this, &info, &SetupWireframePipeline, &SetupBvhRenderPipeline](const std::vector<Tasking::PipelineType>& pipelineTypes)
@@ -110,22 +110,6 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     ASSERT_MSG(info.m_pipelines.size() > 0, "Pipeline info required");
     SetupPipeline(info.m_pipelines);
 
-    //// pipeline creation
-    //{
-    //    Tasking::PipelineInfo pipelineInfo{};
-    //    pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
-    //    pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-    //    pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
-    //    pipelineInfo.m_graphicsQueue = m_pVulkanManager->GetGraphicsQueue();
-    //    pipelineInfo.m_graphicsQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-    //    pipelineInfo.m_maxFrameInFlights = m_pVulkanManager->GetMaxFramesInFlight();
-    //    pipelineInfo.m_physicalDevice = m_pVulkanManager->GetPhysicalDevice();
-    //    pipelineInfo.m_screenDimensions = info.m_screenSize;
-    //    pipelineInfo.m_designDimensions = info.m_designSize;
-
-    //    m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager, m_pSceneManager->GetMainCamera());
-    //}
-
     // imgui
     m_pImguiUtil = std::make_unique<Loops::ImguiUtil >(m_pWindowManagerObj->glfwWindow, m_pVulkanManager->GetLogicalDevice(),
         m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
@@ -143,7 +127,7 @@ void Loops::EngineManager::Init()
 {
     for (auto& onStartFunc : m_appCallbacks.m_Start)
     {
-        onStartFunc(m_pSceneManager->m_world, m_pSceneManager->GetMainCamera());
+        onStartFunc(m_pSceneManager->m_world);
     }
 }
 

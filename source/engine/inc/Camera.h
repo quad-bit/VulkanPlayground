@@ -12,13 +12,6 @@ namespace Loops
         ORTHOGONAL
     };
 
-    struct SceneUniform
-    {
-        glm::mat4 viewMat;
-        glm::mat4 projectionMat;
-        glm::vec3 cameraPos;
-    };
-
     class Camera
     {
         glm::vec3 m_worldUp;
@@ -32,20 +25,14 @@ namespace Loops
 
         Camera() = delete;
 
-        void Init();
-
     public:
-
-        Loops::Transform m_transform;
-        // Constructor with vectors
-        Camera(const Loops::Transform& transform, float aspectRatio,
+        Camera(glm::mat4& transformation, float aspectRatio,
             glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
             CameraType projectionType = CameraType::PERSPECTIVE);
 
-        const glm::mat4& GetViewMatrix();
-        const glm::mat4& GetProjectionMat();
-        glm::vec3 GetPosition();
-        void UpdateCamera();
+        const glm::mat4& GetViewMatrix() const;
+        const glm::mat4& GetProjectionMat() const;
+        void UpdateCamera(const Transform& transform);
     };
 }
 

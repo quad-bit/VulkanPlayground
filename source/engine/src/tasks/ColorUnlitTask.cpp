@@ -1,16 +1,16 @@
 #include <memory>
 #include "tasks/ColorUnlitTask.h"
 
-Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera) :
-    GraphicsTask("WireframeTask", info), m_pCamera(pCamera)
+Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info) :
+    GraphicsTask("WireframeTask", info)
 {
     CreateAttachments();
     Init();
 }
 
 Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat, const std::unique_ptr<Loops::Camera>& pCamera) :
-    GraphicsTask("WireframeTask", info, colorViews, depthViews, colorFormat, depthFormat), m_pCamera(pCamera)
+    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) :
+    GraphicsTask("WireframeTask", info, colorViews, depthViews, colorFormat, depthFormat)
 {
     Init();
 }
@@ -338,7 +338,7 @@ void Loops::Tasking::ColorUnlitTask::Init()
     // Camera Uniform
     {
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
-        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(SceneUniform));
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
         VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
@@ -357,7 +357,7 @@ void Loops::Tasking::ColorUnlitTask::Init()
 
             for (uint16_t i = 0; i < numUniforms; i++)
             {
-                VkDescriptorBufferInfo bufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(SceneUniform) };
+                VkDescriptorBufferInfo bufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(CameraData) };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
@@ -411,14 +411,14 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
     ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
     memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
 
-    assert(m_pCamera != nullptr);
-    SceneUniform uniform{};
-    uniform.cameraPos = m_pCamera->GetPosition();
-    uniform.projectionMat = m_pCamera->GetProjectionMat();
-    uniform.viewMat = m_pCamera->GetViewMatrix();
+    //assert(m_pCamera != nullptr);
+    CameraData uniform{};
+    uniform.m_cameraPos = renderData.m_cameraData.m_cameraPos;
+    uniform.m_projectionMat = renderData.m_cameraData.m_projectionMat;
+    uniform.m_viewMat = renderData.m_cameraData.m_viewMat;
 
     ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
-    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(SceneUniform));
+    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(CameraData));
 
     // Build Command Buffers
     {

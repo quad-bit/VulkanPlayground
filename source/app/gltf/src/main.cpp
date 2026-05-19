@@ -16,6 +16,12 @@ private:
 public:
     ApplicationHandler(flecs::world& world) : m_world(world)
     {
+        //// beautiful game camera
+        //camTransform.m_position = glm::vec3(0, 30, -70);
+        //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
+
+        Loops::ASSERT_MSG(0, "FInd Camera And assign above values");
+
         m_suzanne = m_world.lookup("Suzanne_Root::Suzanne");
         Loops::Transform& t = m_suzanne.get_mut<Loops::Transform>();
         t.m_position.y = 30.0f;
@@ -101,9 +107,9 @@ int main()
     Loops::AppCallbacks callback{};
     {
         std::unique_ptr<ApplicationHandler> pAppHandler;
-        auto init = [&pAppHandler](flecs::world& world, std::unique_ptr<Loops::Camera>& camera)
+        auto init = [&pAppHandler](flecs::world& world)
             {
-                pAppHandler = std::make_unique<ApplicationHandler>(world, camera);
+                pAppHandler = std::make_unique<ApplicationHandler>(world);
             };
 
         callback.m_Start.push_back(init);

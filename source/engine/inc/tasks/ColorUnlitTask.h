@@ -19,8 +19,6 @@ namespace Loops::Tasking
 
         std::vector<VkDescriptorSet> m_viewSet;
         VulkanBuffer m_cameraBuffer;
-        //VkDeviceMemory m_cameraUniformMemory = VK_NULL_HANDLE;
-        const std::unique_ptr<Loops::Camera>& m_pCamera;
 
         void* m_transformUniformMemoryPointer = nullptr;
         void* m_cameraUniformMemoryPointer = nullptr;
@@ -30,10 +28,10 @@ namespace Loops::Tasking
         void Init();
 
     public:
-        ColorUnlitTask(const GraphicsTaskInfo& info, const std::unique_ptr<Loops::Camera>& pCamera);
+        ColorUnlitTask(const GraphicsTaskInfo& info);
 
         ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
-            const VkFormat& colorFormat, const VkFormat& depthFormat, const std::unique_ptr<Loops::Camera>& pCamera);
+            const VkFormat& colorFormat, const VkFormat& depthFormat);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager);

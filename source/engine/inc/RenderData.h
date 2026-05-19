@@ -18,6 +18,14 @@ namespace Loops
         const char* m_name;
     };
 
+    // Camera data
+    struct CameraData
+    {
+        glm::mat4 m_viewMat;
+        glm::mat4 m_projectionMat;
+        glm::vec3 m_cameraPos;
+    };
+
     struct RenderData
     {
         Loops::MeshView m_meshViews[MAX_MESH_VIEWS_PER_MESH * MAX_ENTITIES];
@@ -25,6 +33,7 @@ namespace Loops
         Loops::Drawable m_drawables[MAX_ENTITIES];
         uint32_t m_drawableCount = 0;
         uint32_t m_viewCount = 0;
+        CameraData m_cameraData;
     };
 }
 

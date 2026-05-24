@@ -196,40 +196,42 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
             else
                 splitMethodText = "SURFACE AREA HEURISTICS";*/
 
+            bool isRecursiveActive = creationMethod == Loops::BvhCreationMethod::RECURSIVE ? true : false;
+            bool isLinearActive = !isRecursiveActive;
+
+            if (ImGui::Begin("BVH settings"))
             {
-                if (ImGui::Begin("BVH settings"))
+                ImVec2 currentCurPos = ImGui::GetCursorPos();
+
+                if(ImGui::Checkbox("Recursive", &isRecursiveActive) || isRecursiveActive)
                 {
-                    ImVec2 currentCurPos = ImGui::GetCursorPos();
-
-                    ImGui::RadioButton("Recursive", creationMethod == Loops::BvhCreationMethod::RECURSIVE);
+                    cm_boundsManager.SetCreationMethod(BvhCreationMethod::RECURSIVE);
+                    ImGui::SetCursorPosX(currentCurPos.x + 10);
+                    ImGui::BeginGroup();
+                    //currentCurPos = ImGui::GetCursorPos();
+                    if (ImGui::RadioButton("Equal count", splitMethod == SplitMethod::EQUAL_COUNT))
                     {
-                        ImGui::SetCursorPosX(currentCurPos.x + 10);
-                        ImGui::BeginGroup();
-                        //currentCurPos = ImGui::GetCursorPos();
-                        if (ImGui::RadioButton("Equal count", splitMethod == SplitMethod::EQUAL_COUNT))
-                        {
-                            cm_boundsManager.SetSplitType(SplitMethod::EQUAL_COUNT);
-                        }
-                        else if (ImGui::RadioButton("Mid", splitMethod == SplitMethod::MID))
-                        {
-                            cm_boundsManager.SetSplitType(SplitMethod::MID);
-                        }
-                        else if (ImGui::RadioButton("SAH", splitMethod == SplitMethod::SAH))
-                        {
-                            cm_boundsManager.SetSplitType(SplitMethod::SAH);
-                        }
-                        ImGui::EndGroup();
+                        cm_boundsManager.SetSplitType(SplitMethod::EQUAL_COUNT);
                     }
-
-                    auto pos = ImVec2(ImGui::GetWindowSize().x * 0.5f, currentCurPos.y);
-                    ImGui::SetCursorPos(pos);
-                    if (ImGui::RadioButton("Linear Morton", creationMethod == Loops::BvhCreationMethod::LINEAR))
+                    else if (ImGui::RadioButton("Mid", splitMethod == SplitMethod::MID))
                     {
-
+                        cm_boundsManager.SetSplitType(SplitMethod::MID);
                     }
-
-                    ImGui::End();
+                    else if (ImGui::RadioButton("SAH", splitMethod == SplitMethod::SAH))
+                    {
+                        cm_boundsManager.SetSplitType(SplitMethod::SAH);
+                    }
+                    ImGui::EndGroup();
                 }
+
+                auto pos = ImVec2(ImGui::GetWindowSize().x * 0.5f, currentCurPos.y);
+                ImGui::SetCursorPos(pos);
+                if (ImGui::Checkbox("Linear Morton", &isLinearActive))
+                {
+                    cm_boundsManager.SetCreationMethod(BvhCreationMethod::LINEAR);
+                }
+
+                ImGui::End();
             }
         };
 

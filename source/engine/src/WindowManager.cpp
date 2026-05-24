@@ -36,6 +36,7 @@ void Loops::WindowManager::InitOSWindow()
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", nullptr, nullptr);
+    //glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", glfwGetPrimaryMonitor(), nullptr);
     glfwGetFramebufferSize(glfwWindow, (int*)&m_screenWidth, (int*)&m_screenHeight);
 }
 

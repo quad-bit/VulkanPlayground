@@ -35,8 +35,8 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_pInputManager = std::make_unique<IO::InputManager>(m_pWindowManagerObj->glfwWindow);
 
-    assert(std::get<0>(dim) == info.m_screenSize.m_width);
-    assert(std::get<1>(dim) == info.m_screenSize.m_height);
+    ASSERT_MSG(std::get<0>(dim) == info.m_screenSize.m_width, "Mismatch");
+    ASSERT_MSG(std::get<1>(dim) == info.m_screenSize.m_height, "Mismatch");
 
     m_pSceneManager->Initialise(m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(),
         m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);

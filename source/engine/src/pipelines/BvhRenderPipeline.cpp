@@ -63,7 +63,7 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
     // Trigger bound render task
     {
         auto [primitiveBoundArray, numPrimitiveBounds] = boundsManager.GetPrimitiveBounds();
-        auto [primitiveNodeBoundArray, numPrimitiveNodeBounds] = boundsManager.GetBvhNodeBounds();
+        auto [bvhNodeBoundArray, numBvhNodeBounds] = boundsManager.GetBvhNodeBounds();
 
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
         uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
@@ -73,7 +73,7 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
             signalValue, waitValue, primitiveBoundArray, numPrimitiveBounds, sceneManager->GetMainCamera()->GetProjectionMat() * sceneManager->GetMainCamera()->GetViewMatrix());
 #else
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue,
-            primitiveBoundArray, numPrimitiveBounds, primitiveNodeBoundArray, numPrimitiveNodeBounds,
+            primitiveBoundArray, numPrimitiveBounds, bvhNodeBoundArray, numBvhNodeBounds,
             cameraData.m_projectionMat * cameraData.m_viewMat);
 #endif
     }

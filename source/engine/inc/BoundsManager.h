@@ -32,6 +32,18 @@ namespace Loops
         void InitContainer(uint8_t axis, BVHNode* child0, BVHNode* child1);
     };
 
+    struct MotonInfo
+    {
+        uint32_t m_boundId;
+        uint32_t m_mortonCode;
+    };
+
+    struct LBVHTreelet
+    {
+        uint32_t m_startIndex, m_numPrimitives;
+        Loops::BVHNode* m_bhvNode;
+    };
+
     enum class SplitMethod
     {
         EQUAL_COUNT,
@@ -66,8 +78,8 @@ namespace Loops
         uint32_t m_bvhNodeCount = 0;
 
         // The tree node bounds will get stored in BVHBuildNode but the bound object should be fetched from a bound bound array
-        Bounds m_sceneBound;
-        BVHNode* m_bvhRootNode;
+        Bounds m_sceneBound{};
+        BVHNode* m_bvhRootNode = nullptr;
 
         mutable SplitMethod m_activeSplitMethod = SplitMethod::EQUAL_COUNT;
         mutable BvhCreationMethod m_activeCreationMethod = BvhCreationMethod::RECURSIVE;
@@ -75,8 +87,8 @@ namespace Loops
         void CalculateSceneBound();
         void UpdatePrimtiveBoundInWorldSpace(const flecs::world& world);
 
-        BVHNode& GetBvhNode();
-
+        Loops::BVHNode* BuildUpperBVH(std::vector<Loops::BVHNode* > treeletArray, uint32_t start, uint32_t end, uint32_t* totalNodes);
+        BVHNode* GetBvhNode(uint32_t numNodes = 1);
 
     public:
         BoundsManager();
@@ -88,11 +100,14 @@ namespace Loops
         std::tuple< const Loops::Bounds*, uint32_t> GetBvhNodeBounds() const;
         const std::unordered_map<uint32_t, BoundInfo>& GetPrimtiveBoundInfo() const;
 
-        BVHNode* BuildBVHRecursive(Bounds* primitiveBoundsArray, uint32_t numPrimitiveBounds, uint32_t start, uint32_t end, uint32_t& totalNodes,
+        BVHNode* BuildBVHRecursive(Bounds* primitiveBoundsArray, uint32_t numPrimitiveBounds, uint32_t start, uint32_t end, uint32_t* totalNodes,
             uint32_t* orderedBoundsArrayIndiciesArray, uint32_t& orderedBoundIndidiciesCount, const SplitMethod& splitMethod);
 
+        BVHNode* BuildHLBVH(Bounds* primitiveBoundsArray, uint32_t numPrimitiveBounds, uint32_t* totalNodes, 
+            uint32_t* orderedBoundsArrayIndiciesArray, uint32_t& orderedBoundIndidiciesCount);
+
         void SetSplitType(const SplitMethod& splitMethod);
-        void SetCeationMethod(const BvhCreationMethod& creationMethod);
+        void SetCreationMethod(const BvhCreationMethod& creationMethod);
         const SplitMethod& GetSplitType() const;
         const BvhCreationMethod& GetCreationMethod() const;
     };

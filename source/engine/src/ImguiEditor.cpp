@@ -3,10 +3,30 @@
 #include <string>
 #include "Components.h"
 
-Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager) :
-    cm_utilObj(utilObj), cm_sceneManager(sceneManager), cm_boundsManager(boundsManager)
+// Initialize static members
+Loops::ImguiEditor* Loops::ImguiEditor::s_instancePtr = nullptr;
+std::mutex Loops::ImguiEditor::s_mtx;
+
+Loops::ImguiEditor* Loops::ImguiEditor::GetInstance()
 {
-    m_selectedNodeIndex = cm_sceneManager.GetParentList()[0].id();
+    if (s_instancePtr == nullptr)
+    {
+        std::lock_guard<std::mutex> lock(s_mtx);
+        if (s_instancePtr == nullptr)
+        {
+            s_instancePtr = new Loops::ImguiEditor();
+        }
+    }
+    return s_instancePtr;
+}
+
+void Loops::ImguiEditor::Init(const ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager)
+{
+    m_sceneManager = sceneManager;
+    m_boundsManager = boundsManager;
+    m_utilObj = utilObj;
+
+    m_selectedNodeIndex = m_sceneManager->GetParentList()[0].id();
 
     auto CreateSceneHierarchyPanel = [this]() -> void
     {
@@ -51,14 +71,14 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
         };
 
         ImGui::Begin("Scene");
-        for(auto& parent : cm_sceneManager.GetParentList())
+        for(auto& parent : m_sceneManager->GetParentList())
             CreateSceneTrees(CreateSceneTrees, parent);
         ImGui::End();
     };
 
     auto CreateTransformPanel = [this]() -> void
     {
-        auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
+        auto e = m_sceneManager->m_world.entity(m_selectedNodeIndex);
 
         auto& t = e.get<Loops::Transform>();
         auto mat = t.m_modelMat;
@@ -163,7 +183,7 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
     auto CreateMeshPanel = [this]()
     {
-        auto e = cm_sceneManager.m_world.entity(m_selectedNodeIndex);
+        auto e = m_sceneManager->m_world.entity(m_selectedNodeIndex);
         if (e.has<Loops::Mesh>())
         {
             ImGui::Begin("Mesh");
@@ -180,8 +200,8 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
     auto CreateBvhPanel = [this]()
         {
-            const Loops::BvhCreationMethod& creationMethod = cm_boundsManager.GetCreationMethod();
-            const Loops::SplitMethod& splitMethod = cm_boundsManager.GetSplitType();
+            const Loops::BvhCreationMethod& creationMethod = m_boundsManager->GetCreationMethod();
+            const Loops::SplitMethod& splitMethod = m_boundsManager->GetSplitType();
 
             bool isRecursiveActive = creationMethod == Loops::BvhCreationMethod::RECURSIVE ? true : false;
 
@@ -191,21 +211,21 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
                 if(ImGui::RadioButton("Recursive", isRecursiveActive) || isRecursiveActive)
                 {
-                    cm_boundsManager.SetCreationMethod(BvhCreationMethod::RECURSIVE);
+                    m_boundsManager->SetCreationMethod(BvhCreationMethod::RECURSIVE);
                     ImGui::SetCursorPosX(currentCurPos.x + 10);
                     ImGui::BeginGroup();
                     //currentCurPos = ImGui::GetCursorPos();
                     if (ImGui::RadioButton("Equal count", splitMethod == SplitMethod::EQUAL_COUNT))
                     {
-                        cm_boundsManager.SetSplitType(SplitMethod::EQUAL_COUNT);
+                        m_boundsManager->SetSplitType(SplitMethod::EQUAL_COUNT);
                     }
                     else if (ImGui::RadioButton("Mid", splitMethod == SplitMethod::MID))
                     {
-                        cm_boundsManager.SetSplitType(SplitMethod::MID);
+                        m_boundsManager->SetSplitType(SplitMethod::MID);
                     }
                     else if (ImGui::RadioButton("SAH", splitMethod == SplitMethod::SAH))
                     {
-                        cm_boundsManager.SetSplitType(SplitMethod::SAH);
+                        m_boundsManager->SetSplitType(SplitMethod::SAH);
                     }
                     ImGui::EndGroup();
                 }
@@ -214,16 +234,32 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
                 ImGui::SetCursorPos(pos);
                 if (ImGui::RadioButton("Linear Morton", !isRecursiveActive))
                 {
-                    cm_boundsManager.SetCreationMethod(BvhCreationMethod::LINEAR);
+                    m_boundsManager->SetCreationMethod(BvhCreationMethod::LINEAR);
                 }
 
                 ImGui::End();
             }
         };
 
-    cm_utilObj.AddPersistentDrawCalls(CreateSceneHierarchyPanel);
-    cm_utilObj.AddPersistentDrawCalls(CreateTransformPanel);
-    cm_utilObj.AddPersistentDrawCalls(CreateMeshPanel);
-    cm_utilObj.AddPersistentDrawCalls(CreateBvhPanel);
+    m_utilObj->AddPersistentDrawCalls(CreateSceneHierarchyPanel);
+    m_utilObj->AddPersistentDrawCalls(CreateTransformPanel);
+    m_utilObj->AddPersistentDrawCalls(CreateMeshPanel);
+    m_utilObj->AddPersistentDrawCalls(CreateBvhPanel);
 }
 
+void Loops::ImguiEditor::AddPersistentCalls(const std::function<void()>& func)
+{
+    m_utilObj->AddPersistentDrawCalls(func);
+}
+
+void Loops::ImguiEditor::DeInitPrivate()
+{
+
+}
+
+void Loops::ImguiEditor::DeInit()
+{
+    s_instancePtr->DeInitPrivate();
+    delete s_instancePtr;
+    s_instancePtr = nullptr;
+}

@@ -45,7 +45,7 @@ namespace Loops
         std::unique_ptr<WindowManager> m_pWindowManagerObj;
         std::unique_ptr<VulkanManager> m_pVulkanManager;
         std::unique_ptr<Loops::ImguiUtil > m_pImguiUtil;
-        std::unique_ptr<Loops::ImguiEditor> m_pEditor;
+        //std::unique_ptr<Loops::ImguiEditor> m_pEditor;
         std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
         std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
         BoundsManager m_boundsManager;

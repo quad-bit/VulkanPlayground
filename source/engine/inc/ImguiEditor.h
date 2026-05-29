@@ -5,20 +5,33 @@
 #include "ImguiUtil.h"
 #include "SceneManager.h"
 #include "BoundsManager.h"
-#include<flecs.h>
+#include <flecs.h>
+#include <mutex>
+#include <functional>
 
 namespace Loops
 {
     class ImguiEditor
     {
     private:
-        const ImguiUtil& cm_utilObj;
-        const SceneManager& cm_sceneManager;
-        BoundsManager& cm_boundsManager;
+        const ImguiUtil* m_utilObj;
+        SceneManager* m_sceneManager;
+        BoundsManager* m_boundsManager;
         int m_selectedNodeIndex = 0;
 
+        static ImguiEditor* s_instancePtr;
+        static std::mutex s_mtx;
+
+        ImguiEditor() {}
+
+        void DeInitPrivate();
     public:
-        ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager);
+        //ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager);
+
+        static ImguiEditor* GetInstance();
+        void Init(const ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager);
+        static void DeInit();
+        void AddPersistentCalls(const std::function<void()>& func);
     };
 }
 

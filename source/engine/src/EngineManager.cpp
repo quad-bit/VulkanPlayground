@@ -118,7 +118,8 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     m_pImguiUtil->Init();
 
-    m_pEditor = std::make_unique<Loops::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager, m_boundsManager);
+    //m_pEditor = std::make_unique<Loops::ImguiEditor>(*m_pImguiUtil, *m_pSceneManager, m_boundsManager);
+    ImguiEditor::GetInstance()->Init(m_pImguiUtil.get(), m_pSceneManager.get(), &m_boundsManager);
 
     Init();
 }
@@ -140,11 +141,13 @@ void Loops::EngineManager::DeInit()
             onExit();
         }
 
-        if (m_pEditor)
-        {
-            m_pEditor.reset();
-            m_pEditor = nullptr;
-        }
+        //if (m_pEditor)
+        //{
+        //    m_pEditor.reset();
+        //    m_pEditor = nullptr;
+        //}
+
+        ImguiEditor::DeInit();
 
         if (m_pWireframePipeline)
         {

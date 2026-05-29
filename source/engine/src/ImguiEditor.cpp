@@ -183,27 +183,13 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
             const Loops::BvhCreationMethod& creationMethod = cm_boundsManager.GetCreationMethod();
             const Loops::SplitMethod& splitMethod = cm_boundsManager.GetSplitType();
 
-            /*std::string splitMethodText, creationMethodText;
-            if (creationMethod == Loops::BvhCreationMethod::LINEAR)
-                creationMethodText = "LINEAR_MORTON";
-            else
-                creationMethodText = "RECURSIVE";
-
-            if (splitMethod == Loops::SplitMethod::EQUAL_COUNT)
-                splitMethodText = "EQUAL_COUNT";
-            else if (splitMethod == Loops::SplitMethod::MID)
-                splitMethodText = "MID";
-            else
-                splitMethodText = "SURFACE AREA HEURISTICS";*/
-
             bool isRecursiveActive = creationMethod == Loops::BvhCreationMethod::RECURSIVE ? true : false;
-            bool isLinearActive = !isRecursiveActive;
 
             if (ImGui::Begin("BVH settings"))
             {
                 ImVec2 currentCurPos = ImGui::GetCursorPos();
 
-                if(ImGui::Checkbox("Recursive", &isRecursiveActive) || isRecursiveActive)
+                if(ImGui::RadioButton("Recursive", isRecursiveActive) || isRecursiveActive)
                 {
                     cm_boundsManager.SetCreationMethod(BvhCreationMethod::RECURSIVE);
                     ImGui::SetCursorPosX(currentCurPos.x + 10);
@@ -226,7 +212,7 @@ Loops::ImguiEditor::ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sc
 
                 auto pos = ImVec2(ImGui::GetWindowSize().x * 0.5f, currentCurPos.y);
                 ImGui::SetCursorPos(pos);
-                if (ImGui::Checkbox("Linear Morton", &isLinearActive))
+                if (ImGui::RadioButton("Linear Morton", !isRecursiveActive))
                 {
                     cm_boundsManager.SetCreationMethod(BvhCreationMethod::LINEAR);
                 }

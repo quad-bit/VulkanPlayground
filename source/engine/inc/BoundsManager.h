@@ -9,30 +9,8 @@
 
 namespace Loops
 {
-    class BVHNode;
-    struct BVHContainerNode
-    {
-        uint8_t m_splitAxis; // only 3 dimensions 0 : x, 1 : y, 2 : z
-        BVHNode* m_child0 = nullptr;
-        BVHNode* m_child1 = nullptr;
-    };
 
-    struct BVHLeafNode
-    {
-        uint32_t m_startIndex = 0;
-        uint32_t m_numBounds = 0;
-    };
-
-    struct BVHNode
-    {
-        Bounds m_bounds;
-        std::variant<BVHContainerNode, BVHLeafNode> m_node;
-
-        void InitLeaf(uint32_t startIndex, uint32_t numBounds, const Bounds& bound);
-        void InitContainer(uint8_t axis, BVHNode* child0, BVHNode* child1);
-    };
-
-    struct MotonInfo
+    struct MortonInfo
     {
         uint32_t m_boundId;
         uint32_t m_mortonCode;
@@ -96,9 +74,10 @@ namespace Loops
         void AddBound(const glm::vec3& min, const glm::vec3& max, uint32_t m_submeshId, uint32_t m_entityId);
         void Update(uint32_t currentFrameInFlight, const flecs::world& world);
 
-        std::tuple< const Loops::Bounds*, uint32_t> GetPrimitiveBounds() const;
-        std::tuple< const Loops::Bounds*, uint32_t> GetBvhNodeBounds() const;
-        const std::unordered_map<uint32_t, BoundInfo>& GetPrimtiveBoundInfo() const;
+        inline std::tuple< const Loops::Bounds*, uint32_t> GetPrimitiveBounds() const;
+        inline std::tuple< const Loops::Bounds*, uint32_t> GetBvhNodeBounds() const;
+        inline const std::unordered_map<uint32_t, BoundInfo>& GetPrimtiveBoundInfo() const;
+        inline const BVHNode* GetRootNode() const;
 
         BVHNode* BuildBVHRecursive(Bounds* primitiveBoundsArray, uint32_t numPrimitiveBounds, uint32_t start, uint32_t end, uint32_t* totalNodes,
             uint32_t* orderedBoundsArrayIndiciesArray, uint32_t& orderedBoundIndidiciesCount, const SplitMethod& splitMethod);
@@ -108,9 +87,46 @@ namespace Loops
 
         void SetSplitType(const SplitMethod& splitMethod);
         void SetCreationMethod(const BvhCreationMethod& creationMethod);
-        const SplitMethod& GetSplitType() const;
-        const BvhCreationMethod& GetCreationMethod() const;
+        inline const SplitMethod& GetSplitType() const;
+        inline const BvhCreationMethod& GetCreationMethod() const;
     };
+
+
+    inline const Loops::SplitMethod& Loops::BoundsManager::GetSplitType() const
+    {
+        return m_activeSplitMethod;
+    }
+
+    inline const Loops::BvhCreationMethod& Loops::BoundsManager::GetCreationMethod() const
+    {
+        return m_activeCreationMethod;
+    }
+
+    inline const Loops::BVHNode* Loops::BoundsManager::GetRootNode() const
+    {
+        return m_bvhRootNode;
+    }
+
+    inline std::tuple< const Loops::Bounds*, uint32_t> Loops::BoundsManager::GetPrimitiveBounds() const
+    {
+        return { m_primitiveWorldBounds, m_primitiveBoundCount };
+    }
+
+    inline std::tuple< const Loops::Bounds*, uint32_t> Loops::BoundsManager::GetBvhNodeBounds() const
+    {
+        uint32_t i = 0;
+        for (auto& node : m_bvhNodeArray)
+        {
+            m_bvhNodeBoundArray[i++] = node.m_bounds;
+        }
+        return { m_bvhNodeBoundArray, m_bvhNodeCount };
+    }
+
+    inline const std::unordered_map<uint32_t, Loops::BoundInfo>& Loops::BoundsManager::GetPrimtiveBoundInfo() const
+    {
+        return m_primitiveBoundInfo;
+    }
+
 }
 
 #endif

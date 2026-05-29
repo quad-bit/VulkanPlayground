@@ -23,6 +23,7 @@ set(CORE_FILES
     inc/Assertion.h
     inc/EventBus.h
     inc/Event.h
+    inc/FrustumCuller.h
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
@@ -40,6 +41,14 @@ set(CORE_FILES
     inc/memory/LinearPoolAllocator.h
     inc/memory/StackPoolAllocator.h
 
+    inc/math/Frustum.h
+    inc/math/Plane.h
+    inc/math/MathUtil.h
+    inc/math/Cube.h
+    inc/math/Quad.h
+    inc/math/Sphere.h
+    inc/math/TangentCalculator.h
+
     src/VulkanManager.cpp
     src/ValidationManager.cpp
     src/WindowManager.cpp
@@ -53,6 +62,7 @@ set(CORE_FILES
     src/EngineManager.cpp
     src/Assertion.cpp
     src/EventBus.cpp
+    src/FrustumCuller.cpp
 
     src/input/InputManager.cpp
     src/input/InputManagerGLFW.cpp
@@ -68,6 +78,10 @@ set(CORE_FILES
     src/memory/MemoryManager.cpp
     src/memory/LinearPoolAllocator.cpp
     src/memory/StackPoolAllocator.cpp
+
+    src/math/Frustum.cpp
+    src/math/Plane.cpp
+    src/math/MathUtil.cpp
 )
 
 #create library

@@ -71,49 +71,116 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
     renderData.m_drawableCount = 0;
     renderData.m_viewCount = 0;
 
-    auto AddAllEntities = [&renderData, this](auto self, const flecs::entity& e)-> void
-    {
-        if (e.has<Loops::Mesh>())
+#if 0
+    auto AddWithoutCulling = [this, &renderData]() -> void
         {
-            Mesh m = e.get<Loops::Mesh>();
-            if (m.m_meshViewCount > 0)
-            {
-                auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
-                auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
-                drawable.m_matIndex = renderData.m_drawableCount++;
-                assert(renderData.m_drawableCount < MAX_ENTITIES);
-
-                // resetting
-                drawable.m_numOfViews = 0;
-
-                mat = e.get<Loops::Transform>().m_modelMatGlobal;
-                drawable.m_viewStartIndex = renderData.m_viewCount;
-                drawable.m_vertexBufferId = m.m_vertexBufferIndex;
-                drawable.m_indexBufferId = m.m_indexBufferIndex;
-
-                for (int i = 0; i < m.m_meshViewCount; i++)
+            auto AddAllEntities = [&renderData, this](auto self, const flecs::entity& e)-> void
                 {
-                    auto& view = m.m_meshViews[i];
-                    renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
-                    assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
-                }
-                renderData.m_viewCount += drawable.m_numOfViews;
+                    if (e.has<Loops::Mesh>())
+                    {
+                        Mesh m = e.get<Loops::Mesh>();
+                        if (m.m_meshViewCount > 0)
+                        {
+                            auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
+                            auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
+                            drawable.m_matIndex = renderData.m_drawableCount++;
+                            assert(renderData.m_drawableCount < MAX_ENTITIES);
 
-                // REMOVE THIS ONLY FOR DEBUGGING
-                drawable.m_name = e.name();
+                            // resetting
+                            drawable.m_numOfViews = 0;
+
+                            mat = e.get<Loops::Transform>().m_modelMatGlobal;
+                            drawable.m_viewStartIndex = renderData.m_viewCount;
+                            drawable.m_vertexBufferId = m.m_vertexBufferIndex;
+                            drawable.m_indexBufferId = m.m_indexBufferIndex;
+
+                            for (int i = 0; i < m.m_meshViewCount; i++)
+                            {
+                                auto& view = m.m_meshViews[i];
+                                renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
+                                assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
+                            }
+                            renderData.m_viewCount += drawable.m_numOfViews;
+
+                            // REMOVE THIS ONLY FOR DEBUGGING
+                            drawable.m_name = e.name();
+                        }
+                    }
+
+                    e.children([&](const flecs::entity& child)
+                        {
+                            self(self, child);
+                        });
+                };
+
+            for (auto& parent : m_parentEntities)
+            {
+                AddAllEntities(AddAllEntities, parent);
             }
-        }
+        };
 
-        e.children([&](const flecs::entity& child)
+    AddWithoutCulling();
+
+#else
+    auto AddPostFrustumCulling = [this, &renderData]()
         {
-            self(self, child);
-        });
-    };
+            auto& boundInfoList = m_boundManager.GetPrimtiveBoundInfo();
+            auto [primitiveBoundList, numPrimitives] = m_boundManager.GetPrimitiveBounds();
+            auto AddLeafNodePrimitivesToRenderData = [&primitiveBoundList, &boundInfoList, this, &renderData](const BVHNode* node)
+                {
+                    auto& leaf = std::get<BVHLeafNode>(node->m_node);
+                    for (uint32_t i = 0; i < leaf.m_numBounds; i++)
+                    {
+                        auto it = boundInfoList.find(primitiveBoundList[leaf.m_startIndex + i].m_boundIndex);
+                        ASSERT_MSG(it != boundInfoList.end(), "bound index not found");
+                        auto& boundInfo = (*it).second;
 
-    for (auto& parent : m_parentEntities)
-    {
-        AddAllEntities(AddAllEntities, parent);
-    }
+                        const flecs::entity& e = m_world.entity(boundInfo.m_entityId);
+                        auto submeshId = boundInfo.m_submeshId;
+
+                        if (e.has<Loops::Mesh>())
+                        {
+                            Mesh m = e.get<Loops::Mesh>();
+                            if (m.m_meshViewCount > 0)
+                            {
+                                auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
+                                auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
+                                drawable.m_matIndex = renderData.m_drawableCount++;
+                                assert(renderData.m_drawableCount < MAX_ENTITIES);
+
+                                // resetting
+                                drawable.m_numOfViews = 0;
+
+                                mat = e.get<Loops::Transform>().m_modelMatGlobal;
+                                drawable.m_viewStartIndex = renderData.m_viewCount;
+                                drawable.m_vertexBufferId = m.m_vertexBufferIndex;
+                                drawable.m_indexBufferId = m.m_indexBufferIndex;
+
+                                for (int i = 0; i < m.m_meshViewCount; i++)
+                                {
+                                    auto& view = m.m_meshViews[i];
+                                    if (view.m_viewIndex == submeshId)
+                                    {
+                                        renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
+                                        assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
+                                        break;
+                                    }
+                                }
+                                renderData.m_viewCount += drawable.m_numOfViews;
+
+                                // REMOVE THIS ONLY FOR DEBUGGING
+                                drawable.m_name = e.name();
+                            }
+                        }
+                    }
+                };
+
+            const Loops::Camera& cam = m_cameraEntity.get<Loops::Camera>();
+            m_frustumCuller.PerformFrustumCulling(m_boundManager.GetRootNode(), cam.GetViewMatrix(), cam.GetProjectionMat(), AddLeafNodePrimitivesToRenderData);
+        };
+
+    AddPostFrustumCulling();
+#endif
 
     ASSERT_MSG(m_cameraEntity.is_valid(), "Camera missing");
 
@@ -131,7 +198,8 @@ Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::
     return view;
 }
 
-Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities):cm_maxEntities(maxEntities)
+Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities):
+    cm_maxEntities(maxEntities), m_boundManager(boundsManager)
 {
     {
         //m_world.set_entity_range(0, MAX_ENTITES);

@@ -80,25 +80,25 @@ namespace
         return (LeftShift(coordinates.z) << 2) | (LeftShift(coordinates.y) << 1) | LeftShift(coordinates.x);
     }
 
-    void RadixSort(std::vector<Loops::MotonInfo>* mortonArray)
+    void RadixSort(std::vector<Loops::MortonInfo>* mortonArray)
     {
         constexpr uint8_t bitsPerPass = 6;
         constexpr uint8_t numBits = 30;
         constexpr uint8_t numPasses = numBits / bitsPerPass;
 
-        std::vector<Loops::MotonInfo> tempVector(mortonArray->size());
+        std::vector<Loops::MortonInfo> tempVector(mortonArray->size());
 
         for (uint8_t i = 0; i < numPasses; i++)
         {
             uint8_t lowBit = i * bitsPerPass;
-            std::vector<Loops::MotonInfo>& in = (i & 1) ? tempVector : *mortonArray;
-            std::vector<Loops::MotonInfo>& out = (i & 1) ? *mortonArray : tempVector;
+            std::vector<Loops::MortonInfo>& in = (i & 1) ? tempVector : *mortonArray;
+            std::vector<Loops::MortonInfo>& out = (i & 1) ? *mortonArray : tempVector;
 
             constexpr uint32_t numBuckets = 1 << bitsPerPass;
             uint32_t bucketCount[numBuckets] = { 0 };
             constexpr uint32_t bitMask = (1 << bitsPerPass) - 1;
 
-            for (const Loops::MotonInfo& mp : in)
+            for (const Loops::MortonInfo& mp : in)
             {
                 uint32_t bucket = (mp.m_mortonCode >> lowBit) & bitMask;
                 ++bucketCount[bucket];
@@ -112,7 +112,7 @@ namespace
                 outIndex[i] = outIndex[i - 1] + bucketCount[i - 1];
             }
 
-            for (const Loops::MotonInfo& mp : in)
+            for (const Loops::MortonInfo& mp : in)
             {
                 uint32_t bucket = (mp.m_mortonCode >> lowBit) & bitMask;
                 out[outIndex[bucket]++] = mp;
@@ -124,7 +124,7 @@ namespace
     }
 
     Loops::BVHNode* EmitLBVH(Loops::BVHNode* node, Loops::Bounds* primitiveBoundsArray, uint32_t numPrimitiveBounds, 
-        Loops::MotonInfo* mortonArray, int numPrimitivesInTreelet, int * totalNodes, Loops::Bounds* orderedBoundsArray,
+        Loops::MortonInfo* mortonArray, int numPrimitivesInTreelet, int * totalNodes, Loops::Bounds* orderedBoundsArray,
         std::atomic<int> * atomicOrderedBoundsArrayIndexOffset, int bitIndex)
     {
         if (bitIndex == -1 || numPrimitivesInTreelet <= Loops::MAX_PRIMITIVES_PER_LEAF)
@@ -307,26 +307,6 @@ void Loops::BoundsManager::Update(uint32_t currentFrameInFlight, const flecs::wo
             m_activeSplitMethod);
     else
         m_bvhRootNode = BuildHLBVH(m_primitiveWorldBounds, m_primitiveBoundCount, &totalNodeCount, m_primitiveBoundIndicies, m_primitiveBoundCount);
-}
-
-std::tuple< const Loops::Bounds*, uint32_t> Loops::BoundsManager::GetPrimitiveBounds() const
-{
-    return { m_primitiveWorldBounds, m_primitiveBoundCount };
-}
-
-std::tuple< const Loops::Bounds*, uint32_t> Loops::BoundsManager::GetBvhNodeBounds() const
-{
-    uint32_t i = 0;
-    for (auto& node : m_bvhNodeArray)
-    {
-        m_bvhNodeBoundArray[i++] = node.m_bounds;
-    }
-    return { m_bvhNodeBoundArray, m_bvhNodeCount };
-}
-
-const std::unordered_map<uint32_t, Loops::BoundInfo>& Loops::BoundsManager::GetPrimtiveBoundInfo() const
-{
-    return m_primitiveBoundInfo;
 }
 
 Loops::BVHNode* Loops::BoundsManager::GetBvhNode(uint32_t numNodes)
@@ -565,7 +545,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildHLBVH(Bounds* primitiveBoundsArray, u
     const BVHData bvhData = CalculateInitialData(0, numPrimitiveBounds);
 
     // Create the morton array which contains the morton for each primitive
-    std::vector<Loops::MotonInfo> mortonInfoArray(numPrimitiveBounds);
+    std::vector<Loops::MortonInfo> mortonInfoArray(numPrimitiveBounds);
 #pragma omp parallel for
     for (size_t i = 0; i < numPrimitiveBounds; i++)
     {
@@ -802,14 +782,4 @@ void Loops::BoundsManager::SetSplitType(const Loops::SplitMethod& splitMethod)
 void Loops::BoundsManager::SetCreationMethod(const Loops::BvhCreationMethod& creationMethod)
 {
     m_activeCreationMethod = creationMethod;
-}
-
-const Loops::SplitMethod& Loops::BoundsManager::GetSplitType() const
-{
-    return m_activeSplitMethod;
-}
-
-const Loops::BvhCreationMethod& Loops::BoundsManager::GetCreationMethod() const
-{
-    return m_activeCreationMethod;
 }

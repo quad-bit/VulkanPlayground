@@ -3,6 +3,7 @@
 
 #include <glm/glm.hpp>
 #include <stdint.h>
+#include <variant>
 
 namespace Loops
 {
@@ -28,6 +29,30 @@ namespace Loops
         uint32_t m_entityId;
         uint32_t m_submeshId;
     };
+
+    // ============ BVH
+    class BVHNode;
+    struct BVHContainerNode
+    {
+        uint8_t m_splitAxis; // only 3 dimensions 0 : x, 1 : y, 2 : z
+        BVHNode* m_child0 = nullptr;
+        BVHNode* m_child1 = nullptr;
+    };
+
+    struct BVHLeafNode
+    {
+        uint32_t m_startIndex = 0;
+        uint32_t m_numBounds = 0;
+    };
+
+    struct BVHNode
+    {
+        Bounds m_bounds;
+        std::variant<BVHContainerNode, BVHLeafNode> m_node;
+        void InitLeaf(uint32_t startIndex, uint32_t numBounds, const Bounds& bound);
+        void InitContainer(uint8_t axis, BVHNode* child0, BVHNode* child1);
+    };
+    // ============ BVH
 
     struct Dimension
     {

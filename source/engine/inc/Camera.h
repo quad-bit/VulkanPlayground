@@ -30,10 +30,21 @@ namespace Loops
             glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
             CameraType projectionType = CameraType::PERSPECTIVE);
 
-        const glm::mat4& GetViewMatrix() const;
-        const glm::mat4& GetProjectionMat() const;
+        inline const glm::mat4& GetViewMatrix() const;
+        inline const glm::mat4& GetProjectionMat() const;
         void UpdateCamera(const Transform& transform);
     };
+
+    inline const glm::mat4& Loops::Camera::GetViewMatrix() const
+    {
+        return m_viewMat;
+    }
+
+    inline const glm::mat4& Loops::Camera::GetProjectionMat() const
+    {
+        return m_projectionMat;
+    }
+
 }
 
 #endif

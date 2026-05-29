@@ -28,7 +28,7 @@ public:
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
         camTransform.m_position = glm::vec3(20, 0, 0);
-        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-90.0f), 0);
+        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-40.0f), 0);
 
         //camTransform.m_position = glm::vec3(0, 15, 0);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), glm::radians(0.0f), 0);

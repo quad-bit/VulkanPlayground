@@ -25,15 +25,6 @@ Loops::Camera::Camera(glm::mat4& transformation, float aspectRatio, glm::vec3 up
     }
 }
 
-const glm::mat4& Loops::Camera::GetViewMatrix() const
-{
-    return m_viewMat;
-}
-
-const glm::mat4& Loops::Camera::GetProjectionMat() const
-{
-    return m_projectionMat;
-}
 
 void Loops::Camera::UpdateCamera(const Loops::Transform& transform)
 {

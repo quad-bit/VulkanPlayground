@@ -8,6 +8,7 @@
 #include "VulkanWrappers.h"
 #include "BoundsManager.h"
 #include "Camera.h"
+#include "FrustumCuller.h"
 
 #include <flecs.h>
 #include <memory>
@@ -63,9 +64,9 @@ namespace Loops
 
         std::vector<Loops::RenderData> m_renderDataList;
 
-        //Loops::BoundsManager m_boundManager;
+        Loops::BoundsManager& m_boundManager;
         flecs::entity m_cameraEntity;
-
+        FrustumCuller m_frustumCuller;
     public:
 
         flecs::world m_world;

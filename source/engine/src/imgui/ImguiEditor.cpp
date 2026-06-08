@@ -1,4 +1,4 @@
-#include "ImguiEditor.h"
+#include "imgui/ImguiEditor.h"
 #include "plog/Log.h"
 #include <string>
 #include "Components.h"
@@ -20,7 +20,8 @@ Loops::ImguiEditor* Loops::ImguiEditor::GetInstance()
     return s_instancePtr;
 }
 
-void Loops::ImguiEditor::Init(const ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager)
+//void Loops::ImguiEditor::Init(ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager)
+void Loops::ImguiEditor::Init(ImguiSystem* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager)
 {
     m_sceneManager = sceneManager;
     m_boundsManager = boundsManager;
@@ -251,6 +252,12 @@ void Loops::ImguiEditor::AddPersistentCalls(const std::function<void()>& func)
 {
     m_utilObj->AddPersistentDrawCalls(func);
 }
+
+void Loops::ImguiEditor::AddPersistentCalls(const std::function<void(uint32_t)>& func)
+{
+    m_utilObj->AddPersistentDrawCalls(func);
+}
+
 
 void Loops::ImguiEditor::DeInitPrivate()
 {

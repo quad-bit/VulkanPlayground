@@ -63,6 +63,24 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
         Loops::Camera& cam = m_cameraEntity.get_mut<Loops::Camera>();
         cam.UpdateCamera(camTransform);
     }
+
+    // Scene view camera
+    {
+        Loops::Transform& camTransform = m_sceneViewCamera.get_mut<Loops::Transform>();
+        auto translationMat = glm::translate(camTransform.m_position);
+        auto scaleMat = glm::scale(camTransform.m_scale);
+
+        glm::mat4 rotXMat = glm::rotate(camTransform.m_eulerAngles.x, glm::vec3(1, 0, 0));
+        glm::mat4 rotYMat = glm::rotate(camTransform.m_eulerAngles.y, glm::vec3(0, 1, 0));
+        glm::mat4 rotZMat = glm::rotate(camTransform.m_eulerAngles.z, glm::vec3(0, 0, 1));
+        auto rotationMat = rotZMat * rotYMat * rotXMat;
+
+        camTransform.m_modelMat = translationMat * rotationMat * scaleMat;
+        camTransform.m_modelMatGlobal = camTransform.m_modelMat;
+
+        Loops::Camera& cam = m_sceneViewCamera.get_mut<Loops::Camera>();
+        cam.UpdateCamera(camTransform);
+    }
 }
 
 void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
@@ -286,10 +304,21 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
 
     {
         Loops::Transform camTransform{};
-        Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height);
+        Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height, .5f, 30.0f, 25.0f);
         m_cameraEntity = m_world.entity("MainCamera");
         m_cameraEntity.emplace<Loops::Transform>(camTransform);
         m_cameraEntity.emplace<Loops::Camera>(camera);
+    }
+
+    {
+        Loops::Transform camTransform{};
+        camTransform.m_position = glm::vec3(0, 40, 0);
+        camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), 0, 0);
+
+        Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height, .2f, 1000.0f, 60.0f);
+        m_sceneViewCamera = m_world.entity("SceneViewCamera");
+        m_sceneViewCamera.emplace<Loops::Transform>(camTransform);
+        m_sceneViewCamera.emplace<Loops::Camera>(camera);
     }
     //Loops::Transform camTransform;
     ////camTransform.m_position = glm::vec3(-65, 20, 0);
@@ -338,4 +367,16 @@ const VkBuffer& Loops::SceneManager::GetIndexBuffer(uint32_t id) const
     return m_indexBufferWrappers[id].m_vkIndexBuffer;
 }
 
+Loops::CameraData Loops::SceneManager::GetSceneViewCameraData() const
+{
+    glm::vec3 cameraPos{ m_sceneViewCamera.get<Loops::Transform>().m_position};
+    const Loops::Camera& cam = m_sceneViewCamera.get<Loops::Camera>();
+    CameraData data{ cam.GetViewMatrix(), cam.GetProjectionMat(), cameraPos};
+    return data;
+}
+
+const glm::mat4& Loops::SceneManager::GetMainCameraTransform() const
+{
+    return m_sceneViewCamera.get<Loops::Transform>().m_modelMatGlobal;
+}
 

@@ -4,6 +4,7 @@
 #include "Task.h"
 #include "SceneManager.h"
 #include "memory/MemoryManager.h"
+#include "imgui/RenderToImguiTexture.h"
 
 namespace Loops::Tasking
 {
@@ -25,16 +26,25 @@ namespace Loops::Tasking
         size_t m_transformUniformDataSizePerFrame;
         size_t m_cameraUniformDataSizePerFrame;
 
-        void Init();
+        void Init(std::optional<const VkClearColorValue> clearColorValue, std::optional<const VkClearDepthStencilValue> depthStencilClearValue);
+
+        std::unique_ptr<RenderToImguiImage> m_renderToTexture;
 
     public:
-        ColorUnlitTask(const GraphicsTaskInfo& info);
+        ColorUnlitTask(const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
+            const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue,
+            const std::optional<VkClearDepthStencilValue>& depthStencilClearValue, bool renderOutputToTexture = false);
 
         ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
-            const VkFormat& colorFormat, const VkFormat& depthFormat);
+            const VkFormat& colorFormat, const VkFormat& depthFormat, std::optional<const VkClearColorValue> clearColorValue,
+            std::optional<const VkClearDepthStencilValue> depthStencilClearValue);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager);
+
+        // Case where submission is handled elsewhere
+        void Update(VkCommandBuffer& commandBuffer, const uint32_t& frameInFlight, const Loops::RenderData& renderData,
+            const Loops::SceneManager& sceneManager, std::optional<CameraData> secondaryCameraData);
 
         ~ColorUnlitTask();
     };

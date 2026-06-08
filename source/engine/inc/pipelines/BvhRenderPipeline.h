@@ -7,6 +7,7 @@
 #include "VulkanManager.h"
 #include "BoundsManager.h"
 #include "ImguiUtil.h"
+#include "imgui/ImguiSystem.h"
 #include "tasks/ColorUnlitTask.h"
 #include "tasks/BoundsRenderTask.h"
 #include <memory>
@@ -26,16 +27,22 @@ namespace Loops::Tasking
             NUM_STAGES = 5
         };
 
-        std::unique_ptr<ColorUnlitTask> m_pColorUnlitTask;
+        std::unique_ptr<ColorUnlitTask> m_colorUnlitTaskPtr;
         std::unique_ptr<BoundsRenderTask> m_pBoundsRenderTask;
+
+#ifdef BVH_SCENE_VIEW_ENABLED
+
+#endif // BVH_SCENE_VIEW_ENABLED
+
+
     protected:
 
     public:
-        BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager);
+        BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil);
         virtual ~BvhRenderPipeline();
 
         void Update(uint32_t currentFrameInFlight, const std::unique_ptr<SceneManager>& sceneManager, const BoundsManager& boundsManager,
-            const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<ImguiUtil>& imguiUtil);
+            const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil);
     };
 }
 

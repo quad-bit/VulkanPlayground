@@ -18,15 +18,15 @@ namespace Loops
         glm::mat4 m_viewMat;
         glm::mat4 m_projectionMat;
 
-        float m_fov = 60.0f;
+        float m_fov = 45.0f;
         float m_aspect = 1.0f;
-        float m_zNear = 0.20f, m_zFar = 1500.0f;
+        float m_zNear = 0.20f, m_zFar = 500.0f;
         CameraType m_projectionType;
 
         Camera() = delete;
 
     public:
-        Camera(glm::mat4& transformation, float aspectRatio,
+        Camera(glm::mat4& transformation, float aspectRatio, float near = 0.5f, float far = 500.0f, float fov = 60.0f,
             glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
             CameraType projectionType = CameraType::PERSPECTIVE);
 

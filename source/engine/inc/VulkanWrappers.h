@@ -1,9 +1,11 @@
 #ifndef VULKAN_WRAPPERS_H
 #define VULKAN_WRAPPERS_H
 
-#include "Utils.h"
-#include "Components.h"
 #include <vk_mem_alloc.h>
+//#include "Utils.h"
+//#include "Components.h"
+#include "Defines.h"
+#include <vector>
 
 namespace Loops
 {
@@ -34,6 +36,13 @@ namespace Loops
     struct VulkanBuffer
     {
         VkBuffer m_vkBuffer = VK_NULL_HANDLE;
+        VmaAllocation m_vmaAllocation = VK_NULL_HANDLE;
+    };
+
+    struct VulkanImage
+    {
+        VkImage m_vkImage = VK_NULL_HANDLE;
+        VkImageView m_vkImageView = VK_NULL_HANDLE;
         VmaAllocation m_vmaAllocation = VK_NULL_HANDLE;
     };
 }

@@ -3,6 +3,7 @@
 
 #include "imgui.h"
 #include "ImguiUtil.h"
+#include "imgui/ImguiSystem.h"
 #include "SceneManager.h"
 #include "BoundsManager.h"
 #include <flecs.h>
@@ -14,7 +15,8 @@ namespace Loops
     class ImguiEditor
     {
     private:
-        const ImguiUtil* m_utilObj;
+        //ImguiUtil* m_utilObj;
+        ImguiSystem* m_utilObj;
         SceneManager* m_sceneManager;
         BoundsManager* m_boundsManager;
         int m_selectedNodeIndex = 0;
@@ -29,9 +31,11 @@ namespace Loops
         //ImguiEditor(const ImguiUtil& utilObj, const SceneManager& sceneManager, BoundsManager& boundsManager);
 
         static ImguiEditor* GetInstance();
-        void Init(const ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager);
+        //void Init(ImguiUtil* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager);
+        void Init(ImguiSystem* utilObj, SceneManager* sceneManager, BoundsManager* boundsManager);
         static void DeInit();
         void AddPersistentCalls(const std::function<void()>& func);
+        void AddPersistentCalls(const std::function<void(uint32_t)>& func);
     };
 }
 

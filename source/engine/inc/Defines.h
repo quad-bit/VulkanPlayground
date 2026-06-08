@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <variant>
 
+#define BVH_SCENE_VIEW_ENABLED
+
 namespace Loops
 {
     // For now change this manually based on the model being loaded

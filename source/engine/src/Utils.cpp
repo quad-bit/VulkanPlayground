@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <optional>
 #include <fstream>
+#include "memory/MemoryManager.h"
+#include "VulkanWrappers.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -630,4 +632,157 @@ void Loops::VkUtils::CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const 
 
     vkDestroyFence(device, fence, nullptr);
     vkDestroyCommandPool(device, pool, nullptr);
+}
+
+std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanImage* colorTargets, uint32_t numColorTargets,
+    Loops::VulkanImage* depthTargets, uint32_t numDepthTargets, const VkFormat& colorFormat, const VkFormat& depthFormat,
+    size_t imageWidth, size_t imageHeight, const VkDevice& device, const VkClearColorValue& clearColorValue,
+    const VkClearDepthStencilValue& depthStencilClearValue, std::vector<VkRenderingAttachmentInfo>& colorInfoList,
+    std::vector<VkRenderingAttachmentInfo>& depthInfoList)
+{
+    auto CreateColorTargets = [&](std::vector<VkRenderingAttachmentInfo>& colorInfoList)
+        {
+            VkClearValue clearValues{ clearColorValue };
+            VkImageCreateInfo imageInfo{};
+            imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+            imageInfo.imageType = VK_IMAGE_TYPE_2D;
+            imageInfo.extent.width = imageWidth;
+            imageInfo.extent.height = imageHeight;
+            imageInfo.extent.depth = 1;
+            imageInfo.mipLevels = 1;
+            imageInfo.arrayLayers = 1;
+            imageInfo.format = colorFormat;
+            imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imageInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VkImageViewCreateInfo createInfo{};
+            createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
+            createInfo.format = colorFormat;
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.layerCount = 1;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+            VmaAllocationCreateInfo allocCreateInfo{};
+            allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+            for (uint32_t i = 0; i < numColorTargets; i++)
+            {
+                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetVmaAllocator(), &imageInfo, &allocCreateInfo,
+                    &colorTargets[i].m_vkImage, &colorTargets[i].m_vmaAllocation, nullptr));
+
+                createInfo.image = colorTargets[i].m_vkImage;
+                Loops::VkUtils::ErrorCheck(vkCreateImageView(device, &createInfo, nullptr, &colorTargets[i].m_vkImageView));
+
+                colorInfoList[i].clearValue = clearValues;
+                colorInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+                colorInfoList[i].imageView = colorTargets[i].m_vkImageView;
+                colorInfoList[i].loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
+                colorInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+                colorInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            }
+        };
+
+    auto CreateDepthTargets = [&](std::vector<VkRenderingAttachmentInfo>& depthInfoList)
+        {
+            VkClearValue clearValuesDepth{};
+            clearValuesDepth.depthStencil = { depthStencilClearValue };
+
+            VkImageCreateInfo imageInfo{};
+            imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+            imageInfo.imageType = VK_IMAGE_TYPE_2D;
+            imageInfo.extent.width = imageWidth;
+            imageInfo.extent.height = imageHeight;
+            imageInfo.extent.depth = 1;
+            imageInfo.mipLevels = 1;
+            imageInfo.arrayLayers = 1;
+            imageInfo.format = depthFormat;
+            imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+            imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+            imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+            VmaAllocationCreateInfo allocCreateInfo{};
+            allocCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+            VkImageViewCreateInfo createInfo{};
+            createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
+            createInfo.format = depthFormat;
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.layerCount = 1;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+            for (uint32_t i = 0; i < numDepthTargets; i++)
+            {
+                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetVmaAllocator(), &imageInfo, &allocCreateInfo,
+                    &depthTargets[i].m_vkImage, &depthTargets[i].m_vmaAllocation, nullptr));
+
+                createInfo.image = depthTargets[i].m_vkImage;
+                Loops::VkUtils::ErrorCheck(vkCreateImageView(device, &createInfo, nullptr, &depthTargets[i].m_vkImageView));
+
+                depthInfoList[i].clearValue = clearValuesDepth;
+                depthInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+                depthInfoList[i].imageView = depthTargets[i].m_vkImageView;
+                depthInfoList[i].loadOp = VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR;
+                depthInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+                depthInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+            }
+        };
+
+    colorInfoList.resize(numColorTargets);
+    CreateColorTargets(colorInfoList);
+
+    if (numDepthTargets > 0)
+    {
+        depthInfoList.resize(numDepthTargets);
+        CreateDepthTargets(depthInfoList);
+    }
+
+#pragma omp parallel for
+    std::vector<VkRenderingInfo> renderingInfoList;
+    for (uint32_t i = 0; i < numColorTargets; i++)
+    {
+        VkRenderingInfo info{};
+        info.colorAttachmentCount = 1;
+        info.layerCount = 1;
+        info.pColorAttachments = &colorInfoList[i];
+        info.pDepthAttachment = nullptr;
+
+        if (numDepthTargets > 0)
+        {
+           info.pDepthAttachment = (numDepthTargets == numColorTargets) ? &depthInfoList[i] : &depthInfoList[0];
+        }
+
+        info.renderArea = VkRect2D{ {0, 0}, {static_cast<uint32_t>(imageWidth), static_cast<uint32_t>(imageHeight)} };
+        info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderingInfoList.push_back(std::move(info));
+    }
+
+    return renderingInfoList;
+}
+
+void Loops::VkUtils::DestroyRenderTargets(Loops::VulkanImage* colorTargets, uint32_t numColorTargets,
+    Loops::VulkanImage* depthTargets, uint32_t numDepthTargets, const VkDevice& device)
+{
+    for (uint32_t i = 0; i < numColorTargets; i++)
+    {
+        vkDestroyImageView(device, colorTargets[i].m_vkImageView, nullptr);
+        vmaDestroyImage(Loops::Memory::MemoryManager::GetVmaAllocator(), colorTargets[i].m_vkImage, colorTargets[i].m_vmaAllocation);
+    }
+    for (uint32_t i = 0; i < numDepthTargets; i++)
+    {
+        vkDestroyImageView(device, depthTargets[i].m_vkImageView, nullptr);
+        vmaDestroyImage(Loops::Memory::MemoryManager::GetVmaAllocator(), depthTargets[i].m_vkImage, depthTargets[i].m_vmaAllocation);
+    }
 }

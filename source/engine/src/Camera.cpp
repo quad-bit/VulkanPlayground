@@ -1,8 +1,8 @@
 #include "Camera.h"
 #include "Assertion.h"
 
-Loops::Camera::Camera(glm::mat4& transformation, float aspectRatio, glm::vec3 up,
-    CameraType projectionType) : m_aspect(aspectRatio), m_projectionType(projectionType)
+Loops::Camera::Camera(glm::mat4& transformation, float aspectRatio,float near, float far, float fov, glm::vec3 up,
+    CameraType projectionType) : m_aspect(aspectRatio), m_projectionType(projectionType), m_zNear(near), m_zFar(far), m_fov(fov)
 {
     glm::vec3 camRight = glm::normalize(glm::vec3(transformation[0][0], transformation[0][1], transformation[0][2]));
     glm::vec3 camUp = glm::normalize(glm::vec3(transformation[1][0], transformation[1][1], transformation[1][2]));

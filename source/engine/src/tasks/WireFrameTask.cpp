@@ -3,12 +3,12 @@
 #include "memory/MemoryManager.h"
 #include "tasks/WireFrameTask.h"
 
-Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info) :
-    GraphicsTask("WireframeTask", info)
-{
-    CreateAttachments();
-    Init();
-}
+//Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info) :
+//    GraphicsTask("WireframeTask", info)
+//{
+//    //CreateAttachments();
+//    Init();
+//}
 
 Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
     const VkFormat& colorFormat) : GraphicsTask("WireframeTask", info, colorViews, colorFormat)

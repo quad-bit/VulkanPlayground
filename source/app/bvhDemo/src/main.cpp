@@ -28,7 +28,7 @@ public:
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
         camTransform.m_position = glm::vec3(20, 0, 0);
-        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-40.0f), 0);
+        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-90.0f), 0);
 
         //camTransform.m_position = glm::vec3(0, 15, 0);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), glm::radians(0.0f), 0);
@@ -40,6 +40,14 @@ public:
         {
             const float speed = 2.0f;
             Loops::Transform& t = m_cone.get_mut<Loops::Transform>();
+            t.m_eulerAngles.z += deltaTime * speed;
+            //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
+        }
+
+        if (m_camera.is_valid())
+        {
+            const float speed = 1.0f;
+            Loops::Transform& t = m_camera.get_mut<Loops::Transform>();
             t.m_eulerAngles.z += deltaTime * speed;
             //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
         }

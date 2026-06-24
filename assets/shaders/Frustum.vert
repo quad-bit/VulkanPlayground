@@ -74,7 +74,7 @@ void main()
     mat4 vp = view.projection * view.view;
     mat4 inv = inverse(view.projection);
     vec4 cubePosition = inv * vec4(GetCubeVertex(gl_VertexIndex), 1.0f);
-    cubePosition /= cubePosition.w;//vec4((cubePosition.xyz)/cubePosition.w, 1.0);
+    cubePosition /= cubePosition.w;
     cubePosition = view.viewProjectActiveCamera * inverse(view.view) * cubePosition;
     //cubePosition = view.viewProjectActiveCamera * cubePosition;
     

@@ -20,10 +20,10 @@ namespace Loops
         WindowManager const& operator= (WindowManager const&) = delete;
 
         uint32_t m_screenWidth, m_screenHeight;
-
+        bool m_enableFullScreen = false;
     public:
         ~WindowManager() {}
-        WindowManager(uint32_t screenWidth, uint32_t screenHeight);
+        WindowManager(uint32_t screenWidth, uint32_t screenHeight, bool fullScreen = false);
         void                                Init();
         void                                DeInit();
         void                                Close();

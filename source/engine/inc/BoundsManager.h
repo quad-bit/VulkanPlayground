@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <flecs.h>
 #include <variant>
+#include "memory/StackPoolAllocator.h"
 
 namespace Loops
 {
@@ -39,13 +40,16 @@ namespace Loops
     {
     private:
         // meant to store the original min and max ( which will be in local space )
-        Bounds m_primitiveBounds[NUM_PRIMITIVE_BOUNDS];
+        //Bounds m_primitiveBounds[NUM_PRIMITIVE_BOUNDS];
+        Bounds* m_primitiveBounds;
         uint32_t m_primitiveBoundCount = 0;
 
         // boundIndex to BoundInfo
         std::unordered_map<uint32_t, BoundInfo> m_primitiveBoundInfo;
         // meant to store the world space bounds, this will get re-arranged
-        Bounds m_primitiveWorldBounds[NUM_PRIMITIVE_BOUNDS];
+        //Bounds m_primitiveWorldBounds[NUM_PRIMITIVE_BOUNDS];
+        Bounds* m_primitiveWorldBounds;
+
 
         // Used while building the bvh
         uint32_t m_primitiveBoundIndicies[NUM_PRIMITIVE_BOUNDS];
@@ -65,7 +69,8 @@ namespace Loops
         void CalculateSceneBound();
         void UpdatePrimtiveBoundInWorldSpace(const flecs::world& world);
 
-        Loops::BVHNode* BuildUpperBVH(std::vector<Loops::BVHNode* > treeletArray, uint32_t start, uint32_t end, uint32_t* totalNodes);
+        Memory::StackPoolAllocator* m_upperbvhStackAllocator = nullptr;
+        Loops::BVHNode* BuildUpperBVH(std::vector<Loops::BVHNode*>& treeletArray, uint32_t start, uint32_t end, uint32_t* totalNodes);
         BVHNode* GetBvhNode(uint32_t numNodes = 1);
 
     public:

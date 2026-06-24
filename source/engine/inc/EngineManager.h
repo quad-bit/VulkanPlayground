@@ -27,6 +27,7 @@ namespace Loops
         std::vector<Loops::ModelLoadInfo> m_gltfInfos;
         std::vector<Tasking::PipelineType> m_pipelines;
         bool m_enableEditor = true;
+        bool m_enableFullScreen = false;
     };
 
     struct AppCallbacks
@@ -49,7 +50,7 @@ namespace Loops
         //std::unique_ptr<Loops::ImguiEditor> m_pEditor;
         std::unique_ptr<Loops::ImguiSystem> m_pImguiSystem;
 
-        std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
+        //std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
         std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
         BoundsManager m_boundsManager;
 

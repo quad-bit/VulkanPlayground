@@ -674,7 +674,7 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
 
             for (uint32_t i = 0; i < numColorTargets; i++)
             {
-                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetVmaAllocator(), &imageInfo, &allocCreateInfo,
+                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), &imageInfo, &allocCreateInfo,
                     &colorTargets[i].m_vkImage, &colorTargets[i].m_vmaAllocation, nullptr));
 
                 createInfo.image = colorTargets[i].m_vkImage;
@@ -725,7 +725,7 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
 
             for (uint32_t i = 0; i < numDepthTargets; i++)
             {
-                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetVmaAllocator(), &imageInfo, &allocCreateInfo,
+                Loops::VkUtils::ErrorCheck(vmaCreateImage(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), &imageInfo, &allocCreateInfo,
                     &depthTargets[i].m_vkImage, &depthTargets[i].m_vmaAllocation, nullptr));
 
                 createInfo.image = depthTargets[i].m_vkImage;
@@ -778,11 +778,11 @@ void Loops::VkUtils::DestroyRenderTargets(Loops::VulkanImage* colorTargets, uint
     for (uint32_t i = 0; i < numColorTargets; i++)
     {
         vkDestroyImageView(device, colorTargets[i].m_vkImageView, nullptr);
-        vmaDestroyImage(Loops::Memory::MemoryManager::GetVmaAllocator(), colorTargets[i].m_vkImage, colorTargets[i].m_vmaAllocation);
+        vmaDestroyImage(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), colorTargets[i].m_vkImage, colorTargets[i].m_vmaAllocation);
     }
     for (uint32_t i = 0; i < numDepthTargets; i++)
     {
         vkDestroyImageView(device, depthTargets[i].m_vkImageView, nullptr);
-        vmaDestroyImage(Loops::Memory::MemoryManager::GetVmaAllocator(), depthTargets[i].m_vkImage, depthTargets[i].m_vmaAllocation);
+        vmaDestroyImage(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), depthTargets[i].m_vkImage, depthTargets[i].m_vmaAllocation);
     }
 }

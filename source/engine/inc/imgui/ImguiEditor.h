@@ -16,9 +16,9 @@ namespace Loops
     {
     private:
         //ImguiUtil* m_utilObj;
-        ImguiSystem* m_utilObj;
-        SceneManager* m_sceneManager;
-        BoundsManager* m_boundsManager;
+        ImguiSystem* m_utilObj = nullptr;
+        SceneManager* m_sceneManager = nullptr;
+        BoundsManager* m_boundsManager = nullptr;
         int m_selectedNodeIndex = 0;
 
         static ImguiEditor* s_instancePtr;

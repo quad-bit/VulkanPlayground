@@ -1,8 +1,8 @@
 #include "WindowManager.h"
 #include <assert.h>
 
-Loops::WindowManager::WindowManager(uint32_t screenWidth, uint32_t screenHeight) :
-    m_screenWidth(screenWidth), m_screenHeight(screenHeight)
+Loops::WindowManager::WindowManager(uint32_t screenWidth, uint32_t screenHeight, bool fullScreen) :
+    m_screenWidth(screenWidth), m_screenHeight(screenHeight), m_enableFullScreen(fullScreen)
 {
 }
 
@@ -35,8 +35,10 @@ void Loops::WindowManager::InitOSWindow()
         assert(0);
     }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", nullptr, nullptr);
-    //glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", glfwGetPrimaryMonitor(), nullptr);
+    if(m_enableFullScreen)
+        glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", glfwGetPrimaryMonitor(), nullptr);
+    else
+        glfwWindow = glfwCreateWindow(m_screenWidth, m_screenHeight, "Vulkan", nullptr, nullptr);
     glfwGetFramebufferSize(glfwWindow, (int*)&m_screenWidth, (int*)&m_screenHeight);
 }
 

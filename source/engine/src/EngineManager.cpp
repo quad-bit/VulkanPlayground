@@ -16,30 +16,25 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     plog::init(plog::debug, &consoleAppender);
 
     m_pTimer = std::make_unique<Timer>(60);
+    Memory::MemoryManager::GetInstance()->Init();
     Events::EventBus::GetInstance()->Init();
 
-    m_pMemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
+    //m_pMemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
 
     m_pSceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos, m_boundsManager, MAX_ENTITIES);
 
-    m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
+    m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height, info.m_enableFullScreen);
     m_pWindowManagerObj->Init();
 
     m_pVulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = m_pVulkanManager->Init(m_pWindowManagerObj->glfwWindow);
 
-    // VMA
-    {
-        Memory::MemoryManager::InitVMA(m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetInstance());
-    }
+    Memory::MemoryManager::GetInstance()->InitVMA(m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetInstance());
 
     m_pInputManager = std::make_unique<IO::InputManager>(m_pWindowManagerObj->glfwWindow);
 
     ASSERT_MSG(std::get<0>(dim) == info.m_screenSize.m_width, "Mismatch");
     ASSERT_MSG(std::get<1>(dim) == info.m_screenSize.m_height, "Mismatch");
-
-    m_pSceneManager->Initialise(m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(),
-        m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);
 
     m_maxFramesInFlight = m_pVulkanManager->GetMaxFramesInFlight();
 
@@ -48,6 +43,9 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
         m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
         m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height,
         m_pVulkanManager->GetSurfaceColorFormat(), m_pVulkanManager->GetDefaultColorImageView());
+
+    m_pSceneManager->Initialise(m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(),
+        m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);
 
     ImguiEditor::GetInstance()->Init(m_pImguiSystem.get(), m_pSceneManager.get(), &m_boundsManager);
 
@@ -172,7 +170,7 @@ void Loops::EngineManager::DeInit()
             m_pInputManager.reset();
         }
 
-        Memory::MemoryManager::DeInitVMA();
+        Loops::Memory::MemoryManager::GetInstance()->DeInitVMA();
 
         m_pVulkanManager->DeInit();
         m_pWindowManagerObj->DeInit();
@@ -181,14 +179,16 @@ void Loops::EngineManager::DeInit()
         m_pSceneManager = nullptr;
     }
 
-    if (m_pMemoryManager)
-    {
-        m_pMemoryManager.reset();
-        m_pMemoryManager = nullptr;
-    }
+    //if (m_pMemoryManager)
+    //{
+    //    m_pMemoryManager.reset();
+    //    m_pMemoryManager = nullptr;
+    //}
 
     Events::EventBus::GetInstance()->DeInit();
     delete Events::EventBus::GetInstance();
+
+    Memory::MemoryManager::DeInit();
 
     if (m_pTimer)
     {

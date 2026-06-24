@@ -321,9 +321,9 @@ void Loops::Tasking::BoundsRenderTask::Init()
         m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
         Loops::VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+            Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
-        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformDataMemoryPointer);
+        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformDataMemoryPointer);
         ASSERT_MSG(m_transformDataMemoryPointer != nullptr, "not mapped");
 
         {
@@ -464,7 +464,7 @@ void Loops::Tasking::BoundsRenderTask::Init()
         auto CreateBufferAndCopyDataVMA = [this](size_t dataSize, VkBufferUsageFlagBits usage, VkBuffer& buffer, VmaAllocation& vmaAllocation, void* data) -> void
         {
             Loops::VkUtils::CreateBufferVma(dataSize, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_ONLY,
-                Loops::Memory::MemoryManager::GetVmaAllocator(), buffer, vmaAllocation);
+                Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), buffer, vmaAllocation);
 
             // copy data into vertex and index buffer
             auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_info.m_physicalDevice, m_info.m_device);
@@ -687,12 +687,12 @@ Loops::Tasking::BoundsRenderTask::~BoundsRenderTask()
     }
 #endif
 
-    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
     {
-        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_vertexBufferWrappers.m_vkVertexBuffer, m_vertexBufferWrappers.m_vmaAllocation);
-        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_indexBufferWrappers.m_vkIndexBuffer, m_indexBufferWrappers.m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_vertexBufferWrappers.m_vkVertexBuffer, m_vertexBufferWrappers.m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_indexBufferWrappers.m_vkIndexBuffer, m_indexBufferWrappers.m_vmaAllocation);
     }
 }
 

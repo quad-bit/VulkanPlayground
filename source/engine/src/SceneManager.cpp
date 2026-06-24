@@ -5,6 +5,7 @@
 #include "Components.h"
 #include "memory/MemoryManager.h"
 #include <plog/Log.h>
+#include <glm/gtx/euler_angles.hpp>
 #include <stack>
 
 uint32_t meshViewCount = 0;
@@ -50,14 +51,14 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
     {
         Loops::Transform& camTransform = m_cameraEntity.get_mut<Loops::Transform>();
         auto translationMat = glm::translate(camTransform.m_position);
-        auto scaleMat = glm::scale(camTransform.m_scale);
+        //auto scaleMat = glm::scale(camTransform.m_scale);
 
-        glm::mat4 rotXMat = glm::rotate(camTransform.m_eulerAngles.x, glm::vec3(1, 0, 0));
-        glm::mat4 rotYMat = glm::rotate(camTransform.m_eulerAngles.y, glm::vec3(0, 1, 0));
-        glm::mat4 rotZMat = glm::rotate(camTransform.m_eulerAngles.z, glm::vec3(0, 0, 1));
-        auto rotationMat = rotZMat * rotYMat * rotXMat;
+        glm::mat4 rotationMat(1.0);
+        rotationMat = glm::rotate(rotationMat, camTransform.m_eulerAngles.x, glm::vec3(1, 0, 0));
+        rotationMat = glm::rotate(rotationMat, camTransform.m_eulerAngles.y, glm::vec3(0, 1, 0));
+        rotationMat = glm::rotate(rotationMat, camTransform.m_eulerAngles.z, glm::vec3(0, 0, 1));
 
-        camTransform.m_modelMat = translationMat * rotationMat * scaleMat;
+        camTransform.m_modelMat = translationMat * rotationMat;
         camTransform.m_modelMatGlobal = camTransform.m_modelMat;
 
         Loops::Camera& cam = m_cameraEntity.get_mut<Loops::Camera>();
@@ -68,14 +69,13 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
     {
         Loops::Transform& camTransform = m_sceneViewCamera.get_mut<Loops::Transform>();
         auto translationMat = glm::translate(camTransform.m_position);
-        auto scaleMat = glm::scale(camTransform.m_scale);
 
         glm::mat4 rotXMat = glm::rotate(camTransform.m_eulerAngles.x, glm::vec3(1, 0, 0));
         glm::mat4 rotYMat = glm::rotate(camTransform.m_eulerAngles.y, glm::vec3(0, 1, 0));
         glm::mat4 rotZMat = glm::rotate(camTransform.m_eulerAngles.z, glm::vec3(0, 0, 1));
         auto rotationMat = rotZMat * rotYMat * rotXMat;
 
-        camTransform.m_modelMat = translationMat * rotationMat * scaleMat;
+        camTransform.m_modelMat = translationMat * rotationMat;
         camTransform.m_modelMatGlobal = camTransform.m_modelMat;
 
         Loops::Camera& cam = m_sceneViewCamera.get_mut<Loops::Camera>();
@@ -116,7 +116,7 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
                             {
                                 auto& view = m.m_meshViews[i];
                                 renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
-                                assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
+                                assert(drawable.m_numOfViews <= MAX_MESH_VIEWS_PER_MESH);
                             }
                             renderData.m_viewCount += drawable.m_numOfViews;
 
@@ -164,7 +164,7 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
                                 auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
                                 auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
                                 drawable.m_matIndex = renderData.m_drawableCount++;
-                                assert(renderData.m_drawableCount < MAX_ENTITIES);
+                                assert(renderData.m_drawableCount <= MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH);
 
                                 // resetting
                                 drawable.m_numOfViews = 0;
@@ -173,14 +173,13 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
                                 drawable.m_viewStartIndex = renderData.m_viewCount;
                                 drawable.m_vertexBufferId = m.m_vertexBufferIndex;
                                 drawable.m_indexBufferId = m.m_indexBufferIndex;
-
                                 for (int i = 0; i < m.m_meshViewCount; i++)
                                 {
                                     auto& view = m.m_meshViews[i];
                                     if (view.m_viewIndex == submeshId)
                                     {
                                         renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
-                                        assert(drawable.m_numOfViews < MAX_MESH_VIEWS_PER_MESH);
+                                        assert(drawable.m_numOfViews <= MAX_MESH_VIEWS_PER_MESH);
                                         break;
                                     }
                                 }
@@ -194,7 +193,9 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
                 };
 
             const Loops::Camera& cam = m_cameraEntity.get<Loops::Camera>();
-            m_frustumCuller.PerformFrustumCulling(m_boundManager.GetRootNode(), cam.GetViewMatrix(), cam.GetProjectionMat(), AddLeafNodePrimitivesToRenderData);
+            const Loops::Transform& model = m_cameraEntity.get<Loops::Transform>();
+            //m_frustumCuller.PerformFrustumCulling(m_boundManager.GetRootNode(), cam.GetViewMatrix(), cam.GetProjectionMat(), model.m_modelMatGlobal, AddLeafNodePrimitivesToRenderData);
+            m_frustumCuller.PerformFrustumCulling(m_boundManager.GetRootNode(), cam, model.m_modelMatGlobal, AddLeafNodePrimitivesToRenderData);
         };
 
     AddPostFrustumCulling();
@@ -271,7 +272,7 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
         vmaallocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
 
         //allocate the buffer
-        Loops::VkUtils::ErrorCheck(vmaCreateBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), &bufferInfo, &vmaallocInfo, &buffer, &vmaAllocation, nullptr));
+        Loops::VkUtils::ErrorCheck(vmaCreateBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), &bufferInfo, &vmaallocInfo, &buffer, &vmaAllocation, nullptr));
 
         // copy data into vertex and index buffer
         auto [stagingBuffer, stagingMemory] = Loops::VkUtils::CreateStagingBuffer(dataSize, m_physicalDevice, m_device);
@@ -297,14 +298,17 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
         CreateBufferAndCopyDataVMA(verticiesDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, m_vertexBufferWrappers[i].m_vkVertexBuffer,
             m_vertexBufferWrappers[i].m_vmaAllocation, m_vertexBufferWrappers[i].m_vertexList.data());
 
+        std::vector<Vertex>().swap(m_vertexBufferWrappers[i].m_vertexList);
+
         const size_t indiciesDataSize = sizeof(uint32_t) * m_indexBufferWrappers[i].m_indexList.size();
         CreateBufferAndCopyDataVMA(indiciesDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, m_indexBufferWrappers[i].m_vkIndexBuffer,
             m_indexBufferWrappers[i].m_vmaAllocation, m_indexBufferWrappers[i].m_indexList.data());
+        std::vector<uint32_t>().swap(m_indexBufferWrappers[i].m_indexList);
     }
 
     {
         Loops::Transform camTransform{};
-        Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height, .5f, 30.0f, 25.0f);
+        Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height, .2f, 70.0f, 25.0f);
         m_cameraEntity = m_world.entity("MainCamera");
         m_cameraEntity.emplace<Loops::Transform>(camTransform);
         m_cameraEntity.emplace<Loops::Camera>(camera);
@@ -312,8 +316,11 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
 
     {
         Loops::Transform camTransform{};
-        camTransform.m_position = glm::vec3(0, 40, 0);
+        camTransform.m_position = glm::vec3(0, 120, 0);
+        //camTransform.m_position = glm::vec3(0, 40, 0);
         camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), 0, 0);
+        //camTransform.m_position = glm::vec3(40, 0, 0);
+        //camTransform.m_eulerAngles = glm::vec3(0, glm::radians(-90.0f), 0);
 
         Loops::Camera camera(camTransform.m_modelMatGlobal, designDimension.m_width / (float)designDimension.m_height, .2f, 1000.0f, 60.0f);
         m_sceneViewCamera = m_world.entity("SceneViewCamera");
@@ -335,8 +342,8 @@ void Loops::SceneManager::DeInitialise()
 {
     for (uint32_t i = 0; i < m_vertexBufferWrapperCount; i++)
     {
-        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_vertexBufferWrappers[i].m_vkVertexBuffer, m_vertexBufferWrappers[i].m_vmaAllocation);
-        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_indexBufferWrappers[i].m_vkIndexBuffer, m_indexBufferWrappers[i].m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_vertexBufferWrappers[i].m_vkVertexBuffer, m_vertexBufferWrappers[i].m_vmaAllocation);
+        vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_indexBufferWrappers[i].m_vkIndexBuffer, m_indexBufferWrappers[i].m_vmaAllocation);
     }
 }
 

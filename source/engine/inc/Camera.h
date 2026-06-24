@@ -32,6 +32,10 @@ namespace Loops
 
         inline const glm::mat4& GetViewMatrix() const;
         inline const glm::mat4& GetProjectionMat() const;
+        inline const float GetNearZ() const;
+        inline const float GetFarZ() const;
+        inline const float GetFov() const;
+
         void UpdateCamera(const Transform& transform);
     };
 
@@ -45,6 +49,20 @@ namespace Loops
         return m_projectionMat;
     }
 
+    inline const float Loops::Camera::GetNearZ() const
+    {
+        return m_zNear;
+    }
+
+    inline const float Loops::Camera::GetFarZ() const
+    {
+        return m_zFar;
+    }
+
+    inline const float Loops::Camera::GetFov() const
+    {
+        return m_fov;
+    }
 }
 
 #endif

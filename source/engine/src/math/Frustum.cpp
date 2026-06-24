@@ -1,6 +1,20 @@
 #include "Math/Frustum.h"
 #include "Assertion.h"
 
+namespace
+{
+    void NormalisePlane(Loops::Math::Plane& plane)
+    {
+        glm::vec3 normal{ plane.a, plane.b, plane.c };
+        float length = glm::length(normal);
+        plane.a /= length;
+        plane.b /= length;
+        plane.c /= length;
+        plane.d /= length;
+    }
+};
+
+
 Loops::Math::Frustum::Frustum()
 {
 }
@@ -133,26 +147,46 @@ void Loops::Math::Frustum::Update(const glm::mat4& viewMat, const glm::mat4& pro
 
     // Left
     m_planes[LEFT].Set(vp[0][3] + vp[0][0], vp[1][3] + vp[1][0], vp[2][3] + vp[2][0], vp[3][3] + vp[3][0]);
-    m_planes[LEFT].Normalize();
+    NormalisePlane(m_planes[LEFT]);
     
     // Right
     m_planes[RIGHT].Set(vp[0][3] - vp[0][0], vp[1][3] - vp[1][0], vp[2][3] - vp[2][0], vp[3][3] - vp[3][0]);
-    m_planes[RIGHT].Normalize();
+    NormalisePlane(m_planes[RIGHT]);
+
 
     // Bottom
     m_planes[BOTTOM].Set(vp[0][3] + vp[0][1], vp[1][3] + vp[1][1], vp[2][3] + vp[2][1], vp[3][3] + vp[3][1]);
-    m_planes[BOTTOM].Normalize();
+    NormalisePlane(m_planes[BOTTOM]);
+
 
     // Top
     m_planes[TOP].Set(vp[0][3] - vp[0][1], vp[1][3] - vp[1][1], vp[2][3] - vp[2][1], vp[3][3] - vp[3][1]);
-    m_planes[TOP].Normalize();
+    NormalisePlane(m_planes[TOP]);
 
     // Near
     m_planes[NEAR_PLANE].Set(vp[0][3] + vp[0][2], vp[1][3] + vp[1][2], vp[2][3] + vp[2][2], vp[3][3] + vp[3][2]);
-    m_planes[NEAR_PLANE].Normalize();
+    //m_planes[NEAR_PLANE].Set(vp[0][2], vp[1][2], vp[2][2], vp[3][2]);
+    NormalisePlane(m_planes[NEAR_PLANE]);
 
     // Far
     m_planes[FAR_PLANE].Set(vp[0][3] - vp[0][2], vp[1][3] - vp[1][2], vp[2][3] - vp[2][2], vp[3][3] - vp[3][2]);
-    m_planes[FAR_PLANE].Normalize();
+    NormalisePlane(m_planes[FAR_PLANE]);
+
+}
+
+std::pair<uint8_t, unsigned short int> Loops::Math::Frustum::CheckPointVisibility(const glm::vec3& point) const
+{
+    // if the point is at front or on the plane i, then turn the bit on in the mask
+    uint8_t bitmask{ 0b00000000 };
+    unsigned short numZeros = 0;
+    for (unsigned short i = 0; i < 6; i++)
+    {
+        glm::vec3 normal{ m_planes[i].a , m_planes[i].b, m_planes[i].c };
+        if ((glm::dot(normal, point) + m_planes[i].d) >= 0)
+            bitmask |= (1 << i); // then on bit at i location
+        else
+            numZeros++;
+    }
+    return { bitmask, numZeros };
 }
 

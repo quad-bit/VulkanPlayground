@@ -6,7 +6,7 @@
 #include "SceneManager.h"
 #include "VulkanManager.h"
 #include "BoundsManager.h"
-#include "ImguiUtil.h"
+#include "imgui/ImguiSystem.h"
 #include "tasks/WireFrameTask.h"
 #include "tasks/BoundsRenderTask.h"
 #include <memory>
@@ -35,7 +35,7 @@ namespace Loops::Tasking
         virtual ~WireframePipeline();
 
         void Update(uint32_t currentFrameInFlight, const std::unique_ptr<SceneManager>& sceneManager, const BoundsManager& boundsManager,
-            const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<ImguiUtil>& imguiUtil);
+            const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil);
     };
 }
 

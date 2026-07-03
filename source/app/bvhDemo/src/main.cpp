@@ -6,6 +6,17 @@
 #include <optional>
 #include <memory>
 
+#define DEMO_SCENE 0
+#define STRESS_SCENE 1
+
+#if 1
+#define SCENE_TYPE STRESS_SCENE
+#else
+#define SCENE_TYPE DEMO_SCENE
+#endif
+
+//#define EXTERNAL_MONITOR 
+
 class ApplicationHandler
 {
 private:
@@ -27,11 +38,11 @@ public:
         //camTransform.m_position = glm::vec3(0, 5, -15);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
-        camTransform.m_position = glm::vec3(20, 0, 0);
-        camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(-40.0f), 0);
+        //camTransform.m_position = glm::vec3(0, 0, 0);
+        //camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(0.0f), 0);
 
-        //camTransform.m_position = glm::vec3(0, 15, 0);
-        //camTransform.m_eulerAngles = glm::vec3(glm::radians(90.0f), glm::radians(0.0f), 0);
+        camTransform.m_position = glm::vec3(0, 0, 0);
+        camTransform.m_eulerAngles = glm::vec3(0.0f, glm::radians(-89.9), 0.0f);
     }
 
     void Update(const double& deltaTime)
@@ -41,6 +52,18 @@ public:
             const float speed = 2.0f;
             Loops::Transform& t = m_cone.get_mut<Loops::Transform>();
             t.m_eulerAngles.z += deltaTime * speed;
+            //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
+        }
+
+        if (m_camera.is_valid())
+        {
+#if SCENE_TYPE == DEMO_SCENE
+            const float speed = 1.0f;
+#else
+            const float speed = 0.10f;
+#endif
+            Loops::Transform& t = m_camera.get_mut<Loops::Transform>();
+            t.m_eulerAngles.y += deltaTime * speed;
             //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
         }
 
@@ -92,15 +115,25 @@ int main()
 
     //executor.run(taskflow).wait();
 
+#if SCENE_TYPE == DEMO_SCENE
     auto bvhDemo = std::string{ ASSETS_PATH } + "/models/bvhDemo/bvhDemo.gltf";
+#else
+    auto bvhDemo = std::string{ ASSETS_PATH } + "/models/bvhStressTest/ring_scene.gltf";
+#endif
 
+    //auto bvhDemo = std::string{ ASSETS_PATH } + "/models/Cube/Cube.gltf";
     std::vector<Loops::ModelLoadInfo> gltfInfo;
     gltfInfo.push_back({ 1.0f, bvhDemo.c_str() });
 
+    Loops::EngineInfo info{};
+#ifdef EXTERNAL_MONITOR
     constexpr uint32_t windowWidth = 1280;
     constexpr uint32_t windowHeight = 720;
-
-    Loops::EngineInfo info{};
+#else
+    constexpr uint32_t windowWidth = 1920;
+    constexpr uint32_t windowHeight = 1200;
+    //info.m_enableFullScreen = true;
+#endif
     info.m_designSize = Loops::Dimension(windowWidth, windowHeight);
     info.m_screenSize = Loops::Dimension(windowWidth, windowHeight);
     info.m_gltfInfos = gltfInfo;
@@ -130,11 +163,13 @@ int main()
         callback.m_Exit.push_back(DeInit);
     }
 
-    Loops::EngineManager engineManager(info, callback);
+    Loops::EngineManager* engineManager = new Loops::EngineManager(info, callback);
 
-    engineManager.Loop();
+    engineManager->Loop();
 
-    engineManager.DeInit();
+    engineManager->DeInit();
+
+    delete engineManager;
 
     return 0;
 }

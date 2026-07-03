@@ -339,11 +339,11 @@ std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow
         m_colorAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_surfaceFormat.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
-            createInfo.format = VK_FORMAT_B8G8R8A8_UNORM;
+            createInfo.format = m_surfaceFormat.format;
             createInfo.image = m_colorAttachments[i];
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -421,84 +421,6 @@ void Loops::VulkanManager::Update(uint32_t currentFrameIndex)
 
 }
 
-uint32_t Loops::VulkanManager::GetSwapchainImageCount() const
-{
-    return m_swapchainImageCount;
-}
-
-uint32_t Loops::VulkanManager::GetFrameInFlightIndex() const
-{
-    return m_frameInFlightIndex;
-}
-
-uint32_t Loops::VulkanManager::GetMaxFramesInFlight() const
-{
-    return m_maxFrameInFlight;
-}
-
-const VkDevice& Loops::VulkanManager::GetLogicalDevice() const
-{
-    return m_logicalDevice;
-}
-
-const VkPhysicalDevice & Loops::VulkanManager::GetPhysicalDevice() const
-{
-    return m_physicalDevice;
-}
-
-uint32_t Loops::VulkanManager::GetQueueFamilyIndex() const
-{
-    return m_queueFamilyIndex;
-}
-
-uint32_t Loops::VulkanManager::GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore)
-{
-    //Get the swapchain image index
-    Loops::VkUtils::ErrorCheck(vkAcquireNextImageKHR(m_logicalDevice, m_swapchainObj, UINT64_MAX,
-        imageAquiredSignalSemaphore, VK_NULL_HANDLE, &m_currentSwpachainIndex));
-
-    return m_currentSwpachainIndex;
-}
-
-const VkQueue & Loops::VulkanManager::GetComputeQueue() const
-{
-    return m_computeQueue;
-}
-
-const VkQueue & Loops::VulkanManager::GetGraphicsQueue() const
-{
-    return m_graphicsQueue;
-}
-
-const VkFormat & Loops::VulkanManager::GetDepthFormat() const
-{
-    return m_depthFormat;
-}
-
-const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultColorImageView() const
-{
-    return m_colorAttachmentViews;
-}
-
-const std::vector<VkImage>& Loops::VulkanManager::GetDefaultColorImages() const
-{
-    return m_colorAttachments;
-}
-
-const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultDepthImageView() const
-{
-    return m_depthAttachmentViews;
-}
-
-const std::vector<VkImage>& Loops::VulkanManager::GetDefaultDepthImages() const
-{
-    return m_depthAttachments;
-}
-
-const VkInstance& Loops::VulkanManager::GetInstance() const
-{
-    return m_instanceObj;
-}
 
 void Loops::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSemaphore& semaphore, const VkSemaphore& imageAcquiredSemaphore,
     uint64_t waitValue, uint64_t signalValue)

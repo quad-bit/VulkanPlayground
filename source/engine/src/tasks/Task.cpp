@@ -1,26 +1,55 @@
 #include "tasks/Task.h"
 #include "Assertion.h"
 
-void Loops::Tasking::GraphicsTask::CreateAttachments()
+void Loops::Tasking::GraphicsTask::CreateAttachments(uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat, const std::optional<VkFormat>& depthFormat,
+    const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue)
 {
-    assert(0);
+    m_taskResource = TaskOwnedResource{};
+    TaskOwnedResource& resource = std::get<TaskOwnedResource>(m_taskResource);
+    VkClearDepthStencilValue depthClearValue = depthStencilClearValue.has_value() ? depthStencilClearValue.value() : VkClearDepthStencilValue{1.0f, 0};
+    VkFormat depthFormatValue = depthFormat.has_value() ? depthFormat.value() : VK_FORMAT_D32_SFLOAT_S8_UINT;
+    resource.m_colorTargets.resize(numColorTargets);
+    resource.m_depthTargets.resize(numDepthTargets);
+    m_renderInfoList = VkUtils::CreateRendertargets(resource.m_colorTargets.data(), resource.m_colorTargets.size(), resource.m_depthTargets.data(),
+        resource.m_depthTargets.size(), colorFormat, depthFormatValue, m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height,
+        m_info.m_device, clearColorValue, depthClearValue, m_colorInfoList, m_depthInfoList);
+
+    for (auto& target : resource.m_colorTargets)
+    {
+        std::vector<VkImage> images{ target.m_vkImage };
+        VkUtils::ChangeImageLayout(m_info.m_device, images, m_info.m_graphicsQueue, m_info.m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    }
+
+    for (auto& target : resource.m_depthTargets)
+    {
+        std::vector<VkImage> images{ target.m_vkImage };
+        VkUtils::ChangeImageLayout(m_info.m_device, images, m_info.m_graphicsQueue, m_info.m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    }
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info) : m_info(info), m_ownAttachments(true)
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
+    const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue) :
+    m_info(info), m_ownAttachments(true), m_colorFormat(colorFormat), m_depthFormat(depthFormat.has_value() ? depthFormat.value() : VK_FORMAT_UNDEFINED)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
-    CreateAttachments();
+    CreateAttachments(numColorTargets, numDepthTargets, colorFormat, depthFormat, clearColorValue, depthStencilClearValue);
 }
 
 Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) :
-    m_info(info), m_colorAttachmentViews(colorViews), m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat), m_depthFormat(depthFormat)
+    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) : m_info(info), m_colorAttachmentViews(colorViews),
+    m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat), m_depthFormat(depthFormat)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const Loops::Tasking::GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat):
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const Loops::Tasking::GraphicsTaskInfo& info, 
+    const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat):
     m_info(info), m_colorAttachmentViews(colorViews), m_colorFormat(colorFormat)
+{
+    strncpy(m_name, name, sizeof(m_name) - 1);
+}
+
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info) : m_info(info)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
@@ -29,7 +58,9 @@ Loops::Tasking::GraphicsTask::~GraphicsTask()
 {
     if (m_ownAttachments)
     {
-        assert(0);
+        auto& taskOwnedResource = std::get<Loops::Tasking::TaskOwnedResource>(m_taskResource);
+        VkUtils::DestroyRenderTargets(taskOwnedResource.m_colorTargets.data(), taskOwnedResource.m_colorTargets.size(), taskOwnedResource.m_depthTargets.data(),
+            taskOwnedResource.m_depthTargets.size(), m_info.m_device);
     }
 
     vkDestroyPipeline(m_info.m_device, m_pipeline, nullptr);

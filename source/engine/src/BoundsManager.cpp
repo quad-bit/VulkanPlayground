@@ -4,7 +4,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <algorithm>
+#include <array>
 #include <execution>
+#include <memory/MemoryManager.h>
 
 namespace
 {
@@ -164,7 +166,9 @@ namespace
 
             // search for mismatch, binary search
             int searchStart = 0, searchEnd = numPrimitivesInTreelet - 1;
-            while (searchStart != searchEnd)
+            //Loops::ASSERT_MSG(searchEnd > 1, "Something is wrong");
+
+            while (searchStart + 1 != searchEnd)
             {
                 uint32_t mid = (searchStart + searchEnd) / 2;
                 if ((mortonArray[searchStart].m_mortonCode & mask) == (mortonArray[mid].m_mortonCode & mask))
@@ -173,8 +177,10 @@ namespace
                     searchEnd = mid;
             };
 
-            Loops::ASSERT_MSG(searchEnd < numPrimitivesInTreelet, "Exceeded limit");
+            //Loops::ASSERT_MSG(searchEnd < numPrimitivesInTreelet - 1, "Exceeded limit");
             uint32_t splitOffset = searchEnd;
+            Loops::ASSERT_MSG(splitOffset <= numPrimitivesInTreelet, "Exceeded limit");
+
             (*totalNodes)++;
             Loops::BVHNode* containerNode = node++;
             Loops::BVHNode* lbvh[2] = {
@@ -213,11 +219,20 @@ Loops::BoundsManager::BoundsManager()
 {
     m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
     m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
+
+    m_primitiveBounds = reinterpret_cast<Bounds*>(Memory::MemoryManager::GetInstance()->AllocateFromLinearPool(sizeof(Bounds) * NUM_PRIMITIVE_BOUNDS, alignof(Bounds)));
+    m_primitiveWorldBounds = reinterpret_cast<Bounds*>(Memory::MemoryManager::GetInstance()->AllocateFromLinearPool(sizeof(Bounds) * NUM_PRIMITIVE_BOUNDS, alignof(Bounds)));
+    m_upperbvhStackAllocator = Memory::MemoryManager::GetInstance()->CreateStackPoolAllocator(4 * 1024 * 1024);
 }
 
 Loops::BoundsManager::~BoundsManager()
 {
-
+#pragma omp parallel for
+    for (uint32_t i = 0; i < m_primitiveBoundCount; i++)
+    {
+        m_primitiveBounds[i].~Bounds();
+        m_primitiveWorldBounds[i].~Bounds();
+    }
 }
 
 void Loops::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, uint32_t submeshId, uint32_t entityId)
@@ -241,6 +256,7 @@ void Loops::BoundsManager::AddBound(const glm::vec3& min, const glm::vec3& max, 
 
 void Loops::BoundsManager::CalculateSceneBound()
 {
+    ASSERT_MSG(0, "Not getting used");
     m_sceneBound.m_max = glm::vec3(std::numeric_limits<float>::lowest());
     m_sceneBound.m_min = glm::vec3(std::numeric_limits<float>::max());
 
@@ -303,7 +319,7 @@ void Loops::BoundsManager::Update(uint32_t currentFrameInFlight, const flecs::wo
     uint32_t totalNodeCount = 0;
 
     if (m_activeCreationMethod == BvhCreationMethod::RECURSIVE)
-        m_bvhRootNode = BuildBVHRecursive(m_primitiveWorldBounds, m_primitiveBoundCount, 0, m_primitiveBoundCount - 1, &totalNodeCount, m_primitiveBoundIndicies, m_primitiveBoundIndiciesCount,
+        m_bvhRootNode = BuildBVHRecursive(m_primitiveWorldBounds, m_primitiveBoundCount, 0, m_primitiveBoundCount-1, &totalNodeCount, m_primitiveBoundIndicies, m_primitiveBoundIndiciesCount,
             m_activeSplitMethod);
     else
         m_bvhRootNode = BuildHLBVH(m_primitiveWorldBounds, m_primitiveBoundCount, &totalNodeCount, m_primitiveBoundIndicies, m_primitiveBoundCount);
@@ -318,6 +334,10 @@ Loops::BVHNode* Loops::BoundsManager::GetBvhNode(uint32_t numNodes)
     //return node;
 
     BVHNode* node = &m_bvhNodeArray[m_bvhNodeCount];
+    for (uint32_t i = 0; i < numNodes; i++)
+    {
+        (node + i)->m_index = m_bvhNodeCount + i;
+    }
     m_bvhNodeCount += numNodes;
     ASSERT_MSG(m_bvhNodeCount < NUM_BVH_NODES," Node count exceeded");
     return node;
@@ -410,7 +430,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildBVHRecursive(Bounds* primitiveBoundsA
                     break;
 
                 case SplitMethod::SAH:
-                    if (numBoundsInNode <= 2)
+                    if (numBoundsInNode <= 4)
                     {
                         mid = (start + end) / 2;
                         std::nth_element(&primitiveBoundsArray[start], &primitiveBoundsArray[mid], &primitiveBoundsArray[end], [dim](const Bounds& b1, const Bounds& b2)
@@ -496,7 +516,19 @@ Loops::BVHNode* Loops::BoundsManager::BuildBVHRecursive(Bounds* primitiveBoundsA
                                     return bucketIndex <= minCostSplitBucketIndex;
                                 });
 
-                            mid = midPtr - &primitiveBoundsArray[start];
+                            mid = midPtr - &primitiveBoundsArray[0];
+
+                            if (mid == start || mid == end)
+                            {
+                                mid = (start + end) / 2;
+                                std::nth_element(&primitiveBoundsArray[start], &primitiveBoundsArray[mid], &primitiveBoundsArray[end], [dim](const Bounds& b1, const Bounds& b2)
+                                    {
+                                        const glm::vec3 centroid1 = (b1.m_max + b1.m_min) / 2.0f;
+                                        const glm::vec3 centroid2 = (b2.m_max + b2.m_min) / 2.0f;
+
+                                        return centroid1[dim] < centroid2[dim];
+                                    });
+                            }
                         }
                         else
                         {
@@ -542,7 +574,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildHLBVH(Bounds* primitiveBoundsArray, u
             return data;
         };
 
-    const BVHData bvhData = CalculateInitialData(0, numPrimitiveBounds);
+    const BVHData bvhData = CalculateInitialData(0, numPrimitiveBounds-1);
 
     // Create the morton array which contains the morton for each primitive
     std::vector<Loops::MortonInfo> mortonInfoArray(numPrimitiveBounds);
@@ -608,11 +640,12 @@ Loops::BVHNode* Loops::BoundsManager::BuildHLBVH(Bounds* primitiveBoundsArray, u
     }
 
     BVHNode* root = BuildUpperBVH(finishedNodes, 0, finishedNodes.size() - 1, totalNodes);
-
+    m_upperbvhStackAllocator->Reset();
     return root;
 }
 
-Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* > treeletArray, uint32_t start, uint32_t end, uint32_t* totalNodes)
+Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode*>& treeletArray, uint32_t start, uint32_t end,
+    uint32_t* totalNodes)
 {
     Loops::BVHNode* node = GetBvhNode();
     totalNodes++;
@@ -623,7 +656,21 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
         Bounds m_centroidBounds{};
     };
 
-    auto CalculateInitialData = [&treeletArray](uint32_t start, uint32_t end) -> BVHData
+    constexpr int numBuckets = 12;
+    struct BucketInfo
+    {
+        int m_count = 0;
+        Bounds bound = {};
+    };
+
+    struct StackData
+    {
+        BVHData bvhData{};
+        BucketInfo buckets[numBuckets];
+    };
+
+    StackData* stackData = m_upperbvhStackAllocator->Allocate<StackData>();
+    auto CalculateInitialData = [&treeletArray, &stackData](uint32_t start, uint32_t end)
         {
             Bounds nodeBounds{};
             Bounds centroidBounds{};
@@ -634,65 +681,59 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
                 centroidBounds = Union(centroidBounds, (treeletArray[i]->m_bounds.m_max + treeletArray[i]->m_bounds.m_min) / 2.0f);
             }
 
-            BVHData data{ nodeBounds, centroidBounds };
-            return data;
+            stackData->bvhData = { nodeBounds, centroidBounds };
         };
-    const BVHData bvhData = CalculateInitialData(start, end);
+    CalculateInitialData(start, end);
 
     uint32_t numBoundsInNode = end - start + 1;
     //uint32_t firstBoundIndex = orderedBoundIndiciesCount;
-    const uint8_t dim = MaximumExtent(bvhData.m_centroidBounds);
+    const uint8_t dim = MaximumExtent(stackData->bvhData.m_centroidBounds);
 
-    ASSERT_MSG(numBoundsInNode >= 2, "CHeck");
+    //ASSERT_MSG(numBoundsInNode >= 2, "CHeck");
 
     // Create Container
-    if (numBoundsInNode == 2)
+    if (numBoundsInNode <= 2)// max child nodes, here primitives are not child but treelets
     {
         node->InitContainer(dim, treeletArray[start], treeletArray[end]);
+        m_upperbvhStackAllocator->DeAllocate<StackData>(stackData);
         return node;
     }
-    else if (numBoundsInNode > 2)
+    else
     {
         uint32_t mid = (start + end) / 2;
 
-        if (bvhData.m_centroidBounds.m_max[dim] == bvhData.m_centroidBounds.m_min[dim])
+        if (stackData->bvhData.m_centroidBounds.m_max[dim] == stackData->bvhData.m_centroidBounds.m_min[dim])
         {
             node->InitContainer(dim, treeletArray[start], treeletArray[end]);
+            m_upperbvhStackAllocator->DeAllocate<StackData>(stackData);
             return node;
         }
         else
         {
-            /*if (numBoundsInNode <= 2)
+            if (numBoundsInNode <= 4)
             {
                 mid = (start + end) / 2;
-                std::nth_element(&primitiveBoundsArray[start], &primitiveBoundsArray[mid], &primitiveBoundsArray[end], [dim](const Bounds& b1, const Bounds& b2)
+                std::nth_element(&treeletArray[start], &treeletArray[mid], &treeletArray[end], [dim](BVHNode* b1, BVHNode* b2)
                     {
-                        const glm::vec3 centroid1 = (b1.m_max + b1.m_min) / 2.0f;
-                        const glm::vec3 centroid2 = (b2.m_max + b2.m_min) / 2.0f;
+                        const glm::vec3 centroid1 = (b1->m_bounds.m_max + b1->m_bounds.m_min) / 2.0f;
+                        const glm::vec3 centroid2 = (b2->m_bounds.m_max + b2->m_bounds.m_min) / 2.0f;
 
                         return centroid1[dim] < centroid2[dim];
                     });
             }
-            else*/
+            else
             {
-                constexpr int numBuckets = 12;
-                struct BucketInfo
-                {
-                    int m_count = 0;
-                    Bounds bound = {};
-                } buckets[numBuckets];
-
                 for (uint32_t i = start; i <= end; i++)
                 {
                     glm::vec3 centroid = (treeletArray[i]->m_bounds.m_max + treeletArray[i]->m_bounds.m_min) / 2.0f;
 
                     // get a normalised value and then multiply with numBuckets to get the bucket value
                     // in the axis with maximum extent
-                    int bucketIndex = numBuckets * Offset(bvhData.m_centroidBounds, centroid)[dim];
+                    int bucketIndex = numBuckets * Offset(stackData->bvhData.m_centroidBounds, centroid)[dim];
                     if (bucketIndex == numBuckets)
                         bucketIndex = numBuckets - 1;
-                    buckets[bucketIndex].m_count++;
-                    buckets[bucketIndex].bound = Union(buckets[bucketIndex].bound, treeletArray[i]->m_bounds);
+                    stackData->buckets[bucketIndex].m_count++;
+                    stackData->buckets[bucketIndex].bound = Union(stackData->buckets[bucketIndex].bound, treeletArray[i]->m_bounds);
                 }
 
                 // cost calculation
@@ -708,14 +749,14 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
                     // the last bucket will not have the boundary
                     for (uint32_t j = 0; j <= i; j++)
                     {
-                        b0 = Union(b0, buckets[j].bound);
-                        count0 += buckets[j].m_count;
+                        b0 = Union(b0, stackData->buckets[j].bound);
+                        count0 += stackData->buckets[j].m_count;
                     }
 
                     for (uint32_t j = i + 1; j < numBuckets - 1; j++)
                     {
-                        b1 = Union(b1, buckets[j].bound);
-                        count1 += buckets[j].m_count;
+                        b1 = Union(b1, stackData->buckets[j].bound);
+                        count1 += stackData->buckets[j].m_count;
                     }
 
                     // cost ray travelling through the node
@@ -726,7 +767,7 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
 
                     // probability of intersection with primitives within node will be directly proportional to the surface area of bucket divided by 
                     // area of centeroid bounds (from start to end)
-                    cost[i] = traversalCost + (count0 * SurfaceArea(b0) + count1 * SurfaceArea(b1)) / SurfaceArea(bvhData.m_centroidBounds);
+                    cost[i] = traversalCost + (count0 * SurfaceArea(b0) + count1 * SurfaceArea(b1)) / SurfaceArea(stackData->bvhData.m_centroidBounds);
                     if (cost[i] < minCost)
                     {
                         minCost = cost[i];
@@ -735,20 +776,32 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
                 }
 
                 float leafCost = numBoundsInNode;
-                if (numBoundsInNode > 2 || minCost < leafCost)
+                if (numBoundsInNode > MAX_PRIMITIVES_PER_LEAF || minCost < leafCost)
                 {
                     // split primitives based on the container bucket
                     BVHNode** midPtr = std::partition(&treeletArray[start], &treeletArray[end],
-                        [dim, &bvhData, &minCostSplitBucketIndex](BVHNode* node)
+                        [dim, &stackData, &minCostSplitBucketIndex](BVHNode* node)
                         {
                             const glm::vec3 centroid = (node->m_bounds.m_max + node->m_bounds.m_min) / 2.0f;
-                            int bucketIndex = numBuckets * Offset(bvhData.m_centroidBounds, centroid)[dim];
+                            int bucketIndex = numBuckets * Offset(stackData->bvhData.m_centroidBounds, centroid)[dim];
                             if (bucketIndex == numBuckets)
                                 bucketIndex = numBuckets - 1;
                             return bucketIndex <= minCostSplitBucketIndex;
                         });
 
-                    mid = midPtr - &treeletArray[start];
+                    mid = midPtr - &treeletArray[0];
+
+                    if(mid == start || mid  == end)
+                    {
+                        mid = (start + end) / 2;
+                        std::nth_element(&treeletArray[start], &treeletArray[mid], &treeletArray[end], [dim](BVHNode* b1, BVHNode* b2)
+                            {
+                                const glm::vec3 centroid1 = (b1->m_bounds.m_max + b1->m_bounds.m_min) / 2.0f;
+                                const glm::vec3 centroid2 = (b2->m_bounds.m_max + b2->m_bounds.m_min) / 2.0f;
+
+                                return centroid1[dim] < centroid2[dim];
+                            });
+                    }
                 }
                 else
                 {
@@ -757,19 +810,21 @@ Loops::BVHNode* Loops::BoundsManager::BuildUpperBVH(std::vector<Loops::BVHNode* 
             }
 
             BVHNode* left = nullptr, * right = nullptr;
-            if (mid == start)
+            /*if (mid == start)
                 left = treeletArray[start];
-            else
+            else*/
                 left = BuildUpperBVH(treeletArray, start, mid, totalNodes);
 
-            if ((mid + 1) == end)
+            /*if ((mid + 1) == end)
                 right = treeletArray[end];
-            else
+            else*/
                 right = BuildUpperBVH(treeletArray, mid + 1, end, totalNodes);
 
             node->InitContainer(dim, left, right);
         }
     }
+
+    m_upperbvhStackAllocator->DeAllocate<StackData>(stackData);
     return node;
 }
 

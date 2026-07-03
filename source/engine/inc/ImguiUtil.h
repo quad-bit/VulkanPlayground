@@ -1,3 +1,4 @@
+#if 0
 #ifndef IMGUI_UTIL_H
 #define IMGUI_UTIL_H
 
@@ -9,7 +10,6 @@
 #include <GLFW/glfw3.h>
 
 // https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/GUI/02_imgui_setup.html#_creating_an_imgui_integration
-
 namespace Loops
 {
     class ImguiUtil
@@ -91,6 +91,7 @@ namespace Loops
         bool m_initialized = false;
         bool m_frameAlreadyRendered = false;
         mutable std::vector<std::function<void()>> m_guiDrawPersistentList;
+        mutable std::vector<std::function<void(uint32_t)>> m_guiDrawOnFramePersistentList;
 
         // Resource creation
         void CreateFontTexture();
@@ -127,12 +128,18 @@ namespace Loops
         /**
          * @brief Add imgui widget draw calls just once at the start.
          */
-        void AddPersistentDrawCalls(const std::function<void()>& func) const;
+        void AddPersistentDrawCalls(const std::function<void()>& func);
+
+        /**
+        * @brief Add imgui widget draw calls just once at the start called with frame index
+        */
+        void AddPersistentDrawCalls(const std::function<void(uint32_t frameIndex)>& func);
+
 
         /**
          * @brief Start a new ImGui frame.
          */
-        void NewFrame();
+        void NewFrame(uint32_t frameInFlight);
 
         /**
          * @brief Render the ImGui frame.
@@ -195,4 +202,6 @@ namespace Loops
         }
     };
 }
+#endif
+
 #endif

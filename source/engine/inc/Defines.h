@@ -5,16 +5,18 @@
 #include <stdint.h>
 #include <variant>
 
+#define BVH_SCENE_VIEW_ENABLED
+
 namespace Loops
 {
     // For now change this manually based on the model being loaded
-    const uint32_t MAX_ENTITIES = 100;
-    const uint32_t MAX_MESH_VIEWS_PER_MESH = 10;
+    const uint32_t MAX_ENTITIES = 1100;
+    const uint32_t MAX_MESH_VIEWS_PER_MESH = 1;
 
     constexpr uint32_t NUM_PRIMITIVE_BOUNDS = MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH;
     constexpr uint32_t NUM_BVH_NODES = 2 * NUM_PRIMITIVE_BOUNDS - 1;
     constexpr uint32_t MAX_BOUNDS = NUM_PRIMITIVE_BOUNDS + NUM_BVH_NODES;
-    constexpr uint32_t MAX_PRIMITIVES_PER_LEAF = 1;
+    constexpr uint32_t MAX_PRIMITIVES_PER_LEAF = 2;
 
     struct alignas(4) Bounds
     {
@@ -48,6 +50,7 @@ namespace Loops
     struct BVHNode
     {
         Bounds m_bounds;
+        uint32_t m_index = 0;
         std::variant<BVHContainerNode, BVHLeafNode> m_node;
         void InitLeaf(uint32_t startIndex, uint32_t numBounds, const Bounds& bound);
         void InitContainer(uint8_t axis, BVHNode* child0, BVHNode* child1);

@@ -3,6 +3,7 @@
 #include "input/MouseInputManager.h"
 #include "Event.h"
 #include "ImguiUtil.h"
+#include "imgui/ImguiSystem.h"
 
 #include <memory>
 #include <string>
@@ -219,7 +220,7 @@ namespace
         ImGuiIO& io = ImGui::GetIO();
         if (io.WantCaptureMouse)
         {
-            Loops::ImguiUtil::MouseButtonCallback(window, button, action, mods);
+            Loops::ImguiSystem::MouseButtonCallback(window, button, action, mods);
             return;
         }
 
@@ -268,7 +269,7 @@ namespace
         //Slot* slot = (Slot*)glfwGetWindowUserPointer(window);
         //printf("Cursor position: %f %f\n", x, y);
         //Loops::IO::MouseInputManager::GetInstance()->MousePointerEventHandler(x, y);
-        Loops::ImguiUtil::CursorPosCallback(window, x, y);
+        Loops::ImguiSystem::CursorPosCallback(window, x, y);
     }
 
     static void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -284,7 +285,7 @@ namespace
         ImGuiIO& io = ImGui::GetIO();
         if (io.WantCaptureKeyboard)
         {
-            Loops::ImguiUtil::KeyCallback(window, key, scancode, action, mods);
+            Loops::ImguiSystem::KeyCallback(window, key, scancode, action, mods);
             return;
         }
 
@@ -344,13 +345,13 @@ Loops::IO::InputManager::InputManager(GLFWwindow* windowObj) : m_windowObj(windo
     glfwSetMouseButtonCallback(m_windowObj, MouseButtonCallback);
     //glfwSetCursorPosCallback(m_windowObj, CursorPositionCallback);
 
-    glfwSetWindowFocusCallback(m_windowObj, Loops::ImguiUtil::WindowFocusCallback);
-    glfwSetCursorEnterCallback(m_windowObj, Loops::ImguiUtil::CursorEnterCallback);
-    glfwSetCursorPosCallback(m_windowObj, Loops::ImguiUtil::CursorPosCallback);
+    glfwSetWindowFocusCallback(m_windowObj, Loops::ImguiSystem::WindowFocusCallback);
+    glfwSetCursorEnterCallback(m_windowObj, Loops::ImguiSystem::CursorEnterCallback);
+    glfwSetCursorPosCallback(m_windowObj, Loops::ImguiSystem::CursorPosCallback);
     //m_userCallbackMousebutton = glfwSetMouseButtonCallback(m_glfwWindow, MouseButtonCallback);
-    glfwSetScrollCallback(m_windowObj, Loops::ImguiUtil::ScrollCallback);
+    glfwSetScrollCallback(m_windowObj, Loops::ImguiSystem::ScrollCallback);
     //glfwSetKeyCallback(m_windowObj, KeyCallback);
-    glfwSetCharCallback(m_windowObj, Loops::ImguiUtil::CharCallback);
+    glfwSetCharCallback(m_windowObj, Loops::ImguiSystem::CharCallback);
 }
 
 

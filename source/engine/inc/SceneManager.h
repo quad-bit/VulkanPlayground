@@ -65,7 +65,7 @@ namespace Loops
         std::vector<Loops::RenderData> m_renderDataList;
 
         Loops::BoundsManager& m_boundManager;
-        flecs::entity m_cameraEntity;
+        flecs::entity m_cameraEntity, m_sceneViewCamera;
         FrustumCuller m_frustumCuller;
     public:
 
@@ -95,6 +95,8 @@ namespace Loops
         //void CreateBounds(const glm::vec3& min, const glm::vec3& max, const glm::mat4* globalMat, uint32_t submeshId, uint32_t entityId);
 
         const RenderData& GetRenderData(uint32_t frameIndex) const;
+        CameraData GetSceneViewCameraData() const;
+        const glm::mat4& GetMainCameraTransform() const;
 
         const VkBuffer& GetVertexBuffer(uint32_t id) const;
         const VkBuffer& GetIndexBuffer(uint32_t id) const;

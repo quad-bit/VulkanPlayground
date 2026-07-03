@@ -1,4 +1,4 @@
-#version 400
+#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_GOOGLE_include_directive : enable
@@ -14,10 +14,11 @@ layout (std140, set = 0, binding = 0) uniform View
     vec3 cameraPos;
 } view;
 
-layout(std140, set = 1, binding = 0) uniform Transform
+layout(std140, set = 1, binding = 0) readonly buffer Transform
 {
     mat4 mats[MAX_ENTITIES];
 }transforms;
+
 
 layout(push_constant) uniform PushConsts
 {

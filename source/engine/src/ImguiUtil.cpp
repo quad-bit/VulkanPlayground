@@ -1,3 +1,4 @@
+#if 0
 #include "ImguiUtil.h"
 #include "Utils.h"
 #include "plog/Log.h"
@@ -284,12 +285,17 @@ void Loops::ImguiUtil::Cleanup()
     m_initialized = false;
 }
 
-void Loops::ImguiUtil::AddPersistentDrawCalls(const std::function<void()>& func) const
+void Loops::ImguiUtil::AddPersistentDrawCalls(const std::function<void()>& func)
 {
     m_guiDrawPersistentList.push_back(func);
 }
 
-void Loops::ImguiUtil::NewFrame()
+void Loops::ImguiUtil::AddPersistentDrawCalls(const std::function<void(uint32_t)>& func)
+{
+    m_guiDrawOnFramePersistentList.push_back(func);
+}
+
+void Loops::ImguiUtil::NewFrame(uint32_t frameInFlight)
 {
     if (!m_initialized)
     {
@@ -304,6 +310,11 @@ void Loops::ImguiUtil::NewFrame()
     for (auto& func : m_guiDrawPersistentList)
     {
         func();
+    }
+
+    for (auto& func : m_guiDrawOnFramePersistentList)
+    {
+        func(frameInFlight);
     }
 }
 
@@ -408,8 +419,9 @@ void Loops::ImguiUtil::Render(uint32_t frameInFlight, const VkSemaphore& timelin
                 //commandBuffer.setScissor(0, { scissor });
 
                 // Bind descriptor set (font texture)
+                VkDescriptorSet set = (VkDescriptorSet)pcmd->GetTexID();
+
                 vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_descriptorSet, 0, nullptr);
-                //commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, *pipelineLayout, 0, { *descriptorSet }, {});
 
                 // Draw
                 vkCmdDrawIndexed(m_commandBuffers[frameInFlight], pcmd->ElemCount, 1, indexOffset, vertexOffset, 0);
@@ -528,6 +540,13 @@ void Loops::ImguiUtil::UpdateBuffers(uint32_t frameInFlight)
     {
         return;
     }
+
+    //if (drawData->Textures != nullptr)
+    //    for (ImTextureData* tex : *drawData->Textures)
+    //        if (tex->Status != ImTextureStatus_OK)
+    //        {
+    //            PLOGD << "#####";
+    //        }
 
     // Calculate required buffer sizes
     VkDeviceSize vertexBufferSize = drawData->TotalVtxCount * sizeof(ImDrawVert);
@@ -969,3 +988,4 @@ void Loops::ImguiUtil::CreatePipeline()
 
     Loops::VkUtils::ErrorCheck( vkCreateGraphicsPipelines(cm_device, nullptr, 1, &create_info, nullptr, &m_pipeline));
 }
+#endif

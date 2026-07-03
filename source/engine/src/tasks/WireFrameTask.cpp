@@ -3,12 +3,12 @@
 #include "memory/MemoryManager.h"
 #include "tasks/WireFrameTask.h"
 
-Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info) :
-    GraphicsTask("WireframeTask", info)
-{
-    CreateAttachments();
-    Init();
-}
+//Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info) :
+//    GraphicsTask("WireframeTask", info)
+//{
+//    //CreateAttachments();
+//    Init();
+//}
 
 Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
     const VkFormat& colorFormat) : GraphicsTask("WireframeTask", info, colorViews, colorFormat)
@@ -257,9 +257,9 @@ void Loops::Tasking::WireFrameTask::Init()
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
         m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
         VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
+            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
-        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
+        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
         ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not mapped");
 
         //std::vector<SceneUniform> uniformArray{numUniforms};
@@ -305,9 +305,9 @@ void Loops::Tasking::WireFrameTask::Init()
         m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
         VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
-        vmaMapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
+        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
         ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not mapped");
 
         {
@@ -445,9 +445,9 @@ void Loops::Tasking::WireFrameTask::Update(const uint32_t& frameInFlight, const 
 
 Loops::Tasking::WireFrameTask::~WireFrameTask()
 {
-    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 
-    vmaUnmapMemory(Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
+    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 }

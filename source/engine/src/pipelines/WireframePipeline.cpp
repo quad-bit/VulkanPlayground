@@ -20,7 +20,8 @@ Loops::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, c
 
     m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
 
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+        pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat());
 }
 
 Loops::Tasking::WireframePipeline::~WireframePipeline()
@@ -34,7 +35,7 @@ Loops::Tasking::WireframePipeline::~WireframePipeline()
 }
 
 void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Loops::SceneManager>& sceneManager, const BoundsManager& boundsManager,
-    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiUtil>& imguiUtil)
+    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiSystem>& imguiUtil)
 {
     if (m_timelineSemaphores[currentFrameInFlight]->GetFrameIndex() > 0)
     {
@@ -75,7 +76,7 @@ void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, co
     #else
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue,
             primitiveBoundArray, numPrimitiveBounds, primitiveNodeBoundArray, numPrimitiveNodeBounds,
-            cameraData.m_projectionMat * cameraData.m_viewMat);
+            cameraData.m_projectionMat * cameraData.m_viewMat, sceneManager->GetRenderData(currentFrameInFlight), *sceneManager);
     #endif
     }
 

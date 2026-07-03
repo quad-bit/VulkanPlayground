@@ -1,13 +1,5 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-//#include <GLFW/glfw3.h>
-#include <assert.h>
-#include <tuple>
-#include <vector>
-#include <string>
-#include <vk_mem_alloc.h>
-
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_ENABLE_EXPERIMENTAL
 /*
@@ -17,15 +9,26 @@ We need to configure it to use the Vulkan range of 0.0 to 1.0 using the GLM_FORC
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
-
 #define Vec4ToVec3(a) glm::vec3(a.x, a.y, a.z)
 #define Vec3ToVec4_1(a) glm::vec4(a.x, a.y, a.z, 1.0f)
 #define Vec3ToVec4_0(a) glm::vec4(a.x, a.y, a.z, 0.0f)
 
+#include <vulkan/vulkan.h>
+//#include <GLFW/glfw3.h>
+#include <assert.h>
+#include <tuple>
+#include <vector>
+#include <string>
+#include <vk_mem_alloc.h>
 #include <flecs.h>
+
+#include "VulkanWrappers.h"
+
 
 namespace Loops
 {
+    //class VulkanImage;
+
     bool HasChildren(flecs::entity e);
 
     namespace VkUtils
@@ -148,12 +151,49 @@ namespace Loops
             VkDeviceMemory& memory
         );
 
-        void ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
-            uint32_t queueFamilyIndex, VkImageLayout oldLayout, VkImageLayout newLayout);
+        void ChangeImageLayout(
+            const VkDevice& device,
+            std::vector<VkImage>& imageList,
+            const VkQueue& queue,
+            uint32_t queueFamilyIndex,
+            VkImageLayout oldLayout,
+            VkImageLayout newLayout
+        );
 
-        std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(uint32_t dataSize, const VkPhysicalDevice& physicalDevice, const VkDevice& device);
+        std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(
+            uint32_t dataSize,
+            const VkPhysicalDevice& physicalDevice,
+            const VkDevice& device
+        );
 
-        void CopyFromStagingBuffer(const VkBuffer& stagingBuffer, const VkBuffer& targetBuffer, uint32_t dataSize,
-            const VkDevice& device, const VkQueue& queue, uint32_t queueFamilyIndex);
+        void CopyFromStagingBuffer(
+            const VkBuffer& stagingBuffer,
+            const VkBuffer& targetBuffer,
+            uint32_t dataSize,
+            const VkDevice& device,
+            const VkQueue& queue,
+            uint32_t queueFamilyIndex
+        );
+
+        [[nodiscard]]
+        std::vector<VkRenderingInfo> CreateRendertargets(
+            Loops::VulkanImage* colorTargets, uint32_t numColorTargets,
+            Loops::VulkanImage* depthTargets, uint32_t numDepthTargets,
+            const VkFormat& colorFormat, const VkFormat& depthFormat,
+            size_t imageWidth, size_t imageHeight,
+            const VkDevice& device,
+            const VkClearColorValue& clearColorValue,
+            const VkClearDepthStencilValue& depthStencilClearValue,
+            std::vector<VkRenderingAttachmentInfo>& colorInfoList, 
+            std::vector<VkRenderingAttachmentInfo>& depthInfoList
+        );
+
+        void DestroyRenderTargets(
+            Loops::VulkanImage* colorTargets,
+            uint32_t numColorTargets,
+            Loops::VulkanImage* depthTargets,
+            uint32_t numDepthTargets,
+            const VkDevice& device
+        );
     }
 }

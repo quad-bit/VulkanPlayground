@@ -20,9 +20,10 @@ namespace Loops
         class Plane
         {
         private:
-            float a, b, c, d; // ax + by + cz + d = 0
     
         public:
+            float a, b, c, d; // ax + by + cz + d = 0
+
             Plane() : a(0), b(0), c(0), d(0) {}
             Plane(float A, float B, float C, float D) : a(A), b(B), c(C), d(D) {}
             Plane(glm::vec3& p, glm::vec3& q, glm::vec3& r);
@@ -31,7 +32,7 @@ namespace Loops
             inline void Normalize();
             bool Intersect(const glm::vec3& bbmin, const glm::vec3& bbmax) const;// bounding box
             inline bool Intersect(const glm::vec3& center, float beamRadius) const;// with sphere
-            inline POINT_STATE ClassifyPoint(const glm::vec3& point, float& dist) const;
+            inline POINT_STATE ClassifyPoint(const glm::vec3& point) const;
             inline float GetDistance(const glm::vec3& point) const;
         };
 
@@ -44,22 +45,17 @@ namespace Loops
             return false;
         }
 
-        Loops::Math::POINT_STATE Loops::Math::Plane::ClassifyPoint(const glm::vec3& point, float& dist) const
+        Loops::Math::POINT_STATE Loops::Math::Plane::ClassifyPoint(const glm::vec3& point) const
         {
-            float dp = glm::abs<float>(GetDistance(point));
+            float dp = (GetDistance(point));
 
-            dist = 0;
-
-            if (dp != 0)
-                dist = dp;
-
-            if (dp >= 0.001f)
+            if (dp > 0.0f)
                 return Loops::Math::POINT_STATE::PLANE_FRONT;
 
-            if (dp < 0.001f)
+            if (dp < 0.0f)
                 return Loops::Math::POINT_STATE::PLANE_BACK;
 
-            return Loops::Math::POINT_STATE::NONE;
+            return Loops::Math::POINT_STATE::PLANE_FRONT;
         }
 
         float Loops::Math::Plane::GetDistance(const glm::vec3& point) const

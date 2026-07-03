@@ -1,8 +1,9 @@
 #include "pipelines/BvhRenderPipeline.h"
 #include "BoundsManager.h"
 #include <optional>
+#include <vk_mem_alloc.h>
 
-Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager) :
+Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil) :
     Pipeline(info)
 {
     {
@@ -18,16 +19,32 @@ Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, c
     taskInfo.m_renderDimensions = info.m_designDimensions;
     taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
-    m_pColorUnlitTask = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
-        VK_FORMAT_B8G8R8A8_UNORM, pVulkanManager->GetDepthFormat());
+#ifdef BVH_SCENE_VIEW_ENABLED
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_info.m_maxFrameInFlights, 1, pVulkanManager->GetSurfaceColorFormat(),
+        pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
 
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_info.m_maxFrameInFlights, 1, pVulkanManager->GetSurfaceColorFormat(),
+        pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue(), true);
+    imguiUtil->CreateRenderingInfo(VkClearColorValue{0.0f, 0.0f, 0.0f, 1.0f});
+#else
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+        pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat());
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+        pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
+    imguiUtil->CreateRenderingInfo();
+#endif // BVH_SCENE_VIEW_ENABLED
+
 }
 
 Loops::Tasking::BvhRenderPipeline::~BvhRenderPipeline()
 {
+
+#ifdef BVH_SCENE_VIEW_ENABLED
+
+#endif // BVH_SCENE_VIEW_ENABLED
+
     m_pBoundsRenderTask.reset();
-    m_pColorUnlitTask.reset();
+    m_colorUnlitTaskPtr.reset();
 
     for (auto& sem : m_timelineSemaphores)
         sem.reset();
@@ -35,7 +52,7 @@ Loops::Tasking::BvhRenderPipeline::~BvhRenderPipeline()
 }
 
 void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, const std::unique_ptr<Loops::SceneManager>& sceneManager, const BoundsManager& boundsManager,
-    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiUtil>& imguiUtil)
+    const std::unique_ptr<VulkanManager>& vulkanManager, const std::unique_ptr<Loops::ImguiSystem>& imguiUtil)
 {
     if (m_timelineSemaphores[currentFrameInFlight]->GetFrameIndex() > 0)
     {
@@ -53,10 +70,13 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
         Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
     }
 
-    // Trigger wireframe tasks
+    // Get the active swapchain index
+    uint32_t activeSwapchainImageindex = vulkanManager->GetActiveSwapchainImageIndex(m_swapchainImageAcquiredSemaphores[currentFrameInFlight]);
+
+    // Trigger unlit opaque task
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
-        m_pColorUnlitTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
+        m_colorUnlitTaskPtr->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, std::nullopt, sceneManager->GetRenderData(currentFrameInFlight), *sceneManager);
     }
 
@@ -68,29 +88,30 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
         uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
         auto& cameraData = sceneManager->GetRenderData(currentFrameInFlight).m_cameraData;
+        CameraData sceneViewCameraData = sceneManager->GetSceneViewCameraData();
 #if 0
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, waitValue, primitiveBoundArray, numPrimitiveBounds, sceneManager->GetMainCamera()->GetProjectionMat() * sceneManager->GetMainCamera()->GetViewMatrix());
 #else
         m_pBoundsRenderTask->Update(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue,
-            primitiveBoundArray, numPrimitiveBounds, bvhNodeBoundArray, numBvhNodeBounds,
-            cameraData.m_projectionMat * cameraData.m_viewMat);
+            primitiveBoundArray, numPrimitiveBounds, bvhNodeBoundArray, numBvhNodeBounds, cameraData.m_projectionMat * cameraData.m_viewMat,
+            sceneManager->GetRenderData(currentFrameInFlight), *sceneManager);
 #endif
     }
 
     // Trigger imgui
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::GUI_FINISHED);
-        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::UNINITIALIZED);
+        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
+        //imguiUtil->Render(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue);
         imguiUtil->Render(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue);
     }
 
-    // Get the active swapchain index
-    uint32_t activeSwapchainImageindex = vulkanManager->GetActiveSwapchainImageIndex(m_swapchainImageAcquiredSemaphores[currentFrameInFlight]);
-
     // End the frame (increments index counters)
     {
-        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::GUI_FINISHED);
+        //uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::GUI_FINISHED);
+        //uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::SAFE_TO_PRESENT);
+        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::BOUND_RENDER_FINISHED);
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::SAFE_TO_PRESENT);
         vulkanManager->CopyAndPresent(vulkanManager->GetDefaultColorImages()[currentFrameInFlight], m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             m_swapchainImageAcquiredSemaphores[currentFrameInFlight], waitValue, signalValue);

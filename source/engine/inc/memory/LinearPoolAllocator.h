@@ -31,6 +31,8 @@ namespace Loops::Memory
 
         void Reset();
 
+        bool SpaceAvailableForAllocation(const size_t size, const size_t alignment);
+
         ~LinearPoolAllocator();
     };
 

@@ -13,7 +13,8 @@
 #include "pipelines/WireframePipeline.h"
 #include "pipelines/BvhRenderPipeline.h"
 #include "Timer.h"
-#include "ImguiEditor.h"
+#include "imgui/ImguiEditor.h"
+#include "imgui/ImguiSystem.h"
 
 #include <glm/glm.hpp>
 #include <memory>
@@ -26,6 +27,7 @@ namespace Loops
         std::vector<Loops::ModelLoadInfo> m_gltfInfos;
         std::vector<Tasking::PipelineType> m_pipelines;
         bool m_enableEditor = true;
+        bool m_enableFullScreen = false;
     };
 
     struct AppCallbacks
@@ -44,9 +46,11 @@ namespace Loops
         std::unique_ptr<Loops::BoundsManager> m_pBoundsManager;
         std::unique_ptr<WindowManager> m_pWindowManagerObj;
         std::unique_ptr<VulkanManager> m_pVulkanManager;
-        std::unique_ptr<Loops::ImguiUtil > m_pImguiUtil;
-        std::unique_ptr<Loops::ImguiEditor> m_pEditor;
-        std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
+        //std::unique_ptr<Loops::ImguiUtil > m_pImguiUtil;
+        //std::unique_ptr<Loops::ImguiEditor> m_pEditor;
+        std::unique_ptr<Loops::ImguiSystem> m_pImguiSystem;
+
+        //std::unique_ptr<Loops::Memory::MemoryManager> m_pMemoryManager;
         std::unique_ptr<Loops::IO::InputManager> m_pInputManager;
         BoundsManager m_boundsManager;
 
@@ -68,7 +72,7 @@ namespace Loops
         void DeInit();
         void Loop();
 
-        const ImguiUtil& GetImguiUtil() const;
+        //const ImguiUtil& GetImguiUtil() const;
         const SceneManager& GetSceneManager() const;
         const VulkanManager& GetVulkanManager() const;
         uint32_t GetMaxFrameInFlights() const;

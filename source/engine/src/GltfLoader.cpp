@@ -333,7 +333,7 @@ namespace
                 }
 
                 Loops::MeshView& view = sceneManager.GetMeshView(e, meshObj);
-                assert(meshObj.m_meshViewCount < Loops::MAX_MESH_VIEWS_PER_MESH);
+                assert(meshObj.m_meshViewCount <= Loops::MAX_MESH_VIEWS_PER_MESH);
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
@@ -417,7 +417,7 @@ namespace
                 }
 
                 Loops::MeshView& view = sceneManager.GetMeshView(e, meshObj);
-                assert(meshObj.m_meshViewCount < Loops::MAX_MESH_VIEWS_PER_MESH);
+                assert(meshObj.m_meshViewCount <= Loops::MAX_MESH_VIEWS_PER_MESH);
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;

@@ -7,11 +7,11 @@ set(CORE_FILES
     inc/WindowManager.h
     inc/ValidationManager.h
     inc/Timer.h
-    inc/ImguiUtil.h
-    inc/ImguiGlfwHelper.h
+    # inc/ImguiUtil.h
+    # inc/ImguiGlfwHelper.h
     inc/GltfLoader.h
     inc/SceneManager.h
-    inc/ImguiEditor.h
+    # inc/ImguiEditor.h
     inc/TimelineSemaphore.h
     inc/Camera.h
     inc/Components.h
@@ -28,6 +28,7 @@ set(CORE_FILES
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
     inc/tasks/BoundsRenderTask.h
+    inc/tasks/FrustumRenderTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
@@ -49,14 +50,19 @@ set(CORE_FILES
     inc/math/Sphere.h
     inc/math/TangentCalculator.h
 
+    inc/imgui/ImguiSystem.h
+    inc/imgui/ImguiEditor.h
+    inc/imgui/ImguiGlfwHelper.h
+    inc/imgui/RenderToImguiTexture.h
+
     src/VulkanManager.cpp
     src/ValidationManager.cpp
     src/WindowManager.cpp
     src/Utils.cpp
-    src/ImguiUtil.cpp
+    # src/ImguiUtil.cpp
     src/GltfLoader.cpp
     src/SceneManager.cpp
-    src/ImguiEditor.cpp
+    # src/ImguiEditor.cpp
     src/Camera.cpp
     src/BoundsManager.cpp
     src/EngineManager.cpp
@@ -70,6 +76,7 @@ set(CORE_FILES
     src/tasks/WireFrameTask.cpp
     src/tasks/ColorUnlitTask.cpp
     src/tasks/BoundsRenderTask.cpp
+    src/tasks/FrustumRenderTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
@@ -82,6 +89,9 @@ set(CORE_FILES
     src/math/Frustum.cpp
     src/math/Plane.cpp
     src/math/MathUtil.cpp
+
+    src/imgui/ImguiSystem.cpp
+    src/imgui/ImguiEditor.cpp
 )
 
 #create library
@@ -125,6 +135,8 @@ add_custom_command(
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitColor.frag -o ${SPV_PATH}/UnlitColorFrag.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Bounds.vert -o ${SPV_PATH}/BoundsVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Bounds.frag -o ${SPV_PATH}/BoundsFrag.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Frustum.vert -o ${SPV_PATH}/FrustumVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Frustum.frag -o ${SPV_PATH}/FrustumFrag.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/ClothSim.comp -o ${SPV_PATH}/ClothSim.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.vert -o ${SPV_PATH}/UnlitTexturedVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.frag -o ${SPV_PATH}/UnlitTexturedFrag.spv

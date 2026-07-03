@@ -37,7 +37,9 @@ namespace Loops
         VkSwapchainKHR m_swapchainObj = VK_NULL_HANDLE;
         std::vector<VkImage> m_swapchainImageList;
         std::vector<VkImageView> m_swapChainImageViewList;
- 
+        VkClearColorValue m_defaultClearColor{ 0.6033f, 0.6073f, 0.6133f, 1.0f };
+        VkClearDepthStencilValue m_defaultDepthClearValue{ 1.0f, 0u };
+
         void CreateInstance();
         void AcquirePhysicalDevice();
         uint32_t GetQueuesFamilyIndex();
@@ -70,26 +72,125 @@ namespace Loops
 
         void DeInit();
         void Update(uint32_t currentFrameIndex);
-        uint32_t GetSwapchainImageCount() const;
-        uint32_t GetFrameInFlightIndex() const;
-        uint32_t GetMaxFramesInFlight() const;
-        const VkDevice& GetLogicalDevice() const;
-        const VkInstance& GetInstance() const;
-        const VkPhysicalDevice& GetPhysicalDevice() const;
-        uint32_t GetQueueFamilyIndex() const;
-        uint32_t GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore);
-        const VkQueue& GetComputeQueue() const;
-        const VkQueue& GetGraphicsQueue() const;
-        const VkFormat& GetDepthFormat() const;
+        inline uint32_t GetSwapchainImageCount() const;
+        inline uint32_t GetFrameInFlightIndex() const;
+        inline uint32_t GetMaxFramesInFlight() const;
+        inline const VkDevice& GetLogicalDevice() const;
+        inline const VkInstance& GetInstance() const;
+        inline const VkPhysicalDevice& GetPhysicalDevice() const;
+        inline uint32_t GetQueueFamilyIndex() const;
+        inline uint32_t GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore);
+        inline const VkQueue& GetComputeQueue() const;
+        inline const VkQueue& GetGraphicsQueue() const;
+        inline const VkFormat& GetDepthFormat() const;
+        inline const VkFormat& GetSurfaceColorFormat() const;
+        inline const VkClearColorValue GetDefaultClearColor() const;
+        inline const VkClearDepthStencilValue GetDefaultDepthClearValue() const;
 
-        const std::vector<VkImageView>& GetDefaultColorImageView() const;
-        const std::vector<VkImage>& GetDefaultColorImages() const;
-        const std::vector<VkImageView>& GetDefaultDepthImageView() const;
-        const std::vector<VkImage>& GetDefaultDepthImages() const;
+        inline const std::vector<VkImageView>& GetDefaultColorImageView() const;
+        inline const std::vector<VkImage>& GetDefaultColorImages() const;
+        inline const std::vector<VkImageView>& GetDefaultDepthImageView() const;
+        inline const std::vector<VkImage>& GetDefaultDepthImages() const;
 
         void CopyAndPresent(const VkImage& srcImage, const VkSemaphore& semaphore, const VkSemaphore& imageAcquiredSemaphore,
             uint64_t waitValue, uint64_t signalValue);
         bool AreTheQueuesIdle();
     };
+
+
+    uint32_t Loops::VulkanManager::GetSwapchainImageCount() const
+    {
+        return m_swapchainImageCount;
+    }
+
+    uint32_t Loops::VulkanManager::GetFrameInFlightIndex() const
+    {
+        return m_frameInFlightIndex;
+    }
+
+    uint32_t Loops::VulkanManager::GetMaxFramesInFlight() const
+    {
+        return m_maxFrameInFlight;
+    }
+
+    const VkDevice& Loops::VulkanManager::GetLogicalDevice() const
+    {
+        return m_logicalDevice;
+    }
+
+    const VkPhysicalDevice& Loops::VulkanManager::GetPhysicalDevice() const
+    {
+        return m_physicalDevice;
+    }
+
+    uint32_t Loops::VulkanManager::GetQueueFamilyIndex() const
+    {
+        return m_queueFamilyIndex;
+    }
+
+    uint32_t Loops::VulkanManager::GetActiveSwapchainImageIndex(const VkSemaphore& imageAquiredSignalSemaphore)
+    {
+        //Get the swapchain image index
+        Loops::VkUtils::ErrorCheck(vkAcquireNextImageKHR(m_logicalDevice, m_swapchainObj, UINT64_MAX,
+            imageAquiredSignalSemaphore, VK_NULL_HANDLE, &m_currentSwpachainIndex));
+
+        return m_currentSwpachainIndex;
+    }
+
+    const VkQueue& Loops::VulkanManager::GetComputeQueue() const
+    {
+        return m_computeQueue;
+    }
+
+    const VkQueue& Loops::VulkanManager::GetGraphicsQueue() const
+    {
+        return m_graphicsQueue;
+    }
+
+    const VkFormat& Loops::VulkanManager::GetDepthFormat() const
+    {
+        return m_depthFormat;
+    }
+
+    const VkFormat& Loops::VulkanManager::GetSurfaceColorFormat() const
+    {
+        return m_surfaceFormat.format;
+    }
+
+    const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultColorImageView() const
+    {
+        return m_colorAttachmentViews;
+    }
+
+    const std::vector<VkImage>& Loops::VulkanManager::GetDefaultColorImages() const
+    {
+        return m_colorAttachments;
+    }
+
+    const std::vector<VkImageView>& Loops::VulkanManager::GetDefaultDepthImageView() const
+    {
+        return m_depthAttachmentViews;
+    }
+
+    const std::vector<VkImage>& Loops::VulkanManager::GetDefaultDepthImages() const
+    {
+        return m_depthAttachments;
+    }
+
+    const VkInstance& Loops::VulkanManager::GetInstance() const
+    {
+        return m_instanceObj;
+    }
+
+    const VkClearColorValue Loops::VulkanManager::GetDefaultClearColor() const
+    {
+        return m_defaultClearColor;
+    }
+
+    const VkClearDepthStencilValue Loops::VulkanManager::GetDefaultDepthClearValue() const
+    {
+        return m_defaultDepthClearValue;
+    }
+
 }
 #endif // !VULKAN_MANAGER_H

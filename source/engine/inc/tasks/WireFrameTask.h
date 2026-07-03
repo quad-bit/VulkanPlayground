@@ -32,7 +32,7 @@ namespace Loops::Tasking
         void Init();
 
     public:
-        WireFrameTask(const GraphicsTaskInfo& info);
+        //WireFrameTask(const GraphicsTaskInfo& info);
 
         WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
 

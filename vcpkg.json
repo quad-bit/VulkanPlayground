@@ -48,5 +48,8 @@
             "name": "vulkan-memory-allocator"
         }
   ],
-  "builtin-baseline": "ac7af7424cbaf9057cb246b620f455303dccd6ed"
+  "builtin-baseline": "bf3c7b8f06ca4ca4b10d1369ab57ccfe5aaab58a",
+  "overrides": [
+        { "name": "imgui", "version": "1.92.8#0" }
+    ]
 }

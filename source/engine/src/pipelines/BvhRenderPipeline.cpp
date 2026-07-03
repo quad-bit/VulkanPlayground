@@ -19,11 +19,14 @@ Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, c
     taskInfo.m_renderDimensions = info.m_designDimensions;
     taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
+    //VkFormat colorFormat{ VK_FORMAT_B8G8R8A8_UNORM };
+    VkFormat colorFormat{ pVulkanManager->GetSurfaceColorFormat()};
+
 #ifdef BVH_SCENE_VIEW_ENABLED
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_info.m_maxFrameInFlights, 1, pVulkanManager->GetSurfaceColorFormat(),
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_info.m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
 
-    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_info.m_maxFrameInFlights, 1, pVulkanManager->GetSurfaceColorFormat(),
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_info.m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue(), true);
     imguiUtil->CreateRenderingInfo(VkClearColorValue{0.0f, 0.0f, 0.0f, 1.0f});
 #else

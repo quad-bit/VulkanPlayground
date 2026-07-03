@@ -42,7 +42,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     m_pImguiSystem = std::make_unique<Loops::ImguiSystem>(m_pWindowManagerObj->glfwWindow, m_pVulkanManager.get(), m_pVulkanManager->GetLogicalDevice(),
         m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
         m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height,
-        m_pVulkanManager->GetSurfaceColorFormat(), m_pVulkanManager->GetDefaultColorImageView());
+        /*m_pVulkanManager->GetSurfaceColorFormat()*/ VK_FORMAT_B8G8R8A8_UNORM, m_pVulkanManager->GetDefaultColorImageView());
 
     m_pSceneManager->Initialise(m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(),
         m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);

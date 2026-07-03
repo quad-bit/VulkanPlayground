@@ -227,13 +227,13 @@ uint32_t Loops::VulkanManager::GetQueuesFamilyIndex()
     {
         count = 0;
 
-        if (propertyList[j].queueFlags & graphicsReq == graphicsReq)
+        if ((propertyList[j].queueFlags & graphicsReq) == graphicsReq)
         {
             graphicsQueueFamilyIndex = j;
             count++;
         }
 
-        if (propertyList[j].queueFlags & computeReq == computeReq)
+        if ((propertyList[j].queueFlags & computeReq) == computeReq)
         {
             computeQueueFamilyIndex = j;
             count++;
@@ -339,11 +339,11 @@ std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow
         m_colorAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_surfaceFormat.format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, VK_FORMAT_B8G8R8A8_UNORM/*m_surfaceFormat.format*/, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
-            createInfo.format = m_surfaceFormat.format;
+            createInfo.format = VK_FORMAT_B8G8R8A8_UNORM; //m_surfaceFormat.format;
             createInfo.image = m_colorAttachments[i];
             createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
             createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -585,14 +585,22 @@ void Loops::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
         }
         std::vector<VkSurfaceFormatKHR> formats(format_count);
         vkGetPhysicalDeviceSurfaceFormatsKHR(m_physicalDevice, m_surface, &format_count, formats.data());
-        if (formats[0].format == VK_FORMAT_UNDEFINED)
+        m_surfaceFormat.format = VK_FORMAT_B8G8R8A8_SRGB;
+        m_surfaceFormat.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+
+        //if(formats[0].format != VK_FORMAT_UNDEFINED)
         {
-            m_surfaceFormat.format = VK_FORMAT_B8G8R8A8_UNORM;
-            m_surfaceFormat.colorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-        }
-        else
-        {
-            m_surfaceFormat = formats[0];
+            std::vector<VkFormat> preferredImageFormats = {
+                VK_FORMAT_B8G8R8A8_SRGB,
+                VK_FORMAT_R8G8B8A8_SRGB,
+                VK_FORMAT_A8B8G8R8_SRGB_PACK32,
+            };
+            for (auto& availableFormat : formats) {
+                if (std::find(preferredImageFormats.begin(), preferredImageFormats.end(), availableFormat.format) != preferredImageFormats.end()) {
+                    m_surfaceFormat = availableFormat;
+                    break;
+                }
+            }
         }
     }
 }

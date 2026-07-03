@@ -1,0 +1,95 @@
+
+For Vulkan : https://github.com/vsg-dev/VulkanSceneGraph/discussions/1379
+
+When doing multi-pass rendering in OpenGL with sRGB gamma correction, the 
+main challenge is avoiding double gamma correction or double linearization
+when reading/writing intermediate textures.
+Here’s a robust approach:
+
+1. Understanding sRGB and Gamma Correction
+
+sRGB textures/framebuffers store colors in gamma space (approx. gamma 2.2).
+Lighting calculations must be done in linear space.
+OpenGL can automatically:
+
+Linearize sRGB textures when sampling.
+Gamma-correct when writing to an sRGB framebuffer.
+
+
+
+
+2. Enabling sRGB Framebuffer Output
+C// Enable automatic gamma correction on writes to sRGB framebuffers
+glEnable(GL_FRAMEBUFFER_SRGB);
+
+
+Works for the default framebuffer if it’s sRGB-capable.
+For FBOs, use an sRGB internal format:
+
+CglTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+
+3. Multi-Pass Rendering Pitfalls
+If you render to an sRGB texture in one pass and then sample it in another pass:
+
+OpenGL will linearize it when reading (if sampler is not disabled).
+If you then write to another sRGB target, gamma correction will happen again.
+This can cause washed-out or overly dark results.
+
+
+4. Correct Multi-Pass Workflow
+Option A — Keep intermediate passes in linear space
+
+First pass: Render to a linear (GL_RGBA8) texture.
+Subsequent passes: Work entirely in linear space.
+Final pass: Output to an sRGB framebuffer with GL_FRAMEBUFFER_SRGB enabled.
+
+C// Intermediate FBO texture (linear)
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+// Final output FBO (sRGB)
+glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8_ALPHA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+
+Option B — Keep all passes in sRGB but disable auto-conversion
+If you must store intermediate results in sRGB textures:
+
+Disable automatic sRGB decoding for intermediate reads:
+
+CglDisable(GL_FRAMEBUFFER_SRGB); // when writing intermediate passes
+
+
+Or bind the texture with:
+
+CglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SRGB_DECODE_EXT, GL_SKIP_DECODE_EXT);
+
+
+Manually convert in shader:
+
+Glslvec3 linearColor = pow(texture(sampler, uv).rgb, vec3(2.2));
+
+
+5. Shader Example (Final Pass)
+Glsl#version 330 core
+in vec2 TexCoords;
+out vec4 FragColor;
+
+uniform sampler2D sceneTex; // linear-space texture
+
+void main()
+{
+    vec3 color = texture(sceneTex, TexCoords).rgb;
+    // Apply gamma correction manually if not using GL_FRAMEBUFFER_SRGB
+    color = pow(color, vec3(1.0 / 2.2));
+    FragColor = vec4(color, 1.0);
+}
+
+
+✅ Best Practice:
+
+Keep all intermediate passes in linear space (GL_RGBA8 or floating-point formats).
+Only apply gamma correction once at the very end, either via GL_FRAMEBUFFER_SRGB or manually in the shader.
+
+
+If you want, I can give you a full C++ OpenGL multi-pass example that correctly handles sRGB gamma correction without artifacts.
+Do you want me to prepare that?

@@ -24,6 +24,8 @@ set(CORE_FILES
     inc/EventBus.h
     inc/Event.h
     inc/FrustumCuller.h
+    inc/TextureManager.h
+    inc/MaterialManager.h
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
@@ -59,16 +61,16 @@ set(CORE_FILES
     src/ValidationManager.cpp
     src/WindowManager.cpp
     src/Utils.cpp
-    # src/ImguiUtil.cpp
     src/GltfLoader.cpp
     src/SceneManager.cpp
-    # src/ImguiEditor.cpp
     src/Camera.cpp
     src/BoundsManager.cpp
     src/EngineManager.cpp
     src/Assertion.cpp
     src/EventBus.cpp
     src/FrustumCuller.cpp
+    src/TextureManager.cpp
+    src/MaterialManager.cpp
 
     src/input/InputManager.cpp
     src/input/InputManagerGLFW.cpp
@@ -103,7 +105,10 @@ target_link_libraries(${TARGET_NAME}
     PRIVATE 
         Vulkan::Vulkan glfw  
     PUBLIC 
-        glm::glm plog::plog imgui::imgui Taskflow::Taskflow flecs::flecs rapidjson GPUOpen::VulkanMemoryAllocator
+        glm::glm plog::plog imgui::imgui 
+        Taskflow::Taskflow flecs::flecs 
+        rapidjson GPUOpen::VulkanMemoryAllocator
+        basisu::basisu_encoder
 )
 
 target_include_directories(${TARGET_NAME}

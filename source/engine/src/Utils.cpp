@@ -276,12 +276,64 @@ void Loops::VkUtils::CreateBufferVma( size_t dataSize, VkBufferUsageFlags usage,
     Loops::VkUtils::ErrorCheck(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &buffer, &vmaAllocation, nullptr));
 }
 
+Loops::VulkanImage Loops::VkUtils::CreateImageVma(
+    const VkPhysicalDevice& physicalDevice,
+    const VkDevice& device,
+    VmaAllocator allocator,
+    uint32_t width, uint32_t height,
+    VkFormat format, VkImageUsageFlags usage,
+    uint32_t mipLevels, VkImageAspectFlags imageAspectFlags)
+{
+    VkImageCreateInfo imageInfo{};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = mipLevels;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = VkImageTiling::VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.flags = 0;
+
+    // VMA allocation info
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; // Let VMA decide best memory type
+    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT; // Dedicated allocation
+
+    VulkanImage image{};
+
+    // Create image with VMA
+    ErrorCheck( vmaCreateImage(allocator, &imageInfo, &allocInfo, &image.m_vkImage, &image.m_vmaAllocation, nullptr));
+
+    VkImageViewCreateInfo createInfo = {};
+    createInfo.image = image.m_vkImage;
+    createInfo.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.format = format;
+    createInfo.subresourceRange = { imageAspectFlags, 0u, 1u, 0u, 1u };
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+    ErrorCheck(vkCreateImageView(device, &createInfo, nullptr, &image.m_vkImageView));
+
+    return image;
+}
+
 void Loops::VkUtils::DestroyBuffer(const VkDevice & device, const VkBuffer& buffer)
 {
     vkDestroyBuffer(device, buffer, nullptr);
 }
 
-void Loops::VkUtils::ChangeImageLayoutWithBarriers(const VkCommandBuffer & commandBuffer, const VkPipelineStageFlags & srcPipelineStage, const VkPipelineStageFlags & dstPipelineStage, const VkAccessFlags & srcAccessMask, const VkAccessFlags & dstAccessMask, const VkImage & image, const VkImageLayout & oldLayout, const VkImageLayout & newLayout)
+void Loops::VkUtils::ChangeImageLayoutWithBarriers(const VkCommandBuffer & commandBuffer,
+    const VkPipelineStageFlags & srcPipelineStage,
+    const VkPipelineStageFlags & dstPipelineStage,
+    const VkAccessFlags & srcAccessMask,
+    const VkAccessFlags & dstAccessMask,
+    const VkImage & image, const VkImageLayout & oldLayout,
+    const VkImageLayout & newLayout)
 {
     VkImageMemoryBarrier imageMemoryBarrier = {};
     imageMemoryBarrier.srcAccessMask = srcAccessMask;

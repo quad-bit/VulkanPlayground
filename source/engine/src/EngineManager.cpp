@@ -4,50 +4,59 @@
 
 #include "Event.h"
 #include "EventBus.h"
+#include "TextureManager.h"
 
 #include <plog/Initializers/RollingFileInitializer.h>
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
-
 
 Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCallbacks& callbacks) : m_appCallbacks(callbacks)
 {
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
     plog::init(plog::debug, &consoleAppender);
 
-    m_pTimer = std::make_unique<Timer>(60);
+    mp_Timer = std::make_unique<Timer>(60);
     Memory::MemoryManager::GetInstance()->Init();
     Events::EventBus::GetInstance()->Init();
 
-    //m_pMemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
+    //mp_MemoryManager = std::make_unique<Loops::Memory::MemoryManager>();
 
-    m_pSceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos, m_boundsManager, MAX_ENTITIES);
+    mp_WindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height, info.m_enableFullScreen);
+    mp_WindowManagerObj->Init();
 
-    m_pWindowManagerObj = std::make_unique<WindowManager>(info.m_screenSize.m_width, info.m_screenSize.m_height, info.m_enableFullScreen);
-    m_pWindowManagerObj->Init();
+    mp_VulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
+    auto dim = mp_VulkanManager->Init(mp_WindowManagerObj->glfwWindow);
 
-    m_pVulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
-    auto dim = m_pVulkanManager->Init(m_pWindowManagerObj->glfwWindow);
+    Memory::MemoryManager::GetInstance()->InitVMA(mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetLogicalDevice(), mp_VulkanManager->GetInstance());
 
-    Memory::MemoryManager::GetInstance()->InitVMA(m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetInstance());
+    TextureManager::GetInstance()->Init(mp_VulkanManager->GetPhysicalDevice(),
+        mp_VulkanManager->GetLogicalDevice(),
+        mp_VulkanManager->GetGraphicsQueue(), mp_VulkanManager->GetQueueFamilyIndex());
 
-    m_pInputManager = std::make_unique<IO::InputManager>(m_pWindowManagerObj->glfwWindow);
+    mp_InputManager = std::make_unique<IO::InputManager>(mp_WindowManagerObj->glfwWindow);
 
     ASSERT_MSG(std::get<0>(dim) == info.m_screenSize.m_width, "Mismatch");
     ASSERT_MSG(std::get<1>(dim) == info.m_screenSize.m_height, "Mismatch");
 
-    m_maxFramesInFlight = m_pVulkanManager->GetMaxFramesInFlight();
+    m_maxFramesInFlight = mp_VulkanManager->GetMaxFramesInFlight();
 
     // imgui
-    m_pImguiSystem = std::make_unique<Loops::ImguiSystem>(m_pWindowManagerObj->glfwWindow, m_pVulkanManager.get(), m_pVulkanManager->GetLogicalDevice(),
-        m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(), m_pVulkanManager->GetQueueFamilyIndex(),
-        m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height,
-        /*m_pVulkanManager->GetSurfaceColorFormat()*/ VK_FORMAT_B8G8R8A8_UNORM, m_pVulkanManager->GetDefaultColorImageView());
+    mp_ImguiSystem = std::make_unique<Loops::ImguiSystem>(mp_WindowManagerObj->glfwWindow, mp_VulkanManager.get(), mp_VulkanManager->GetLogicalDevice(),
+        mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetGraphicsQueue(), mp_VulkanManager->GetQueueFamilyIndex(),
+        mp_VulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height,
+        /*mp_VulkanManager->GetSurfaceColorFormat()*/ VK_FORMAT_B8G8R8A8_UNORM, mp_VulkanManager->GetDefaultColorImageView());
 
-    m_pSceneManager->Initialise(m_pVulkanManager->GetLogicalDevice(), m_pVulkanManager->GetPhysicalDevice(), m_pVulkanManager->GetGraphicsQueue(),
-        m_pVulkanManager->GetQueueFamilyIndex(), m_pVulkanManager->GetMaxFramesInFlight(), info.m_screenSize, info.m_designSize);
+    mp_materialManager = std::make_unique<Loops::MaterialManager>();
+    mp_SceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos,
+        m_boundsManager, MAX_ENTITIES, mp_materialManager.get());
+    mp_SceneManager->Initialise(mp_VulkanManager->GetLogicalDevice(),
+        mp_VulkanManager->GetPhysicalDevice(),
+        mp_VulkanManager->GetGraphicsQueue(),
+        mp_VulkanManager->GetQueueFamilyIndex(),
+        mp_VulkanManager->GetMaxFramesInFlight(),
+        info.m_screenSize, info.m_designSize);
 
-    ImguiEditor::GetInstance()->Init(m_pImguiSystem.get(), m_pSceneManager.get(), &m_boundsManager);
+    ImguiEditor::GetInstance()->Init(mp_ImguiSystem.get(), mp_SceneManager.get(), &m_boundsManager);
 
     {
         auto func = [this](const Events::Event* event)
@@ -72,12 +81,12 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     auto SetupWireframePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            m_pWireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, m_pVulkanManager);
+            mp_WireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, mp_VulkanManager);
         };
 
     auto SetupBvhRenderPipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            m_pBvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, m_pVulkanManager, m_pImguiSystem);
+            mp_BvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem);
         };
 
     auto SetupPipeline = [this, &info, &SetupWireframePipeline, &SetupBvhRenderPipeline](const std::vector<Tasking::PipelineType>& pipelineTypes)
@@ -85,13 +94,13 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
             m_activePipeline = info.m_pipelines[0];
 
             Tasking::PipelineInfo pipelineInfo{};
-            pipelineInfo.m_computeQueue = m_pVulkanManager->GetComputeQueue();
-            pipelineInfo.m_computeQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-            pipelineInfo.m_device = m_pVulkanManager->GetLogicalDevice();
-            pipelineInfo.m_graphicsQueue = m_pVulkanManager->GetGraphicsQueue();
-            pipelineInfo.m_graphicsQueueFamilyIndex = m_pVulkanManager->GetQueueFamilyIndex();
-            pipelineInfo.m_maxFrameInFlights = m_pVulkanManager->GetMaxFramesInFlight();
-            pipelineInfo.m_physicalDevice = m_pVulkanManager->GetPhysicalDevice();
+            pipelineInfo.m_computeQueue = mp_VulkanManager->GetComputeQueue();
+            pipelineInfo.m_computeQueueFamilyIndex = mp_VulkanManager->GetQueueFamilyIndex();
+            pipelineInfo.m_device = mp_VulkanManager->GetLogicalDevice();
+            pipelineInfo.m_graphicsQueue = mp_VulkanManager->GetGraphicsQueue();
+            pipelineInfo.m_graphicsQueueFamilyIndex = mp_VulkanManager->GetQueueFamilyIndex();
+            pipelineInfo.m_maxFrameInFlights = mp_VulkanManager->GetMaxFramesInFlight();
+            pipelineInfo.m_physicalDevice = mp_VulkanManager->GetPhysicalDevice();
             pipelineInfo.m_screenDimensions = info.m_screenSize;
             pipelineInfo.m_designDimensions = info.m_designSize;
 
@@ -123,13 +132,13 @@ void Loops::EngineManager::Init()
 {
     for (auto& onStartFunc : m_appCallbacks.m_Start)
     {
-        onStartFunc(m_pSceneManager->m_world);
+        onStartFunc(mp_SceneManager->m_world);
     }
 }
 
 void Loops::EngineManager::DeInit()
 {
-    if (m_pVulkanManager->AreTheQueuesIdle())
+    if (mp_VulkanManager->AreTheQueuesIdle())
     {
         for (auto& onExit : m_appCallbacks.m_Exit)
         {
@@ -137,52 +146,57 @@ void Loops::EngineManager::DeInit()
         }
 
         ImguiEditor::DeInit();
-        if (m_pImguiSystem)
+        if (mp_ImguiSystem)
         {
-            m_pImguiSystem.reset();
-            m_pImguiSystem = nullptr;
+            mp_ImguiSystem.reset();
+            mp_ImguiSystem = nullptr;
         }
 
-        if (m_pWireframePipeline)
+        if (mp_WireframePipeline)
         {
-            m_pWireframePipeline.reset();
-            m_pWireframePipeline = nullptr;
+            mp_WireframePipeline.reset();
+            mp_WireframePipeline = nullptr;
         }
 
-        if (m_pBvhRenderPipeline)
+        if (mp_BvhRenderPipeline)
         {
-            m_pBvhRenderPipeline.reset();
-            m_pBvhRenderPipeline = nullptr;
+            mp_BvhRenderPipeline.reset();
+            mp_BvhRenderPipeline = nullptr;
         }
 
-        m_pSceneManager->DeInitialise();
+        mp_SceneManager->DeInitialise();
 
-        /*if (m_pImguiUtil)
+        /*if (mp_ImguiUtil)
         {
-            m_pImguiUtil->Cleanup();
-            m_pImguiUtil.reset();
-            m_pImguiUtil = nullptr;
+            mp_ImguiUtil->Cleanup();
+            mp_ImguiUtil.reset();
+            mp_ImguiUtil = nullptr;
         }*/
 
-        if (m_pInputManager)
+        if (mp_InputManager)
         {
-            m_pInputManager->DeInit();
-            m_pInputManager.reset();
+            mp_InputManager->DeInit();
+            mp_InputManager.reset();
         }
+
+        TextureManager::DeInit();
 
         Loops::Memory::MemoryManager::GetInstance()->DeInitVMA();
 
-        m_pVulkanManager->DeInit();
-        m_pWindowManagerObj->DeInit();
+        mp_VulkanManager->DeInit();
+        mp_WindowManagerObj->DeInit();
 
-        m_pSceneManager.reset();
-        m_pSceneManager = nullptr;
+        mp_SceneManager.reset();
+        mp_SceneManager = nullptr;
+
+        mp_materialManager.reset();
+        mp_materialManager = nullptr;
     }
 
-    //if (m_pMemoryManager)
+    //if (mp_MemoryManager)
     //{
-    //    m_pMemoryManager.reset();
-    //    m_pMemoryManager = nullptr;
+    //    mp_MemoryManager.reset();
+    //    mp_MemoryManager = nullptr;
     //}
 
     Events::EventBus::GetInstance()->DeInit();
@@ -190,26 +204,26 @@ void Loops::EngineManager::DeInit()
 
     Memory::MemoryManager::DeInit();
 
-    if (m_pTimer)
+    if (mp_Timer)
     {
-        m_pTimer.reset();
-        m_pTimer = nullptr;
+        mp_Timer.reset();
+        mp_Timer = nullptr;
     }
 }
 
 //const Loops::ImguiUtil& Loops::EngineManager::GetImguiUtil() const
 //{
-//    return *m_pImguiUtil.get();
+//    return *mp_ImguiUtil.get();
 //}
 
 const Loops::SceneManager& Loops::EngineManager::GetSceneManager() const
 {
-    return *m_pSceneManager;
+    return *mp_SceneManager;
 }
 
 const Loops::VulkanManager& Loops::EngineManager::GetVulkanManager() const
 {
-    return *m_pVulkanManager;
+    return *mp_VulkanManager;
 }
 
 uint32_t Loops::EngineManager::GetMaxFrameInFlights() const
@@ -224,40 +238,40 @@ void Loops::EngineManager::ToggleGamePlayPauseState()
 
 void Loops::EngineManager::Loop()
 {
-    while (m_pWindowManagerObj->Update())
+    while (mp_WindowManagerObj->Update())
     {
-        m_pTimer->StartFrame();
+        mp_Timer->StartFrame();
 
-        auto currentFrameInFlight = m_pVulkanManager->GetFrameInFlightIndex();
+        auto currentFrameInFlight = mp_VulkanManager->GetFrameInFlightIndex();
 
-        //m_pImguiUtil->NewFrame(currentFrameInFlight);
+        //mp_ImguiUtil->NewFrame(currentFrameInFlight);
 
         if (!m_isGameplayPaused)
         {
             for (auto& onUpdate : m_appCallbacks.m_Update)
             {
-                onUpdate(m_pTimer->GetDeltaTime());
+                onUpdate(mp_Timer->GetDeltaTime());
             }
 
-            m_pSceneManager->Update(currentFrameInFlight);
-            m_boundsManager.Update(currentFrameInFlight, m_pSceneManager->m_world);
+            mp_SceneManager->Update(currentFrameInFlight);
+            m_boundsManager.Update(currentFrameInFlight, mp_SceneManager->m_world);
         }
-        m_pSceneManager->Prepare(currentFrameInFlight);
+        mp_SceneManager->Prepare(currentFrameInFlight);
 
         switch (m_activePipeline)
         {
         case Tasking::PipelineType::WIREFRAME:
-            m_pWireframePipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiSystem);
+            mp_WireframePipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
             break;
 
         case Tasking::PipelineType::BVH_RENDER:
-            //m_pBvhRenderPipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiUtil);
-            m_pBvhRenderPipeline->Update(currentFrameInFlight, m_pSceneManager, m_boundsManager, m_pVulkanManager, m_pImguiSystem);
+            //mp_BvhRenderPipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiUtil);
+            mp_BvhRenderPipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
             break;
 
         default:
             break;
         }
-        m_pTimer->EndFrame();
+        mp_Timer->EndFrame();
     }
 }

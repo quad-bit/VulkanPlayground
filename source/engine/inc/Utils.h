@@ -87,6 +87,18 @@ namespace Loops
             VmaAllocator& allocator, VkBuffer& buffer, VmaAllocation& vmaAllocation
         );
 
+        Loops::VulkanImage CreateImageVma(
+            const VkPhysicalDevice& physicalDevice,
+            const VkDevice& device,
+            VmaAllocator allocator,
+            uint32_t width,
+            uint32_t height,
+            VkFormat format,
+            VkImageUsageFlags usage,
+            uint32_t mipLevels,
+            VkImageAspectFlags imageAspectFlags
+        );
+
         void DestroyBuffer(
             const VkDevice& device,
             const VkBuffer& buffer

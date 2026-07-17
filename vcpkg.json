@@ -36,6 +36,9 @@
             "name": "ktx"
         },
         {
+            "name": "basisu"
+        },
+        {
             "name": "rapidjson"
         },
         {

@@ -4,6 +4,7 @@
 #include "GltfLoader.h"
 #include "Components.h"
 #include "memory/MemoryManager.h"
+#include "MaterialManager.h"
 #include <plog/Log.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <stack>
@@ -217,7 +218,9 @@ Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::
     return view;
 }
 
-Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities):
+Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos,
+    BoundsManager& boundsManager, const uint32_t& maxEntities,
+    Loops::MaterialManager* pMaterialManager):
     cm_maxEntities(maxEntities), m_boundManager(boundsManager)
 {
     {
@@ -241,7 +244,12 @@ Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos, Bound
         indBufWrapper.m_index = m_indexBufferWrapperCount++;
         assert(m_indexBufferWrapperCount < MAX_WRAPPERS);
 
-        m_parentEntities.emplace_back(LoadGltf(info.m_path, m_world, *this, boundsManager, vertBufWrapper, indBufWrapper, m_maxEntities, m_maxMeshViewsPerMesh, info.m_scale));
+        m_parentEntities.emplace_back(LoadGltf(info.m_path,
+            m_world, *this, boundsManager,
+            vertBufWrapper, indBufWrapper,
+            m_maxEntities, m_maxMeshViewsPerMesh,
+            pMaterialManager, info.m_scale
+            ));
     }
 }
 

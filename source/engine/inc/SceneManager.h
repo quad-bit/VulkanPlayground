@@ -35,6 +35,7 @@ namespace Loops
         //std::optional<ModelMetadata> m_metaData = std::nullopt;
     };
 
+    class MaterialManager;
     class SceneManager
     {
     private:
@@ -72,7 +73,10 @@ namespace Loops
         flecs::world m_world;
 
         //SceneManager(const std::string_view& assetPath, const uint32_t& maxEntities);
-        SceneManager(const std::vector<ModelLoadInfo>& infos, BoundsManager& boundsManager, const uint32_t& maxEntities);
+        SceneManager(const std::vector<ModelLoadInfo>& infos,
+            BoundsManager& boundsManager,
+            const uint32_t& maxEntities,
+            MaterialManager* pMaterialManager);
 
         ~SceneManager();
 

@@ -69,7 +69,6 @@ int main()
     auto pbrDemo = std::string{ ASSETS_PATH } + "/models/ABeautifulGame/glTF/ABeautifulGame.gltf";
     //auto pbrDemo = std::string{ ASSETS_PATH } + "/models/FlightHelmet/FlightHelmet.gltf";
 
-    //auto pbrDemo = std::string{ ASSETS_PATH } + "/models/Cube/Cube.gltf";
     std::vector<Loops::ModelLoadInfo> gltfInfo;
     gltfInfo.push_back({ 10.0f, pbrDemo.c_str() });
 
@@ -85,7 +84,7 @@ int main()
     info.m_designSize = Loops::Dimension(windowWidth, windowHeight);
     info.m_screenSize = Loops::Dimension(windowWidth, windowHeight);
     info.m_gltfInfos = gltfInfo;
-    info.m_pipelines = { Loops::Tasking::PipelineType::BVH_RENDER };
+    info.m_pipelines = { Loops::Tasking::PipelineType::TEXTURED };
 
     Loops::AppCallbacks callback{};
     {

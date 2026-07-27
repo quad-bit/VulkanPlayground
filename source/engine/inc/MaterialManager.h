@@ -14,10 +14,16 @@ namespace Loops
         std::vector<PbrMaterial> m_pbrMaterials;
         uint32_t m_pbrMatCount = 0;
 
+        std::unordered_map<uint32_t, Material> m_materials;
+        uint32_t m_materialCount = 0;
+
     public:
         MaterialManager(/*flecs::world& world*/);
         ~MaterialManager();
         PbrMaterial* GetPbrMaterialRef();
+        [[nodiscard]]
+        uint32_t AddMaterial(const Material& material);
+        const std::unordered_map<uint32_t, Loops::Material>& GetSceneMaterials() const;
     };
 }
 #endif // !MATERIAL_MANAGER_H

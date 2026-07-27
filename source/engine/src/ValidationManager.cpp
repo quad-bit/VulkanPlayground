@@ -276,6 +276,9 @@ void Loops::ValidationManager::SetupLayersAndExtensions()
     deviceExtensionNameList.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
     deviceExtensionNameList.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
     deviceExtensionNameList.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+    deviceExtensionNameList.push_back(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+    deviceExtensionNameList.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+    deviceExtensionNameList.push_back(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
 
     AddRequiredPlatformInstanceExtensions(&instanceExtensionNameList);
 }

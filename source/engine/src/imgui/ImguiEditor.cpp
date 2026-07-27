@@ -244,8 +244,8 @@ void Loops::ImguiEditor::Init(ImguiSystem* utilObj, SceneManager* sceneManager, 
 
     m_utilObj->AddPersistentDrawCalls(CreateSceneHierarchyPanel);
     m_utilObj->AddPersistentDrawCalls(CreateTransformPanel);
-    //m_utilObj->AddPersistentDrawCalls(CreateMeshPanel);
-    m_utilObj->AddPersistentDrawCalls(CreateBvhPanel);
+    m_utilObj->AddPersistentDrawCalls(CreateMeshPanel);
+    //m_utilObj->AddPersistentDrawCalls(CreateBvhPanel);
 }
 
 void Loops::ImguiEditor::AddPersistentCalls(const std::function<void()>& func)

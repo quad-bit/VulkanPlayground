@@ -13,6 +13,8 @@
 #include "Utils.h"
 #include "pipelines/WireframePipeline.h"
 #include "pipelines/BvhRenderPipeline.h"
+#include "pipelines/TexturingPipeline.h"
+
 #include "Timer.h"
 #include "imgui/ImguiEditor.h"
 #include "imgui/ImguiSystem.h"
@@ -61,8 +63,9 @@ namespace Loops
 
         bool m_isGameplayPaused = false;
 
-        std::unique_ptr<Tasking::WireframePipeline> mp_WireframePipeline = nullptr;
-        std::unique_ptr<Tasking::BvhRenderPipeline> mp_BvhRenderPipeline = nullptr;
+        std::unique_ptr<Tasking::WireframePipeline> mp_wireframePipeline = nullptr;
+        std::unique_ptr<Tasking::BvhRenderPipeline> mp_bvhRenderPipeline = nullptr;
+        std::unique_ptr<Tasking::TexturingPipeline> mp_texturePipeline = nullptr;
         Tasking::PipelineType m_activePipeline;
         AppCallbacks m_appCallbacks;
 

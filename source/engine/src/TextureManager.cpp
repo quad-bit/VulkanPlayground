@@ -2,6 +2,153 @@
 #include "Assertion.h"
 #include "Utils.h"
 #include "memory/MemoryManager.h"
+#include <basisu/transcoder/basisu_transcoder.h>
+#include <filesystem>
+#include <fstream>
+
+namespace
+{
+    void LoadEmptyTexture()
+    {
+        // toktx --bcmp --genmipmap white.ktx2 .\white.jpg
+        basist::basisu_transcoder_init();
+
+        uint32_t mipLevels = 0;
+        uint32_t imageIndex = 0;
+
+        // empty image is ktx2
+        bool isKtx2 = true;
+        VkFormat vulkanFormat = Loops::TextureManager::GetInstance()->GetBestFormat(Loops::TEXTURE_TYPE::DIFFUSE, isKtx2);
+
+        if (isKtx2)
+        {
+            // Image is KTX2 using basis universal compression. Those images need to be loaded from disk and will be transcoded to a native GPU format
+            basist::ktx2_transcoder ktxTranscoder;
+            //const std::string filename = std::string{ ASSETS_PATH } + "/textures/test.ktx2";
+            const std::string filename = std::string{ ASSETS_PATH } + "/textures/white.ktx2";
+            std::ifstream ifs(filename, std::ios::binary | std::ios::in | std::ios::ate);
+            if (!ifs.is_open())
+            {
+                Loops::ASSERT_MSG(0, "Could not load the requested image file ");
+            }
+
+            uint32_t inputDataSize = static_cast<uint32_t>(ifs.tellg());
+            char* inputData = new char[inputDataSize];
+
+            ifs.seekg(0, std::ios::beg);
+            ifs.read(inputData, inputDataSize);
+
+            bool success = ktxTranscoder.init(inputData, inputDataSize);
+            Loops::ASSERT_MSG(success, "Could not initialize ktx2 transcoder for image file ");
+
+            // Select target format based on device features (use uncompressed if none supported)
+            auto targetFormat = basist::transcoder_texture_format::cTFRGBA32;
+
+            switch (vulkanFormat)
+            {
+            case VK_FORMAT_BC7_UNORM_BLOCK:
+                targetFormat = basist::transcoder_texture_format::cTFBC7_RGBA;
+                break;
+            case VK_FORMAT_BC7_SRGB_BLOCK:
+                targetFormat = basist::transcoder_texture_format::cTFBC7_RGBA;
+                break;
+            case VK_FORMAT_BC5_SNORM_BLOCK:
+                targetFormat = basist::transcoder_texture_format::cTFBC5;
+                break;
+
+            default:
+                Loops::ASSERT_MSG(0, "case not handled");
+                break;
+            }
+
+            const bool targetFormatIsUncompressed = basist::basis_transcoder_format_is_uncompressed(targetFormat);
+
+            std::vector<basist::ktx2_image_level_info> levelInfos(ktxTranscoder.get_levels());
+            mipLevels = ktxTranscoder.get_levels();
+
+            // Query image level information that we need later on for several calculations
+            // We only support 2D images (no cube maps or layered images)
+            for (uint32_t i = 0; i < mipLevels; i++)
+            {
+                ktxTranscoder.get_image_level_info(levelInfos[i], i, 0, 0);
+            }
+
+            uint32_t width = levelInfos[0].m_orig_width;
+            uint32_t height = levelInfos[0].m_orig_height;
+
+            // Create one staging buffer large enough to hold all uncompressed image levels
+            const uint32_t bytesPerBlockOrPixel = basist::basis_get_bytes_per_block_or_pixel(targetFormat);
+            uint32_t numBlocksOrPixels = 0;
+            VkDeviceSize totalBufferSize = 0;
+            std::vector<Loops::MipInfo> mipInfoList(mipLevels);
+            for (uint32_t i = 0; i < mipLevels; i++)
+            {
+                // Size calculations differ for compressed/uncompressed formats
+                numBlocksOrPixels = targetFormatIsUncompressed ? levelInfos[i].m_orig_width * levelInfos[i].m_orig_height : levelInfos[i].m_total_blocks;
+                totalBufferSize += numBlocksOrPixels * bytesPerBlockOrPixel;
+
+                mipInfoList[i].width = levelInfos[i].m_orig_width;
+                mipInfoList[i].height = levelInfos[i].m_orig_height;
+                mipInfoList[i].numBlocksOrPixels = numBlocksOrPixels;
+            }
+
+            unsigned char* buffer = new unsigned char[totalBufferSize];
+            unsigned char* bufferPtr = &buffer[0];
+
+            success = ktxTranscoder.start_transcoding();
+            if (!success)
+            {
+                throw std::runtime_error("Could not start transcoding for image file " + filename);
+            }
+
+            // Transcode all mip levels into the staging buffer
+            for (uint32_t i = 0; i < mipLevels; i++)
+            {
+                // Size calculations differ for compressed/uncompressed formats
+                numBlocksOrPixels = targetFormatIsUncompressed ? levelInfos[i].m_orig_width * levelInfos[i].m_orig_height : levelInfos[i].m_total_blocks;
+                uint32_t outputSize = numBlocksOrPixels * bytesPerBlockOrPixel;
+                if (!ktxTranscoder.transcode_image_level(i, 0, 0, bufferPtr, numBlocksOrPixels, targetFormat, 0))
+                {
+                    Loops::ASSERT_MSG(0, "Could not transcode the requested image file ");
+                }
+                bufferPtr += outputSize;
+            }
+
+            imageIndex = Loops::TextureManager::GetInstance()->CreateVulkanImage(width,
+                height,
+                vulkanFormat,
+                VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                buffer,
+                totalBufferSize,
+                mipLevels,
+                mipInfoList,
+                bytesPerBlockOrPixel);
+
+            delete[] buffer;
+            delete[] inputData;
+        }
+
+        VkSamplerCreateInfo samplerInfo{};
+        samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.compareOp = VK_COMPARE_OP_NEVER;
+        samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+        samplerInfo.maxLod = (float)mipLevels;
+        samplerInfo.maxAnisotropy = 8.0f;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        const uint32_t samplerIndex = Loops::TextureManager::GetInstance()->CreateSampler(samplerInfo);
+
+        // a sampler combined with image forms a texture
+        // creating a unique sampler for every gltf texture(sampler+image)
+        auto textureIndex = Loops::TextureManager::GetInstance()->CreateTexture(imageIndex, samplerIndex);
+    }
+
+}
 
 // Initialize static members
 Loops::TextureManager* Loops::TextureManager::s_instancePtr = nullptr;
@@ -32,17 +179,21 @@ void Loops::TextureManager::DeInitPrivate()
     {
         vkDestroySampler(m_device, sampler, nullptr);
     }
+
+    vkDestroyDescriptorPool(m_device, m_textureDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_textureDescriptorSetLayout, nullptr);
 }
 
 void Loops::TextureManager::Init(const VkPhysicalDevice& physicalDevice,
     const VkDevice& device, const VkQueue& queue,
-    uint32_t queuefamilyIndex)
+    uint32_t queuefamilyIndex, uint32_t maxFrameInFlights)
 {
     // find the available formats
     m_physicalDevice = physicalDevice;
     m_device = device;
     m_queue = queue;
     m_queueFamilyIndex = queuefamilyIndex;
+    m_maxFrameInFlights = maxFrameInFlights;
 
     VkFormatProperties props = {};
 
@@ -77,6 +228,8 @@ void Loops::TextureManager::Init(const VkPhysicalDevice& physicalDevice,
             }
         }
     }
+
+    LoadEmptyTexture();
 }
 
 bool Loops::TextureManager::IsFormatAvailable(const VkFormat& format, const VkFormatFeatureFlags& formatFeature) const
@@ -464,6 +617,141 @@ Loops::DescriptorImageIndex Loops::TextureManager::CreateDescriptorImageInfo(uin
     VkDescriptorImageInfo imageInfo{ sampler, imageView, VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
     m_descriptorImageInfoList.insert({ m_descriptorImageInfoCount, imageInfo });
     return m_descriptorImageInfoCount++;
+}
+
+void Loops::TextureManager::CreateTextureDescriptorSet()
+{
+    // Pool creation
+    {
+        std::vector<VkDescriptorPoolSize> descriptorPoolSize{ 
+            {
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                m_textureCount * m_maxFrameInFlights
+            }
+        };
+
+        VkDescriptorPoolCreateInfo descriptorPoolCreateInfo{};
+        descriptorPoolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
+        descriptorPoolCreateInfo.maxSets = m_maxFrameInFlights;
+        descriptorPoolCreateInfo.pNext = nullptr;
+        descriptorPoolCreateInfo.poolSizeCount = descriptorPoolSize.size();
+        descriptorPoolCreateInfo.pPoolSizes = descriptorPoolSize.data();
+        descriptorPoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(
+            m_device, &descriptorPoolCreateInfo, nullptr, &m_textureDescriptorPool));
+    }
+
+    // Descriptorset layout
+    {
+        VkDescriptorSetLayoutBinding binding
+        {
+            TEXTURE_SET_BINDING_VALUE,//binding location
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            m_textureCount,
+            VK_SHADER_STAGE_FRAGMENT_BIT,
+            nullptr
+        };
+
+        std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags
+        {
+            VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
+        };
+
+        VkDescriptorSetLayoutBindingFlagsCreateInfoEXT setlayoutBindingFlags
+        {
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT,
+            nullptr,//pNext
+            (uint32_t)descriptorBindingFlags.size(),
+            descriptorBindingFlags.data()
+        };
+
+        VkDescriptorSetLayoutCreateInfo setlayoutCreateInfo
+        {
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            &setlayoutBindingFlags,//pNext,
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT,
+            1,// count
+            &binding
+        };
+
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_device,
+            &setlayoutCreateInfo,
+            nullptr,
+            &m_textureDescriptorSetLayout
+        ));
+    }
+
+    // descriptor set creation
+    {
+        std::vector<uint32_t> variableDesciptorCounts
+        {
+            m_textureCount
+        };
+        VkDescriptorSetVariableDescriptorCountAllocateInfoEXT variableAllocInfo
+        {
+            VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO_EXT,
+            nullptr,
+            (uint32_t)variableDesciptorCounts.size(),
+            variableDesciptorCounts.data()
+        };
+
+        VkDescriptorSetAllocateInfo allocInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+            .pNext = &variableAllocInfo,
+            .descriptorPool = m_textureDescriptorPool,
+            .descriptorSetCount = 1,
+            .pSetLayouts = &m_textureDescriptorSetLayout
+        };
+
+        std::vector<VkDescriptorImageInfo> descriptorImageInfos(m_textureCount);
+        for (uint32_t i = 0; i < m_textureCount; i++)
+        {
+            descriptorImageInfos[i].sampler = m_samplerMap[m_textureList[i].m_samplerIndex];
+            descriptorImageInfos[i].imageView = m_imageList[m_textureList[i].m_vulkanImageWrapperIndex].m_vkImageView;
+            descriptorImageInfos[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        }
+
+        VkWriteDescriptorSet writeInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstBinding = TEXTURE_SET_BINDING_VALUE,
+            .dstArrayElement = 0,
+            .descriptorCount = m_textureCount,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo = descriptorImageInfos.data(),
+            .pBufferInfo = 0
+        };
+
+        m_textureDescriptorSets.resize(m_maxFrameInFlights);
+        for (uint32_t i = 0; i < m_maxFrameInFlights; i++)
+        {
+            VkUtils::ErrorCheck(vkAllocateDescriptorSets(
+                m_device,
+                &allocInfo,
+                &m_textureDescriptorSets[i]
+            ));
+
+            writeInfo.dstSet = m_textureDescriptorSets[i];
+            vkUpdateDescriptorSets(
+                m_device,
+                1,
+                &writeInfo,
+                0,
+                nullptr);
+        };
+    }
+}
+
+const VkDescriptorSetLayout& Loops::TextureManager::GetTextureSetLayout() const
+{
+    return m_textureDescriptorSetLayout;
+}
+
+const std::vector<VkDescriptorSet>& Loops::TextureManager::GetTextureSet() const
+{
+    return m_textureDescriptorSets;
 }
 
 void Loops::TextureManager::DeInit()

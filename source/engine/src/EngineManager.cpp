@@ -8,12 +8,15 @@
 
 #include <plog/Initializers/RollingFileInitializer.h>
 #include <plog/Formatters/TxtFormatter.h>
+#include <plog/Formatters/FuncMessageFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
 
 Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCallbacks& callbacks) : m_appCallbacks(callbacks)
 {
+    // txtFormatter print the entire location
     static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
-    plog::init(plog::debug, &consoleAppender);
+    static plog::ColorConsoleAppender<plog::FuncMessageFormatter> funcAppender;
+    plog::init(plog::debug, &funcAppender);
 
     mp_Timer = std::make_unique<Timer>(60);
     Memory::MemoryManager::GetInstance()->Init();
@@ -31,7 +34,9 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     TextureManager::GetInstance()->Init(mp_VulkanManager->GetPhysicalDevice(),
         mp_VulkanManager->GetLogicalDevice(),
-        mp_VulkanManager->GetGraphicsQueue(), mp_VulkanManager->GetQueueFamilyIndex());
+        mp_VulkanManager->GetGraphicsQueue(),
+        mp_VulkanManager->GetQueueFamilyIndex(),
+        mp_VulkanManager->GetMaxFramesInFlight());
 
     mp_InputManager = std::make_unique<IO::InputManager>(mp_WindowManagerObj->glfwWindow);
 
@@ -41,10 +46,12 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     m_maxFramesInFlight = mp_VulkanManager->GetMaxFramesInFlight();
 
     // imgui
-    mp_ImguiSystem = std::make_unique<Loops::ImguiSystem>(mp_WindowManagerObj->glfwWindow, mp_VulkanManager.get(), mp_VulkanManager->GetLogicalDevice(),
-        mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetGraphicsQueue(), mp_VulkanManager->GetQueueFamilyIndex(),
-        mp_VulkanManager->GetMaxFramesInFlight(), info.m_screenSize.m_width, info.m_screenSize.m_height,
-        /*mp_VulkanManager->GetSurfaceColorFormat()*/ VK_FORMAT_B8G8R8A8_UNORM, mp_VulkanManager->GetDefaultColorImageView());
+    mp_ImguiSystem = std::make_unique<Loops::ImguiSystem>(mp_WindowManagerObj->glfwWindow,
+        mp_VulkanManager.get(), mp_VulkanManager->GetLogicalDevice(),
+        mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetGraphicsQueue(),
+        mp_VulkanManager->GetQueueFamilyIndex(), mp_VulkanManager->GetMaxFramesInFlight(),
+        info.m_screenSize.m_width, info.m_screenSize.m_height,
+        VK_FORMAT_B8G8R8A8_UNORM, mp_VulkanManager->GetDefaultColorImageView());
 
     mp_materialManager = std::make_unique<Loops::MaterialManager>();
     mp_SceneManager = std::make_unique<Loops::SceneManager>(info.m_gltfInfos,
@@ -79,17 +86,28 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
         Events::EventBus::GetInstance()->Publish<Events::KeyInputEvent>(&testEvent);*/
     }
 
+    TextureManager::GetInstance()->GetInstance()->CreateTextureDescriptorSet();
+
     auto SetupWireframePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            mp_WireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, mp_VulkanManager);
+            mp_wireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, mp_VulkanManager);
         };
 
     auto SetupBvhRenderPipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            mp_BvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem);
+            mp_bvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem);
         };
 
-    auto SetupPipeline = [this, &info, &SetupWireframePipeline, &SetupBvhRenderPipeline](const std::vector<Tasking::PipelineType>& pipelineTypes)
+    auto SetupTexturePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+        {
+            mp_texturePipeline = std::make_unique<Tasking::TexturingPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem, mp_materialManager.get());
+        };
+
+    auto SetupPipeline = [this, &info,
+        &SetupWireframePipeline,
+        &SetupBvhRenderPipeline,
+        &SetupTexturePipeline ](
+            const std::vector<Tasking::PipelineType>& pipelineTypes)
         {
             m_activePipeline = info.m_pipelines[0];
 
@@ -114,6 +132,10 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
                     case Tasking::PipelineType::BVH_RENDER:
                         SetupBvhRenderPipeline(pipelineInfo);
+                        break;
+
+                    case Tasking::PipelineType::TEXTURED:
+                        SetupTexturePipeline(pipelineInfo);
                         break;
 
                     default :
@@ -152,16 +174,22 @@ void Loops::EngineManager::DeInit()
             mp_ImguiSystem = nullptr;
         }
 
-        if (mp_WireframePipeline)
+        if (mp_wireframePipeline)
         {
-            mp_WireframePipeline.reset();
-            mp_WireframePipeline = nullptr;
+            mp_wireframePipeline.reset();
+            mp_wireframePipeline = nullptr;
         }
 
-        if (mp_BvhRenderPipeline)
+        if (mp_bvhRenderPipeline)
         {
-            mp_BvhRenderPipeline.reset();
-            mp_BvhRenderPipeline = nullptr;
+            mp_bvhRenderPipeline.reset();
+            mp_bvhRenderPipeline = nullptr;
+        }
+
+        if (mp_texturePipeline)
+        {
+            mp_texturePipeline.reset();
+            mp_texturePipeline = nullptr;
         }
 
         mp_SceneManager->DeInitialise();
@@ -261,12 +289,18 @@ void Loops::EngineManager::Loop()
         switch (m_activePipeline)
         {
         case Tasking::PipelineType::WIREFRAME:
-            mp_WireframePipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
+            mp_wireframePipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
             break;
 
         case Tasking::PipelineType::BVH_RENDER:
             //mp_BvhRenderPipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiUtil);
-            mp_BvhRenderPipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
+            mp_bvhRenderPipeline->Update(currentFrameInFlight, mp_SceneManager, m_boundsManager, mp_VulkanManager, mp_ImguiSystem);
+            break;
+
+        case Tasking::PipelineType::TEXTURED:
+            mp_texturePipeline->Update(currentFrameInFlight,
+                mp_SceneManager, m_boundsManager,
+                mp_VulkanManager, mp_ImguiSystem);
             break;
 
         default:

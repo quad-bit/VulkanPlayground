@@ -10,11 +10,17 @@
 
 namespace Loops
 {
+    constexpr uint32_t MAX_TEXTURES = 50;
+    constexpr uint32_t TEXTURE_SET_VALUE = 1;
+    constexpr uint32_t TEXTURE_SET_BINDING_VALUE = 0;
+
     enum TEXTURE_TYPE
     {
         FBO,
         DEPTH_STENCIL,
-        DIFFUSE, // rgba srgb
+        DIFFUSE, // rgba srgb 
+        // older gltfs used diffuse texture, newer ones are using baseColorTexture
+        // we are sticking to baseColorTexture
         NORMAL_MAPS, // rg snorm linear
         AMBIENT_OCCLUSION_MAPS, //r linear
         EMMISIVE_MAPS, //rgb srgb
@@ -59,7 +65,7 @@ namespace Loops
 
         const std::unordered_map<TEXTURE_TYPE, std::vector<VkFormat>> m_preferredUncompressedTextureFormatMapPC
         {
-            {FBO, {VK_FORMAT_R8G8B8A8_UNORM}},
+            {FBO, {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM}},
             {DEPTH_STENCIL, {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT}},
             {DIFFUSE, {VK_FORMAT_R8G8B8A8_SRGB}},
             {NORMAL_MAPS, {VK_FORMAT_R8G8_SNORM}},
@@ -86,6 +92,7 @@ namespace Loops
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
         VkQueue m_queue = VK_NULL_HANDLE;
         uint32_t m_queueFamilyIndex = 0;
+        uint32_t m_maxFrameInFlights = 0;
 
         std::unordered_map<uint32_t, VkSampler> m_samplerMap;
         uint32_t m_samplerCounter = 0;
@@ -95,20 +102,30 @@ namespace Loops
 
         std::unordered_map<uint32_t, Texture> m_textureList;
         uint32_t m_textureCount = 0;
+        // if multiple gltf files are getting loaded the local texture
+        // indicies within gltf file will start from zero
+        // but we are storing all the images into one single array
+        // hence while creating the textures for a gltf file 
+        // we need its respective index offset in the array
+        std::unordered_map<uint32_t,uint32_t> m_textureOffsetMarker;
 
         std::unordered_map<uint32_t, VkDescriptorImageInfo> m_descriptorImageInfoList;
         uint32_t m_descriptorImageInfoCount = 0;
 
-        TextureManager() {}
+        VkDescriptorPool m_textureDescriptorPool = VK_NULL_HANDLE;
+        VkDescriptorSetLayout m_textureDescriptorSetLayout = VK_NULL_HANDLE;
+        std::vector<VkDescriptorSet> m_textureDescriptorSets;
 
+        TextureManager() {}
         void DeInitPrivate();
+
     public:
         static TextureManager* GetInstance();
         static void DeInit();
 
         void Init(const VkPhysicalDevice& physicalDevice,
             const VkDevice& device, const VkQueue& queue,
-            uint32_t queuefamilyIndex);
+            uint32_t queuefamilyIndex, uint32_t maxFrameInFlights);
         bool IsFormatAvailable(const VkFormat& format, const VkFormatFeatureFlags& formatFeature) const;
         VkFormat GetBestFormat(const TEXTURE_TYPE& textureType, bool isCompressed) const;
 
@@ -126,10 +143,12 @@ namespace Loops
             uint32_t mipLevels);
 
         uint32_t CreateSampler(const VkSamplerCreateInfo& info);
-
         uint32_t CreateTexture(uint32_t imageIndex, uint32_t samplerIndex);
-
         DescriptorImageIndex CreateDescriptorImageInfo(uint32_t textureIndex, uint32_t samplerIndex);
+
+        void CreateTextureDescriptorSet();
+        const VkDescriptorSetLayout& GetTextureSetLayout() const;
+        const std::vector<VkDescriptorSet>& GetTextureSet() const;
     };
 }
 

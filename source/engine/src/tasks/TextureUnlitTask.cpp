@@ -1,33 +1,9 @@
-#include <memory>
-#include "tasks/ColorUnlitTask.h"
+#include "tasks/TextureUnlitTask.h"
+#include "TextureManager.h"
 
-Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
-    const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue, bool renderOutputToTexture) :
-    GraphicsTask("ColorUnlitTask", info, numColorTargets, numDepthTargets, colorFormat, depthFormat, clearColorValue, depthStencilClearValue)
-{
-    Init(clearColorValue, depthStencilClearValue);
-
-    TaskOwnedResource& resource = std::get<TaskOwnedResource>(m_taskResource);
-    std::vector<VkImageView> views;
-    for (auto& target : resource.m_colorTargets)
-    {
-        views.push_back(target.m_vkImageView);
-    }
-
-    if (renderOutputToTexture)
-        m_renderToTexture = std::make_unique<RenderToImguiImage>("GameView", m_info.m_device, info.m_maxFrameInFlights, views,
-            info.m_renderDimensions.m_width, info.m_renderDimensions.m_height);
-}
-
-Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat, 
-    std::optional<const VkClearColorValue> clearColorValue, std::optional<const VkClearDepthStencilValue> depthStencilClearValue) :
-    GraphicsTask("ColorUnlitTask", info, colorViews, depthViews, colorFormat, depthFormat)
-{
-    Init(clearColorValue, depthStencilClearValue);
-}
-
-void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue> clearColorValue, std::optional<const VkClearDepthStencilValue> depthStencilClearValue)
+void Loops::Tasking::TextureUnlitTask::Init(
+    std::optional<const VkClearColorValue> clearColorValue,
+    std::optional<const VkClearDepthStencilValue> depthStencilClearValue)
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -46,8 +22,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
     Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
 
     {
-        // set 0 for camera, set 1 for transform
-        m_setLayouts.resize(2);
+        // set 0 for camera,  set 1 for transform, set 2 for textureArray,
         {
             VkDescriptorSetLayoutBinding bindings[1]
             {
@@ -58,7 +33,11 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_customLayout[CAMERA_SET]));
+        }
+
+        {
+            m_customLayout[TEXTURE_SET] = Loops::TextureManager::GetInstance()->GetTextureSetLayout();
         }
 
         {
@@ -71,7 +50,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_customLayout[TRANSFORM_SET]));
         }
 
         VkDescriptorPoolSize pool_sizes[2] =
@@ -89,20 +68,23 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
         Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
     }
 
-    VkPushConstantRange range{};
-    range.offset = 0;
-    range.size = sizeof(uint32_t);
-    range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
+    std::array<VkPushConstantRange, 1> range
+    {
+        VkPushConstantRange
+        {
+            VK_SHADER_STAGE_VERTEX_BIT| VK_SHADER_STAGE_FRAGMENT_BIT,
+            0,
+            sizeof(uint32_t) * 2
+        }
+    };
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
-    pipelineLayoutCreateInfo.pPushConstantRanges = &range;
-    pipelineLayoutCreateInfo.pSetLayouts = m_setLayouts.data();
-    pipelineLayoutCreateInfo.pushConstantRangeCount = 1;
-    pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
+    pipelineLayoutCreateInfo.pPushConstantRanges = range.data();
+    pipelineLayoutCreateInfo.pSetLayouts = m_customLayout.data();
+    pipelineLayoutCreateInfo.pushConstantRangeCount = (uint32_t)range.size();
+    pipelineLayoutCreateInfo.setLayoutCount = m_customLayout.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
     Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
-
 
     if (!m_ownAttachments)
     {
@@ -110,7 +92,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
         VkClearValue clearValues{ clearColorValue.has_value() ? clearColorValue.value() : VkClearColorValue{.0f, .0f, .0f, 1.0f} };
         m_colorInfoList.resize(m_info.m_maxFrameInFlights);
 
-        VkClearValue clearValuesDepth;
+        VkClearValue clearValuesDepth{};
         clearValuesDepth.depthStencil = depthStencilClearValue.has_value() ? depthStencilClearValue.value() : VkClearDepthStencilValue{ 1.0f, 0u };
         m_depthInfoList.resize(m_info.m_maxFrameInFlights);
 
@@ -155,8 +137,8 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
         pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 
         // Create pipeline
-        std::string vertSpvPath = std::string{ SPV_PATH } + "UnlitColorVert.spv";
-        std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitColorFrag.spv";
+        std::string vertSpvPath = std::string{ SPV_PATH } + "UnlitTexturedVert.spv";
+        std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitTexturedFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
         std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
@@ -167,11 +149,15 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
 
         // Describe the vertex input, i.e. two vertex input attributes in our case:
         VkVertexInputBindingDescription vertexBindings{ 0, sizeof(Loops::Vertex), VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX };
-        VkVertexInputAttributeDescription attributeDescriptions{ 0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_position) };
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions
+        {
+            VkVertexInputAttributeDescription{0, 0, VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_position)},
+            VkVertexInputAttributeDescription{1, 0, VkFormat::VK_FORMAT_R32G32_SFLOAT, offsetof(Loops::Vertex, Loops::Vertex::m_uv)}
+        };
 
-        pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = &attributeDescriptions;
+        pipelineVertexInputStateCreateInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
         pipelineVertexInputStateCreateInfo.pVertexBindingDescriptions = &vertexBindings;
-        pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = 1;
+        pipelineVertexInputStateCreateInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
         pipelineVertexInputStateCreateInfo.vertexBindingDescriptionCount = 1;
 
         VkPipelineInputAssemblyStateCreateInfo pipelineInputAssemblyStateCreateInfo = {};
@@ -230,7 +216,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
         dynamicStateCreateInfo.dynamicStateCount = 2;
         dynamicStateCreateInfo.pDynamicStates = dynamicStates;
 
-        std::array<VkSpecializationMapEntry, 1> specializationMapEntries;
+        /*std::array<VkSpecializationMapEntry, 1> specializationMapEntries;
         specializationMapEntries[0].constantID = 0;
         specializationMapEntries[0].size = sizeof(MAX_ENTITIES);
         specializationMapEntries[0].offset = 0;
@@ -239,14 +225,14 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
         specializationInfo.dataSize = sizeof(MAX_ENTITIES);
         specializationInfo.mapEntryCount = specializationMapEntries.size();
         specializationInfo.pData = &MAX_ENTITIES;
-        specializationInfo.pMapEntries = specializationMapEntries.data();
+        specializationInfo.pMapEntries = specializationMapEntries.data();*/
 
         VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfos[2] = {};
         pipelineShaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineShaderStageCreateInfos[0].module = m_vertexShaderModule;
         pipelineShaderStageCreateInfos[0].pName = "main";
         pipelineShaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-        pipelineShaderStageCreateInfos[0].pSpecializationInfo = &specializationInfo;
+        //pipelineShaderStageCreateInfos[0].pSpecializationInfo = &specializationInfo;
 
         pipelineShaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         pipelineShaderStageCreateInfos[1].module = m_fragmentShaderModule;
@@ -277,7 +263,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
     {
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
         m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
-        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
         vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
@@ -289,7 +275,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
             VkDescriptorSetAllocateInfo setAllocInfo{};
             setAllocInfo.descriptorPool = m_descriptorPool;
             setAllocInfo.descriptorSetCount = 1;
-            setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
+            setAllocInfo.pSetLayouts = &m_customLayout[CAMERA_SET];
             setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
             Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_viewSet[i]));
@@ -327,7 +313,7 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
                 VkDescriptorSetAllocateInfo setAllocInfo{};
                 setAllocInfo.descriptorPool = m_descriptorPool;
                 setAllocInfo.descriptorSetCount = 1;
-                setAllocInfo.pSetLayouts = &m_setLayouts[TRANSFORM_SET];
+                setAllocInfo.pSetLayouts = &m_customLayout[TRANSFORM_SET];
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
                 Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
@@ -341,106 +327,26 @@ void Loops::Tasking::ColorUnlitTask::Init(std::optional<const VkClearColorValue>
             }
         }
     }
-
 }
 
-void Loops::Tasking::ColorUnlitTask::Update(VkCommandBuffer& commandBuffer, const uint32_t& frameInFlight, 
-    const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager, std::optional<CameraData> secondaryCameraData)
+Loops::Tasking::TextureUnlitTask::TextureUnlitTask(const GraphicsTaskInfo& info,
+    const std::vector<VkImageView>& colorViews,
+    const std::vector<VkImageView>& depthViews,
+    const VkFormat& colorFormat, const VkFormat& depthFormat,
+    std::optional<const VkClearColorValue> clearColorValue,
+    std::optional<const VkClearDepthStencilValue> depthStencilClearValue) :
+    GraphicsTask("TextureUnlitTask", info, colorViews, depthViews,
+        colorFormat, depthFormat)
 {
-    ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
-    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
-
-    CameraData uniform{};
-    if (secondaryCameraData.has_value())
-    {
-        uniform.m_cameraPos = secondaryCameraData.value().m_cameraPos;
-        uniform.m_projectionMat = secondaryCameraData.value().m_projectionMat;
-        uniform.m_viewMat = secondaryCameraData.value().m_viewMat;
-    }
-    else
-    {
-        uniform.m_cameraPos = renderData.m_cameraData.m_cameraPos;
-        uniform.m_projectionMat = renderData.m_cameraData.m_projectionMat;
-        uniform.m_viewMat = renderData.m_cameraData.m_viewMat;
-    }
-
-    ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
-    memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(CameraData));
-
-    // Build Command Buffers
-    {
-        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
-        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
-
-        vkCmdBeginRendering(commandBuffer, &m_renderInfoList[frameInFlight]);
-        {
-            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-            vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-            // Bind descriptor sets
-            // View set 0
-            // Transform set 1
-            VkDescriptorSet set[2]{ m_viewSet[0], m_transformSets[frameInFlight] };
-            VkBindDescriptorSetsInfo bindInfo = {};
-            bindInfo.descriptorSetCount = 2;
-            bindInfo.firstSet = 0;
-            bindInfo.layout = m_pipelineLayout;
-            bindInfo.pDescriptorSets = set;
-            bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-            bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
-            bindInfo.dynamicOffsetCount = 0;
-            bindInfo.pDynamicOffsets = nullptr;
-            //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
-            vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
-
-            int boundVertexBuffer = -1, boundIndexBuffer = -1;
-            for (uint32_t i = 0; i < renderData.m_drawableCount; i++)
-            {
-                const Loops::Drawable& drawable = renderData.m_drawables[i];
-
-                // Bind vertex and index buffer
-                if (boundVertexBuffer != drawable.m_vertexBufferId || boundIndexBuffer != drawable.m_indexBufferId)
-                {
-                    boundVertexBuffer = drawable.m_vertexBufferId;
-                    boundIndexBuffer = drawable.m_indexBufferId;
-                    auto& vertexBuffer = sceneManager.GetVertexBuffer(drawable.m_vertexBufferId);
-                    auto& indexBuffer = sceneManager.GetIndexBuffer(drawable.m_indexBufferId);
-
-                    VkDeviceSize offset{ 0 };
-                    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &offset);
-                    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
-                }
-
-                // Push Constant 
-                uint32_t matIndex = drawable.m_matIndex;
-                VkPushConstantsInfo info{};
-                info.layout = m_pipelineLayout;
-                info.offset = 0;
-                info.pValues = &matIndex;
-                info.size = sizeof(matIndex);
-                info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-                info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
-                //vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
-                vkCmdPushConstants(commandBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(matIndex), &matIndex);
-
-                // Launch draw
-                for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
-                {
-                    const Loops::MeshView& meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
-                    uint32_t numIndicies = meshView.m_indexCount;
-                    uint32_t firstIndex = meshView.m_firstIndex;
-                    vkCmdDrawIndexed(commandBuffer, numIndicies, 1, firstIndex, 0, 0);
-                }
-            }
-        }
-        vkCmdEndRendering(commandBuffer);
-    }
+    Init(clearColorValue, depthStencilClearValue);
 }
 
-void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
-    const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager)
+void Loops::Tasking::TextureUnlitTask::Update(const uint32_t& frameInFlight,
+    const VkSemaphore& timelineSem, uint64_t signalValue,
+    std::optional<uint64_t> waitValue,
+    const Loops::RenderData& renderData,
+    const Loops::SceneManager& sceneManager,
+    const std::unordered_map<uint32_t, Loops::Material>& materials)
 {
     ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
     memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
@@ -452,7 +358,7 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
     // Build Command Buffers
     {
         VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
-        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+        VkRect2D scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
 
         Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
 
@@ -462,8 +368,7 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
 
         Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
-
-        auto RenderCommands = [this, &viewport, &scissor, &renderData, &sceneManager](uint32_t frameInFlight)
+        auto RenderCommands = [this, &viewport, &scissor, &renderData, &sceneManager, &materials](uint32_t frameInFlight)
             {
                 vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
                 {
@@ -475,18 +380,22 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
                     // Bind descriptor sets
                     // View set 0
                     // Transform set 1
-                    VkDescriptorSet set[2]{ m_viewSet[0], m_transformSets[frameInFlight] };
+                    // Texture set 2
+                    VkDescriptorSet set[3]{ m_viewSet[0],
+                        m_transformSets[frameInFlight],
+                        TextureManager::GetInstance()->GetTextureSet()[frameInFlight]};
+
                     VkBindDescriptorSetsInfo bindInfo = {};
-                    bindInfo.descriptorSetCount = 2;
+                    bindInfo.descriptorSetCount = 3;
                     bindInfo.firstSet = 0;
                     bindInfo.layout = m_pipelineLayout;
                     bindInfo.pDescriptorSets = set;
-                    bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                    bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
                     bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
                     bindInfo.dynamicOffsetCount = 0;
                     bindInfo.pDynamicOffsets = nullptr;
-                    //vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
-                    vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
+                    vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);
+                    //vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
 
                     int boundVertexBuffer = -1, boundIndexBuffer = -1;
                     for (uint32_t i = 0; i < renderData.m_drawableCount; i++)
@@ -513,9 +422,8 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
                         info.offset = 0;
                         info.pValues = &matIndex;
                         info.size = sizeof(matIndex);
-                        info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                        info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
                         info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
-                        info.pNext = nullptr;
                         vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
                         //vkCmdPushConstants(m_commandBuffers[frameInFlight], m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(matIndex), &matIndex);
 
@@ -523,35 +431,29 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
                         for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
                         {
                             const Loops::MeshView& meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
+                            auto materialIndex = meshView.m_materialIndex;
+                            auto& material = materials.at(materialIndex);
+                            uint32_t textureIndex = ((PbrMaterial*)material.m_materialData)->m_baseColorTextureIndex;
+                            VkPushConstantsInfo info{};
+                            info.layout = m_pipelineLayout;
+                            info.offset = sizeof(matIndex);
+                            info.pValues = &textureIndex;
+                            info.size = sizeof(textureIndex);
+                            info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+                            info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
+                            vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
+                            //vkCmdPushConstants(m_commandBuffers[frameInFlight], m_pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(textureIndex), &textureIndex);
+
                             uint32_t numIndicies = meshView.m_indexCount;
                             uint32_t firstIndex = meshView.m_firstIndex;
                             vkCmdDrawIndexed(m_commandBuffers[frameInFlight], numIndicies, 1, firstIndex, 0, 0);
                         }
                     }
-
-                    //std::array<VkBuffer, 2> vertexBuffs{ m_vertexBuffers[frameInFlight], m_uvBuffer };
-                    //std::array<VkDeviceSize, 2> offsets{ 0, 0 };
-                    //vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 2, vertexBuffs.data(), offsets.data());
-
-                    //vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], m_indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
-
-                    //std::array<VkDescriptorSet, 3> sets{ m_viewSet[frameInFlight], m_transformSet[frameInFlight], m_samplerSet[frameInFlight] };
-                    //vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 3, &sets[0], 0, nullptr);
-
-                    //vkCmdDrawIndexed(m_commandBuffers[frameInFlight], m_numIndicies, 1, 0, 0, 0);
                 }
                 vkCmdEndRendering(m_commandBuffers[frameInFlight]);
             };
 
-        if (m_renderToTexture)
-        {
-            ASSERT_MSG(m_ownAttachments, "Only owned attachment are rendered to texture");
-            VkImage image = std::get<TaskOwnedResource>(m_taskResource).m_colorTargets[frameInFlight].m_vkImage;
-
-            m_renderToTexture->Render(m_commandBuffers[frameInFlight], m_info.m_renderDimensions, image, frameInFlight, RenderCommands);
-        }
-        else
-            RenderCommands(frameInFlight);
+        RenderCommands(frameInFlight);
 
         Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(m_commandBuffers[frameInFlight]));
     }
@@ -559,13 +461,17 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
     Submit(frameInFlight, timelineSem, signalValue, waitValue);
 }
 
-Loops::Tasking::ColorUnlitTask::~ColorUnlitTask()
+void Loops::Tasking::TextureUnlitTask::Update(VkCommandBuffer& commandBuffer,
+    const uint32_t& frameInFlight, const Loops::RenderData& renderData,
+    const Loops::SceneManager& sceneManager,
+    std::optional<CameraData> secondaryCameraData)
 {
-    if (m_renderToTexture)
-    {
-        m_renderToTexture.reset();
-        m_renderToTexture = nullptr;
-    }
+}
+
+Loops::Tasking::TextureUnlitTask::~TextureUnlitTask()
+{
+    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[0], nullptr);
+    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[1], nullptr);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);

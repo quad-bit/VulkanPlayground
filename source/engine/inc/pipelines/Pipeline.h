@@ -25,7 +25,8 @@ namespace Loops::Tasking
     enum class PipelineType
     {
         WIREFRAME,
-        BVH_RENDER
+        BVH_RENDER,
+        TEXTURED
     };
 
     class Pipeline

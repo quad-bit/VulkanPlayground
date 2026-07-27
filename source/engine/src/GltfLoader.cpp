@@ -214,15 +214,32 @@ namespace
     {
         std::unordered_map<uint32_t, Loops::TEXTURE_TYPE> indexTypeMap;
 
-        auto GetImageInfo = [&indexTypeMap, &gltfModel](const tinygltf::Material& mat, const std::string& textureName,
-            const Loops::TEXTURE_TYPE& textureType, const tinygltf::ParameterMap& map)
+        auto GetImageInfo = [&indexTypeMap, &gltfModel](
+            const tinygltf::Material& mat,
+            const std::string& textureName,
+            const Loops::TEXTURE_TYPE& textureType,
+            const tinygltf::ParameterMap& paramMap)
             {
-                auto textureIndex = map.at(textureName).TextureIndex();
+                auto textureIndex = paramMap.at(textureName).TextureIndex();
                 auto& tex = gltfModel.textures.at(textureIndex);
-                uint32_t imageIndex = tex.source;
+                int imageIndex = tex.source;
+
+                if (imageIndex < 0)
+                {
+                    for (const auto& ext : tex.extensions)
+                    {
+                        auto& value = ext.second.Get("source");
+                        imageIndex = value.Get<int>();
+
+                        Loops::ASSERT_MSG_DEBUG(imageIndex >= 0, "Texture source negative");
+                    }
+                }
+
+                Loops::ASSERT_MSG_DEBUG(imageIndex != -1, "Load the white texture instead");
+
 
                 if (indexTypeMap.find(imageIndex) != indexTypeMap.end())
-                    PLOGD << "Image at " << imageIndex << " reused in " << textureName<<" texture at "<<textureIndex ;
+                    PLOGD << "Image at " << imageIndex << " reused in " << textureName << " texture at " << textureIndex;
                 else
                     indexTypeMap.insert({ imageIndex, textureType });
             };
@@ -232,53 +249,22 @@ namespace
             if (mat.values.find("baseColorTexture") != mat.values.end())
             {
                 GetImageInfo(mat, "baseColorTexture", Loops::TEXTURE_TYPE::DIFFUSE, mat.values);
-                //auto textureIndex = mat.values.at("baseColorTexture").TextureIndex();
-                //auto& tex = gltfModel.textures.at(textureIndex);
-                //uint32_t imageIndex = tex.source;
-
-                ////Loops::ASSERT_MSG(indexTypeMap.find(index) == indexTypeMap.end(), "duplicate index");
-                //if (indexTypeMap.find(index) == indexTypeMap.end())
-                //    PLOGD << "Diffuse texture at " << index << " reused";
-                //indexTypeMap.insert({ index, Loops::TEXTURE_TYPE::DIFFUSE });
             }
             if (mat.values.find("metallicRoughnessTexture") != mat.values.end())
             {
                 GetImageInfo(mat, "metallicRoughnessTexture", Loops::TEXTURE_TYPE::METALLIC_ROUGHNESS_MAPS, mat.values);
-
-                //auto index = mat.values.at("metallicRoughnessTexture").TextureIndex();
-                ////Loops::ASSERT_MSG(indexTypeMap.find(index) == indexTypeMap.end(), "duplicate index");
-                //if (indexTypeMap.find(index) == indexTypeMap.end())
-                //    PLOGD << "OMR texture at " << index << " reused";
-                //indexTypeMap.insert({ index, Loops::TEXTURE_TYPE::METALLIC_ROUGHNESS_MAPS });
             }
             if (mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
             {
                 GetImageInfo(mat, "normalTexture", Loops::TEXTURE_TYPE::NORMAL_MAPS, mat.additionalValues);
-
-                //auto index = mat.additionalValues.at("normalTexture").TextureIndex();
-                ////Loops::ASSERT_MSG(indexTypeMap.find(index) == indexTypeMap.end(), "duplicate index");
-                //if (indexTypeMap.find(index) == indexTypeMap.end())
-                //    PLOGD << "Normal texture at " << index << " reused";
-                //indexTypeMap.insert({ index, Loops::TEXTURE_TYPE::NORMAL_MAPS });
             }
             if (mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
             {
                 GetImageInfo(mat, "emissiveTexture", Loops::TEXTURE_TYPE::EMMISIVE_MAPS, mat.additionalValues);
-
-                //auto index = mat.additionalValues.at("emissiveTexture").TextureIndex();
-                ////Loops::ASSERT_MSG(indexTypeMap.find(index) == indexTypeMap.end(), "duplicate index");
-                //if (indexTypeMap.find(index) == indexTypeMap.end())
-                //    PLOGD << "Emissive texture at " << index << " reused";
-                //indexTypeMap.insert({ index, Loops::TEXTURE_TYPE::EMMISIVE_MAPS });
             }
             if (mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
             {
                 GetImageInfo(mat, "occlusionTexture", Loops::TEXTURE_TYPE::AMBIENT_OCCLUSION_MAPS, mat.additionalValues);
-
-                //auto index = mat.additionalValues.at("occlusionTexture").TextureIndex();
-                //// occlussion map and ORM map might have same index
-                //if(indexTypeMap.find(index) == indexTypeMap.end())
-                //    indexTypeMap.insert({ index, Loops::TEXTURE_TYPE::AMBIENT_OCCLUSION_MAPS });
             }
             // Extensions
             if (mat.extensions.find("KHR_materials_pbrSpecularGlossiness") != mat.extensions.end())
@@ -491,22 +477,25 @@ namespace
         return { mipLevels, textureIndex };
     }
 
-    void LoadTextures(const std::unordered_map<uint32_t, Loops::TEXTURE_TYPE>& textureIndexMap,
+    std::vector<uint32_t> LoadTextures(const std::unordered_map<uint32_t, Loops::TEXTURE_TYPE>& imageIndexToTypeMap,
         std::vector<VkSamplerCreateInfo>& sampleInfoList,
         const tinygltf::Model& gltfModel,
         const std::string& path)
     {
-        uint32_t imageIndex = 0;
+        uint32_t imageCount = 0;
         std::unordered_map<uint32_t, uint32_t> indexToMiplevelMap;
+        std::vector<uint32_t> imageIndicies;
         for (const tinygltf::Image& image : gltfModel.images)
         {
-            Loops::ASSERT_MSG(textureIndexMap.find((uint32_t)imageIndex) != textureIndexMap.end(), "texture type not found");
-            const Loops::TEXTURE_TYPE& textureType = textureIndexMap.at(imageIndex);
-            auto [mipLevels, textureIndex] = LoadImageDataFromFile(image, path, textureType, (uint32_t)imageIndex);
-            indexToMiplevelMap.insert({ textureIndex, mipLevels });
-            imageIndex++;
+            Loops::ASSERT_MSG(imageIndexToTypeMap.find((uint32_t)imageCount) != imageIndexToTypeMap.end(), "image index not found");
+            const Loops::TEXTURE_TYPE& textureType = imageIndexToTypeMap.at(imageCount);
+            // the index of the image stored in textureManager
+            auto [mipLevels, imageIndex] = LoadImageDataFromFile(image, path, textureType, (uint32_t)imageCount);
+            indexToMiplevelMap.insert({ imageIndex, mipLevels });
+            imageIndicies.push_back(imageIndex);
+            imageCount++;
         }
-
+        std::vector<uint32_t> textureIndicies; // as stored in textureManager
         for (const tinygltf::Texture& tex : gltfModel.textures)
         {
             int source = tex.source;
@@ -518,7 +507,7 @@ namespace
                 source = value.Get<int>();
             }
 
-            auto it = indexToMiplevelMap.find(source);
+            auto it = indexToMiplevelMap.find(imageIndicies[source]);
             Loops::ASSERT_MSG_DEBUG(it != indexToMiplevelMap.end(), "source not found");
 
             const uint32_t mipLevels = it->second;
@@ -533,8 +522,10 @@ namespace
             // creating a unique sampler for every gltf texture(sampler+image)
 
             const uint32_t imageIndex = it->first;
-            auto textureIndex = Loops::TextureManager::GetInstance()->CreateTexture(imageIndex, samplerIndex);
+            textureIndicies.push_back( Loops::TextureManager::GetInstance()->CreateTexture(imageIndex, samplerIndex));
         }
+
+        return textureIndicies;
     }
 
     void FillBufferData(const float** positionBuffer, const float** normalsBuffer, const float** texCoordsBuffer, const float** tangentsBuffer, size_t& vertexCount,
@@ -666,19 +657,29 @@ namespace
         arrayOffset += indexCount;
     }
 
-    std::vector<Loops::Material> LoadMaterials(const tinygltf::Model& gltfModel, Loops::MaterialManager* pMaterialManager)
+    std::vector<uint32_t> LoadMaterials(const tinygltf::Model& gltfModel,
+        Loops::MaterialManager* pMaterialManager,
+        const std::vector<uint32_t>& textureIndicies)
     {
-        auto CreatePBRMaterial = [](const tinygltf::Material& mat, float alphaCuttoff, Loops::PbrMaterial* pbr)
+        auto GetLocalIndex = [&textureIndicies](int gltfIndex) -> uint32_t
+            {
+                uint32_t localIndex = 0;
+                if (gltfIndex != -1)
+                    localIndex = textureIndicies.at(gltfIndex);
+                return localIndex;
+            };
+
+        auto CreatePBRMaterial = [&textureIndicies, &GetLocalIndex](const tinygltf::Material& mat, float alphaCuttoff, Loops::PbrMaterial* pbr)
             {
                 pbr->m_alphaCutoff = alphaCuttoff;
                 if (mat.values.find("baseColorTexture") != mat.values.end())
                 {
-                    pbr->m_baseColorTextureIndex = mat.values.at("baseColorTexture").TextureIndex();
+                    pbr->m_baseColorTextureIndex = GetLocalIndex(mat.values.at("baseColorTexture").TextureIndex());
                     pbr->m_baseTextureCoordinateSet = mat.values.at("baseColorTexture").TextureTexCoord();
                 }
                 if (mat.values.find("metallicRoughnessTexture") != mat.values.end())
                 {
-                    pbr->m_metallicRoughnessTextureIndex = mat.values.at("metallicRoughnessTexture").TextureIndex();
+                    pbr->m_metallicRoughnessTextureIndex = GetLocalIndex(mat.values.at("metallicRoughnessTexture").TextureIndex());
                     pbr->m_texCoordSets.m_metallicRoughnessCoords = mat.values.at("metallicRoughnessTexture").TextureTexCoord();
                 }
                 if (mat.values.find("roughnessFactor") != mat.values.end())
@@ -695,17 +696,17 @@ namespace
                 }
                 if (mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
                 {
-                    pbr->m_normalTextureIndex = mat.additionalValues.at("normalTexture").TextureIndex();
+                    pbr->m_normalTextureIndex = GetLocalIndex(mat.additionalValues.at("normalTexture").TextureIndex());
                     pbr->m_texCoordSets.m_normalCoords = mat.additionalValues.at("normalTexture").TextureTexCoord();
                 }
                 if (mat.additionalValues.find("emissiveTexture") != mat.additionalValues.end())
                 {
-                    pbr->m_emissiveTextureIndex = mat.additionalValues.at("emissiveTexture").TextureIndex();
+                    pbr->m_emissiveTextureIndex = GetLocalIndex(mat.additionalValues.at("emissiveTexture").TextureIndex());
                     pbr->m_texCoordSets.m_emissiveCoords = mat.additionalValues.at("emissiveTexture").TextureTexCoord();
                 }
                 if (mat.additionalValues.find("occlusionTexture") != mat.additionalValues.end())
                 {
-                    pbr->m_occlusionTextureIndex = mat.additionalValues.at("occlusionTexture").TextureIndex();
+                    pbr->m_occlusionTextureIndex = GetLocalIndex(mat.additionalValues.at("occlusionTexture").TextureIndex());
                     pbr->m_texCoordSets.m_occlusionCoords = mat.additionalValues.at("occlusionTexture").TextureTexCoord();
                 }
                 if (mat.additionalValues.find("emissiveFactor") != mat.additionalValues.end())
@@ -720,13 +721,14 @@ namespace
                     if (ext->second.Has("specularGlossinessTexture"))
                     {
                         auto& index = ext->second.Get("specularGlossinessTexture").Get("index");
-                        pbr->m_extension.m_specularGlossinessTextureIndex = index.Get<int>();
+                        pbr->m_extension.m_specularGlossinessTextureIndex = GetLocalIndex(index.Get<int>());
                         auto& texCoordSet = ext->second.Get("specularGlossinessTexture").Get("texCoord");
                         pbr->m_texCoordSets.m_specularGlossinessCoords = texCoordSet.Get<int>();
                         pbr->m_pbrWorkflows = Loops::PbrMaterial::PbrWorkflows::SPECULAR_GLOSSINESS;
                     }
                     if (ext->second.Has("diffuseTexture"))
                     {
+                        Loops::ASSERT_MSG_DEBUG(0, "Not handled");
                         auto& index = ext->second.Get("diffuseTexture").Get("index");
                         pbr->m_extension.m_diffuseTextureIndex = index.Get<int>();
                     }
@@ -761,67 +763,194 @@ namespace
                 }
             };
 
-        std::vector<Loops::Material> materialList;
+        auto PrintMaterialType = [](const tinygltf::Material& mat)
+            {
+                bool isPbr = false;
+                bool isDoubleSided = false;
+                bool isUnlit = false;
+                bool isTranslucent = false;
+                bool isAlphaBlend = false;
+                bool isAlphaMask = false;
+
+                if (mat.pbrMetallicRoughness.baseColorFactor.size() > 0 ||
+                    mat.pbrMetallicRoughness.baseColorTexture.index >= 0)
+                    isPbr = true;
+
+                if (!mat.extensions.empty())
+                {
+                    for (const auto& ext : mat.extensions)
+                    {
+                        if (ext.first == "KHR_materials_unlit")
+                        {
+                            isUnlit = true;
+                        }
+
+                        if (ext.first == "KHR_materials_transmission")
+                        {
+                            isTranslucent = true;
+                        }
+                    }
+                }
+
+                if (mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
+                {
+                    tinygltf::Parameter param = mat.additionalValues.at("alphaMode");
+                    if (param.string_value == "BLEND")
+                        isAlphaBlend = true;
+                    if (param.string_value == "MASK")
+                        isAlphaMask = true;
+                }
+
+                if (mat.doubleSided)
+                    isDoubleSided = true;
+
+                std::string result{ mat.name };
+                if (isPbr)
+                    result += " : pbr|";
+                if (isDoubleSided)
+                    result += " DoubleSided|";
+                if (isUnlit)
+                    result += " isUnlit|";
+                if (isTranslucent)
+                    result += " isTranslucent|";
+                if (isAlphaBlend)
+                    result += " isAlphaBlend|";
+                if (isAlphaMask)
+                    result += " isAlphaMask|";
+
+                PLOGD << result;
+            };
+
+        auto GetEffectType = [](const tinygltf::Material& mat) -> Loops::EFFECT_TYPE
+            {
+                Loops::EFFECT_TYPE effectType{ Loops::EFFECT_TYPE::OPAQUE_EFT };
+                bool isTranslucent = false;
+                bool isAlphaBlend = false;
+                bool isAlphaMask = false;
+
+                if (mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
+                {
+                    tinygltf::Parameter param = mat.additionalValues.at("alphaMode");
+                    if (param.string_value == "BLEND")
+                        isAlphaBlend = true;
+                    else if (param.string_value == "MASK")
+                        isAlphaMask = true;
+                }
+
+                if (!mat.extensions.empty())
+                {
+                    for (const auto& ext : mat.extensions)
+                    {
+                        if (ext.first == "KHR_materials_transmission")
+                        {
+                            isTranslucent = true;
+                        }
+                    }
+                }
+
+                if (isTranslucent)
+                    effectType = Loops::EFFECT_TYPE::TRANSLUCENT_EFT;
+                if (isAlphaBlend)
+                    effectType = Loops::EFFECT_TYPE::TRANSPARENT_EFT;
+                if (isAlphaMask)
+                    effectType = Loops::EFFECT_TYPE::APLHA_MASK_EFT;
+
+                return effectType;
+            };
+
+        auto GetTechniqueType = [](const tinygltf::Material& mat)->Loops::TECHNIQUE_TYPE
+            {
+                Loops::TECHNIQUE_TYPE techType{ Loops::TECHNIQUE_TYPE::PBR };
+                bool isPbr = false;
+                bool isDoubleSided = false;
+
+                if (mat.pbrMetallicRoughness.baseColorFactor.size() > 0 ||
+                    mat.pbrMetallicRoughness.baseColorTexture.index >= 0)
+                    isPbr = true;
+
+                if (mat.doubleSided)
+                    isDoubleSided = true;
+
+                if (isPbr && !isDoubleSided)
+                    techType = Loops::TECHNIQUE_TYPE::PBR;
+                else if (isPbr && isDoubleSided)
+                    techType = Loops::TECHNIQUE_TYPE::PBR_DOUBLE_SIDED;
+
+                return techType;
+            };
+
+        std::vector<uint32_t> materialIndexList;
         for (const tinygltf::Material& mat : gltfModel.materials)
         {
-            Loops::EFFECT_TYPE effectType{ Loops::EFFECT_TYPE::OPAQUE_EFT };
-            Loops::TECHNIQUE_TYPE techniqueType{ Loops::TECHNIQUE_TYPE::PBR };
-            float alphaCutoffValue = 1.0f;
-
             Loops::Material material{};
+            material.m_materialName = mat.name;
             Loops::MaterialData* matData = nullptr;
 
-            if (mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
-            {
-                tinygltf::Parameter param = mat.additionalValues.at("alphaMode");
-                if (param.string_value == "BLEND")
-                    effectType = Loops::EFFECT_TYPE::TRANSPARENT_EFT;
-                if (param.string_value == "MASK")
-                {
-                    alphaCutoffValue = 0.5f;
-                    effectType = Loops::EFFECT_TYPE::APLHA_MASK_EFT;
-                }
-            }
-            if (mat.extensions.find("KHR_materials_unlit") != mat.extensions.end())
-            {
-                PLOGD << "Unlit material";
-                Loops::ASSERT_MSG(0, "Unlit not handled");
-            }
-            else
-            {
-                bool isMetallicRoughness = mat.pbrMetallicRoughness.baseColorFactor.size() > 0 ||
-                    mat.pbrMetallicRoughness.baseColorTexture.index >= 0 ||
-                    mat.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0;
+            PrintMaterialType(mat);
+            Loops::EFFECT_TYPE effectType{ GetEffectType(mat)};
+            Loops::TECHNIQUE_TYPE techniqueType{ GetTechniqueType(mat)};
 
-                bool isSpecularGlossiness = false;
-                auto extIt = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
-                if (extIt != mat.extensions.end())
-                    isSpecularGlossiness = true;
+            //float alphaCutoffValue = 1.0f;
+            //if (mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
+            //{
+            //    tinygltf::Parameter param = mat.additionalValues.at("alphaMode");
+            //    if (param.string_value == "BLEND")
+            //        effectType = Loops::EFFECT_TYPE::TRANSPARENT_EFT;
+            //    if (param.string_value == "MASK")
+            //    {
+            //        alphaCutoffValue = 0.5f;
+            //        effectType = Loops::EFFECT_TYPE::APLHA_MASK_EFT;
+            //    }
+            //}
+            //if (mat.extensions.find("KHR_materials_unlit") != mat.extensions.end())
+            //{
+            //    PLOGD << "Unlit material";
+            //    Loops::ASSERT_MSG(0, "Unlit not handled");
+            //}
+            //else
+            //{
+            //    bool isMetallicRoughness = mat.pbrMetallicRoughness.baseColorFactor.size() > 0 ||
+            //        mat.pbrMetallicRoughness.baseColorTexture.index >= 0 ||
+            //        mat.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0;
 
-                bool isPBR = false;
-                if (isMetallicRoughness || isSpecularGlossiness)
-                    isPBR = true;
+            //    bool isSpecularGlossiness = false;
+            //    auto extIt = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
+            //    if (extIt != mat.extensions.end())
+            //        isSpecularGlossiness = true;
 
-                if (isPBR)
-                {
-                    techniqueType = Loops::TECHNIQUE_TYPE::PBR;
-                    matData = pMaterialManager->GetPbrMaterialRef();
-                    CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
-                }
-                else
-                    Loops::ASSERT_MSG_DEBUG(0, "Type not handled");
-            }
-            if (mat.doubleSided)
+            //    bool isPBR = false;
+            //    if (isMetallicRoughness || isSpecularGlossiness)
+            //        isPBR = true;
+
+            //    if (isPBR)
+            //    {
+            //        techniqueType = Loops::TECHNIQUE_TYPE::PBR;
+            //        matData = pMaterialManager->GetPbrMaterialRef();
+            //        CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
+            //    }
+            //    else
+            //        Loops::ASSERT_MSG_DEBUG(0, "Type not handled");
+            //}
+            //if (mat.doubleSided)
+            //{
+            //    //Loops::ASSERT_MSG_DEBUG(0, "Double sided not handled");
+            //}
+
+            if (techniqueType == Loops::TECHNIQUE_TYPE::PBR)
             {
-                Loops::ASSERT_MSG(0, "Double sided not handled");
+                float alphaCutoffValue = 1.0f;
+                matData = pMaterialManager->GetPbrMaterialRef();
+                CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
             }
+
+            Loops::ASSERT_MSG_DEBUG(matData != nullptr, "mat data not filled up");
+
             material.m_effect = effectType;
             material.m_techniqueType = techniqueType;
             material.m_materialData = matData;
-            materialList.push_back(material);
+            materialIndexList.push_back(pMaterialManager->AddMaterial(material));
         }
-
-        return materialList;
+        return materialIndexList;
     }
 
     //https://github.com/SaschaWillems/Vulkan/blob/master/examples/gltfscenerendering/gltfscenerendering.cpp
@@ -916,8 +1045,12 @@ namespace
         }
     }
 
-    void LoadNodeCached(const tinygltf::Node& inputNode, const tinygltf::Model& input, flecs::world& world, Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
-        const flecs::entity& parent, Loops::VertexBuffer& vertexBuffer, Loops::IndexBuffer& indexBuffer, float scaleFactor)
+    void LoadNodeCached(const tinygltf::Node& inputNode,
+        const tinygltf::Model& input, flecs::world& world,
+        Loops::SceneManager& sceneManager, Loops::BoundsManager& boundsManager,
+        const flecs::entity& parent, Loops::VertexBuffer& vertexBuffer,
+        Loops::IndexBuffer& indexBuffer, const std::vector<uint32_t>& materialIndexList,
+        float scaleFactor)
     {
         auto e = CreateEntity(inputNode, world, parent, scaleFactor);
 
@@ -926,7 +1059,9 @@ namespace
         {
             for (size_t i = 0; i < inputNode.children.size(); i++)
             {
-                LoadNodeCached(input.nodes[inputNode.children[i]], input, world, sceneManager, boundsManager, e, vertexBuffer, indexBuffer, scaleFactor);
+                LoadNodeCached(input.nodes[inputNode.children[i]],
+                    input, world, sceneManager, boundsManager,
+                    e, vertexBuffer, indexBuffer, materialIndexList, scaleFactor);
             }
         }
 
@@ -939,7 +1074,7 @@ namespace
             meshObj.m_indexBufferIndex = indexBuffer.m_index;
 
             const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
-            //uint32_t maxMeshViewsPerMesh = metadata.m_maxMeshViewsPerMesh;
+            // uint32_t maxMeshViewsPerMesh = metadata.m_maxMeshViewsPerMesh;
             // Iterate through all primitives of this node's mesh
             for (size_t i = 0; i < mesh.primitives.size(); i++)
             {
@@ -989,10 +1124,9 @@ namespace
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
-                //view.materialIndex = glTFPrimitive.material;
+                view.m_materialIndex = materialIndexList[glTFPrimitive.material];
 
                 {
-                    //const glm::mat4* globalMat = &e.get<Loops::Transform>().m_modelMatGlobal;
                     boundsManager.AddBound(min, max, view.m_viewIndex, e.id());
                 }
             }
@@ -1000,7 +1134,6 @@ namespace
         }
     }
 }
-
 
 flecs::entity Loops::LoadGltf(const std::string_view& assetPath,
     flecs::world& world, Loops::SceneManager& sceneManager,
@@ -1017,31 +1150,31 @@ flecs::entity Loops::LoadGltf(const std::string_view& assetPath,
     const std::string metadataFilePath = metadataFolderPath + "\\" + modelName + ".json";
 
     ModelMetadata metadata{};
-    bool metaDataExists = false;
-    if (std::filesystem::exists(metadataFilePath))
-    {
-        // Read metadata and send it LoadNodeCached
-        std::ifstream ifs(metadataFilePath);
-        assert(ifs.is_open());
+    //bool metaDataExists = false;
+    //if (std::filesystem::exists(metadataFilePath))
+    //{
+    //    // Read metadata and send it LoadNodeCached
+    //    std::ifstream ifs(metadataFilePath);
+    //    assert(ifs.is_open());
 
-        rapidjson::IStreamWrapper isw(ifs);
-        rapidjson::Document doc;
-        doc.ParseStream(isw);
+    //    rapidjson::IStreamWrapper isw(ifs);
+    //    rapidjson::Document doc;
+    //    doc.ParseStream(isw);
 
-        auto GetInt = [&doc](const std::string& name) -> uint32_t
-        {
-            assert(doc.HasMember(name.c_str()));
-            return doc[name.c_str()].GetInt();
-        };
+    //    auto GetInt = [&doc](const std::string& name) -> uint32_t
+    //    {
+    //        assert(doc.HasMember(name.c_str()));
+    //        return doc[name.c_str()].GetInt();
+    //    };
 
-        metadata.m_numEntities = GetInt("numEntities");
-        metadata.m_numVerticies = GetInt("numVerticies");
-        metadata.m_numIndicies = GetInt("numIndicies");
-        metadata.m_maxMeshViewsPerMesh = GetInt("maxMeshViewsPerMesh");
+    //    metadata.m_numEntities = GetInt("numEntities");
+    //    metadata.m_numVerticies = GetInt("numVerticies");
+    //    metadata.m_numIndicies = GetInt("numIndicies");
+    //    metadata.m_maxMeshViewsPerMesh = GetInt("maxMeshViewsPerMesh");
 
-        metaDataExists = true;
-    }
-    else
+    //    metaDataExists = true;
+    //}
+    //else
         metadata.m_numEntities = 1; // main scene parent
 
     //Extract filename without extension + _root
@@ -1065,62 +1198,104 @@ flecs::entity Loops::LoadGltf(const std::string_view& assetPath,
             if (extension == "KHR_texture_basisu")
             {
                 PLOGD << "Model uses KHR_texture_basisu, initializing basisu transcoder\n";
-                basist::basisu_transcoder_init();
+
+                // the below initialisation is happeing in textureManager while loading white ktx2
+                //basist::basisu_transcoder_init();
             }
         }
     }
-    //LoadSamplers(glTFInput);
-    //LoadTextures(glTFInput);
-    //LoadMaterials(glTFInput);
 
     auto samplerInfos = LoadSamplersCreateInfos(glTFInput);
     auto textureIndexMap = LoadTextureTypeIndexMap(glTFInput);
-    LoadTextures(textureIndexMap, samplerInfos, glTFInput, filePath.parent_path().string());
-    auto materialList = LoadMaterials(glTFInput, pMaterialManager);
+    auto textureIndicies = LoadTextures(textureIndexMap, samplerInfos, glTFInput, filePath.parent_path().string());
+    auto materialIndexList = LoadMaterials(glTFInput, pMaterialManager, textureIndicies);
 
     flecs::entity modelParent = world.entity(parentName.c_str());
     Loops::Transform t{};
     modelParent.emplace<Loops::Transform>(t);
 
     const tinygltf::Scene& scene = glTFInput.scenes[0];
+
+    // pre process to get scene metadata
+    size_t vertexCount = 0;
+    size_t indexCount = 0;
+    std::function<void(const tinygltf::Node& node,
+        const tinygltf::Model& model,
+        //size_t& vertexCount, size_t& indexCount,
+        Loops::ModelMetadata& metadata)> GetMetaData = [&GetMetaData](const tinygltf::Node& node, const tinygltf::Model& model,
+        Loops::ModelMetadata& metadata)
+        {
+            metadata.m_numEntities++;
+            if (node.children.size() > 0)
+            {
+                for (size_t i = 0; i < node.children.size(); i++)
+                {
+                    GetMetaData(model.nodes[node.children[i]], model, metadata);
+                }
+            }
+            if (node.mesh > -1)
+            {
+                const tinygltf::Mesh& mesh = model.meshes[node.mesh];
+                for (size_t i = 0; i < mesh.primitives.size(); i++)
+                {
+                    metadata.m_maxMeshViewsPerMesh = std::max(metadata.m_maxMeshViewsPerMesh, (uint32_t)mesh.primitives.size());
+                    auto& primitive = mesh.primitives[i];
+                    //vertexCount += model.accessors[primitive.attributes.find("POSITION")->second].count;
+                    metadata.m_numVerticies += model.accessors[primitive.attributes.find("POSITION")->second].count;
+                    if (primitive.indices > -1)
+                    {
+                        //indexCount += model.accessors[primitive.indices].count;
+                        metadata.m_numIndicies += model.accessors[primitive.indices].count;
+
+                    }
+                }
+            }
+        };
+    for (size_t i = 0; i < scene.nodes.size(); i++)
+    {
+        GetMetaData(glTFInput.nodes[scene.nodes[i]], glTFInput, metadata);
+    }
+
     for (size_t i = 0; i < scene.nodes.size(); i++) 
     {
         const tinygltf::Node node = glTFInput.nodes[scene.nodes[i]];
-        if (metaDataExists)
+        //if (metaDataExists)
         {
             vertexBuffer.m_vertexList.resize(metadata.m_numVerticies);
             indexBuffer.m_indexList.resize(metadata.m_numIndicies);
-            LoadNodeCached(node, glTFInput, world, sceneManager, boundsManager, modelParent, vertexBuffer, indexBuffer, scaleFactor);
+            LoadNodeCached(node, glTFInput, world, sceneManager,
+                boundsManager, modelParent, vertexBuffer,
+                indexBuffer, materialIndexList, scaleFactor);
         }
-        else
+        /*else
         {
             LoadNode(node, glTFInput, world, sceneManager, boundsManager, modelParent, vertexBuffer, indexBuffer, metadata, scaleFactor);
-        }
+        }*/
     }
 
     // Write gltf cache json file
-    if(!metaDataExists)
-    {
-        //assert(metadata.has_value());
-        rapidjson::Document d;
-        d.SetObject();
-        d.AddMember("numEntities", metadata.m_numEntities, d.GetAllocator());
-        d.AddMember("numVerticies", metadata.m_numVerticies, d.GetAllocator());
-        d.AddMember("numIndicies", metadata.m_numIndicies, d.GetAllocator());
-        d.AddMember("maxMeshViewsPerMesh", metadata.m_maxMeshViewsPerMesh, d.GetAllocator());
+    //if(!metaDataExists)
+    //{
+    //    //assert(metadata.has_value());
+    //    rapidjson::Document d;
+    //    d.SetObject();
+    //    d.AddMember("numEntities", metadata.m_numEntities, d.GetAllocator());
+    //    d.AddMember("numVerticies", metadata.m_numVerticies, d.GetAllocator());
+    //    d.AddMember("numIndicies", metadata.m_numIndicies, d.GetAllocator());
+    //    d.AddMember("maxMeshViewsPerMesh", metadata.m_maxMeshViewsPerMesh, d.GetAllocator());
 
-        // Open file for writing
-        FILE* fp = fopen(metadataFilePath.c_str(), "wb"); // for non windows use "w"
-        char* writeBuffer = new char[65536];
-        rapidjson::FileWriteStream os(fp, writeBuffer, sizeof(char) * 65536);
+    //    // Open file for writing
+    //    FILE* fp = fopen(metadataFilePath.c_str(), "wb"); // for non windows use "w"
+    //    char* writeBuffer = new char[65536];
+    //    rapidjson::FileWriteStream os(fp, writeBuffer, sizeof(char) * 65536);
 
-        // Write the JSON data
-        rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
-        d.Accept(writer);
-        fclose(fp);
+    //    // Write the JSON data
+    //    rapidjson::PrettyWriter<rapidjson::FileWriteStream> writer(os);
+    //    d.Accept(writer);
+    //    fclose(fp);
 
-        delete writeBuffer;
-    }
+    //    delete writeBuffer;
+    //}
 
     return modelParent;
 }

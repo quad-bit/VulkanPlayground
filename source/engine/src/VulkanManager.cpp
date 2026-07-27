@@ -113,10 +113,10 @@ void Loops::VulkanManager::CreateInstance()
     VkApplicationInfo appInfo{};
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pApplicationName = "VulkanCompute";
+    appInfo.pApplicationName = "VulkanPlayground";
     appInfo.pEngineName = "None";
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.apiVersion = VK_API_VERSION_1_3;
+    appInfo.apiVersion = VK_API_VERSION_1_4;
 
     VkInstanceCreateInfo createInfoObj{};
     createInfoObj.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

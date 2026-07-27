@@ -25,7 +25,7 @@ namespace Loops
     // one or more per object with a mesh (more in case of submesh)
     struct alignas(4) MeshView
     {
-        uint32_t m_firstIndex, m_indexCount;
+        uint32_t m_firstIndex, m_indexCount, m_materialIndex;
         uint32_t m_viewIndex;
     };
 
@@ -40,19 +40,25 @@ namespace Loops
     // ============= MESH ===============
 
     // ============= MATERIAL ===============
-    enum class EFFECT_TYPE // passes containing tasks
+    // effect can containing tasks or techniques or a mix of both
+    enum class EFFECT_TYPE
     {
         OPAQUE_EFT,
-        APLHA_MASK_EFT,
-        TRANSPARENT_EFT
+        APLHA_MASK_EFT, // mask cutoff
+        TRANSPARENT_EFT, // BLEND
+        TRANSLUCENT_EFT // Light transmission with blend
     };
 
-    enum class TECHNIQUE_TYPE // individual tasks
+    // can contain multiple individual tasks
+    enum class TECHNIQUE_TYPE
     {
-        PBR,
-        PBR_DOUBLE_SIDED,
-        UNLIT,
-        UNLIT_DOUBLE_SIDED,
+        PBR, // LIT
+        PBR_DOUBLE_SIDED, // LIT
+        // Colored unlit can be achieved by using (white texture + color) in texturedUnlit
+        //COLORED_UNLIT,
+        //COLORED_UNLIT_DOUBLE_SIDED,
+        TEXTURED_UNLIT,
+        TEXTURED_UNLIT_DOUBLE_SIDED,
         LAMBERTIAN,
         LAMBERTIAN_DOUBLE_SIDED,
     };
@@ -64,6 +70,7 @@ namespace Loops
         EFFECT_TYPE m_effect;
         TECHNIQUE_TYPE m_techniqueType;
         MaterialData* m_materialData;
+        std::string m_materialName;
     };
 
     class MaterialData

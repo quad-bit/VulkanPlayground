@@ -29,12 +29,14 @@ set(CORE_FILES
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
+    inc/tasks/TextureUnlitTask.h
     inc/tasks/BoundsRenderTask.h
     inc/tasks/FrustumRenderTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
     inc/pipelines/BvhRenderPipeline.h
+    inc/pipelines/TexturingPipeline.h
 
     inc/input/InputManager.h
     inc/input/MouseInputManager.h
@@ -77,12 +79,14 @@ set(CORE_FILES
 
     src/tasks/WireFrameTask.cpp
     src/tasks/ColorUnlitTask.cpp
+    src/tasks/TextureUnlitTask.cpp
     src/tasks/BoundsRenderTask.cpp
     src/tasks/FrustumRenderTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
     src/pipelines/BvhRenderPipeline.cpp
+    src/pipelines/TexturingPipeline.cpp
 
     src/memory/MemoryManager.cpp
     src/memory/LinearPoolAllocator.cpp

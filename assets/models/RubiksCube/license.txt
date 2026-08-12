@@ -1,0 +1,11 @@
+Model Information:
+* title:	Rubik's Cube
+* source:	https://sketchfab.com/3d-models/rubiks-cube-46fd5e2ab76347bbb5ddf9df359233fc
+* author:	Connor Wassall (https://sketchfab.com/connorwassall)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Rubik's Cube" (https://sketchfab.com/3d-models/rubiks-cube-46fd5e2ab76347bbb5ddf9df359233fc) by Connor Wassall (https://sketchfab.com/connorwassall) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

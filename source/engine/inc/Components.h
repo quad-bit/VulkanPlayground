@@ -122,6 +122,44 @@ namespace Loops
     };
     // ============= MATERIAL ===============
 
+
+    // ============= LIGHT ===============
+    enum LIGHT_TYPE
+    {
+        POINT,
+        DIRECTIONAL,
+        SPOT
+    };
+
+    struct LightData;
+    struct Light
+    {
+        LIGHT_TYPE m_type{ DIRECTIONAL };
+        LightData* m_data = nullptr;
+    };
+
+    struct LightData
+    {
+        glm::vec3 m_ambient;        // 12 bytes
+        uint32_t m_padding2;           // 4 bytes
+        glm::vec3 m_diffuse;        // 12 bytes
+        uint32_t m_padding3;           // 4 bytes
+        glm::vec3 m_specular;       // 12 bytes
+    };
+
+    struct DirectionalLight : public LightData
+    {
+        glm::vec3 m_direction;
+    };
+
+    struct PointLight : public LightData
+    {
+        glm::vec3 m_position;
+        float m_constant;
+        float m_linear;
+        float m_quadratic;
+    };
+    // ============= LIGHT ===============
 }
 
 #endif

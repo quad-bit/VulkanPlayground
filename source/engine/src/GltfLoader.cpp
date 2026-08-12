@@ -13,6 +13,7 @@
 #include "Timer.h"
 #include "Assertion.h"
 #include "TextureManager.h"
+#include "math/TangentCalculator.h"
 
 #include "MaterialManager.h"
 #include <basisu/transcoder/basisu_transcoder.h>
@@ -936,7 +937,7 @@ namespace
             //    //Loops::ASSERT_MSG_DEBUG(0, "Double sided not handled");
             //}
 
-            if (techniqueType == Loops::TECHNIQUE_TYPE::PBR)
+            if (techniqueType == Loops::TECHNIQUE_TYPE::PBR || techniqueType == Loops::TECHNIQUE_TYPE::PBR_DOUBLE_SIDED)
             {
                 float alphaCutoffValue = 1.0f;
                 matData = pMaterialManager->GetPbrMaterialRef();
@@ -1074,6 +1075,7 @@ namespace
             meshObj.m_indexBufferIndex = indexBuffer.m_index;
 
             const tinygltf::Mesh mesh = input.meshes[inputNode.mesh];
+            bool generateTangents = false;
             // uint32_t maxMeshViewsPerMesh = metadata.m_maxMeshViewsPerMesh;
             // Iterate through all primitives of this node's mesh
             for (size_t i = 0; i < mesh.primitives.size(); i++)
@@ -1083,13 +1085,18 @@ namespace
                 const tinygltf::Primitive& glTFPrimitive = mesh.primitives[i];
 
                 uint32_t vertexStart = static_cast<uint32_t>(vertexBuffer.m_currentSize);
+                size_t vertexCount = 0;
+                Loops::Vertex* pVertexStart = &vertexBuffer.m_vertexList[vertexStart];
+                uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.m_currentSize);
+                uint32_t indexCount = 0;
+                unsigned int* pIndexStart = &indexBuffer.m_indexList[firstIndex];
+
                 // Vertices
                 {
                     const float* positionBuffer = nullptr;
                     const float* normalsBuffer = nullptr;
                     const float* texCoordsBuffer = nullptr;
                     const float* tangentsBuffer = nullptr;
-                    size_t vertexCount = 0;
 
                     // Get buffer data for vertex normals
                     FillBufferData(&positionBuffer, &normalsBuffer, &texCoordsBuffer, &tangentsBuffer, vertexCount, glTFPrimitive, input);
@@ -1102,19 +1109,22 @@ namespace
                         vert.m_normal = glm::normalize(glm::vec3(normalsBuffer ? glm::make_vec3(&normalsBuffer[v * 3]) : glm::vec3(0.0f)));
                         vert.m_uv = texCoordsBuffer ? glm::make_vec2(&texCoordsBuffer[v * 2]) : glm::vec3(0.0f);
                         ////vert.color = glm::vec3(1.0f);
-                        vert.m_tangent = tangentsBuffer ? glm::make_vec4(&tangentsBuffer[v * 4]) : glm::vec4(0.0f);
-                        //vertexBuffer.m_vertexList.push_back(vert);
+                        // if normals are present and tangents are missing 
+                        if (normalsBuffer && !tangentsBuffer)
+                            generateTangents = true;
+                        else
+                            vert.m_tangent = glm::make_vec4(&tangentsBuffer[v * 4]);
+
                         vertexBuffer.m_vertexList[vertexStart + v] = vert;
 
                         min = glm::vec3(std::min(min.x, vert.m_position.x), std::min(min.y, vert.m_position.y), std::min(min.z, vert.m_position.z));
                         max = glm::vec3(std::max(max.x, vert.m_position.x), std::max(max.y, vert.m_position.y), std::max(max.z, vert.m_position.z));
                     }
+
                     vertexBuffer.m_currentSize += vertexCount;
                 }
 
                 // Indices
-                uint32_t firstIndex = static_cast<uint32_t>(indexBuffer.m_currentSize);
-                uint32_t indexCount = 0;
                 {
                     FillIndicies(indexBuffer.m_indexList, indexCount, vertexStart, glTFPrimitive, input, indexBuffer.m_currentSize);
                 }
@@ -1128,6 +1138,11 @@ namespace
 
                 {
                     boundsManager.AddBound(min, max, view.m_viewIndex, e.id());
+                }
+
+                {
+                    Loops::Math::CalculateTangentArray((long)vertexCount, pVertexStart,
+                        pIndexStart, indexCount, vertexStart);
                 }
             }
             e.emplace<Loops::Mesh>(meshObj);

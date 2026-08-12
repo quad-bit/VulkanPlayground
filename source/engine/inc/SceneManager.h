@@ -68,6 +68,9 @@ namespace Loops
         Loops::BoundsManager& m_boundManager;
         flecs::entity m_cameraEntity, m_sceneViewCamera;
         FrustumCuller m_frustumCuller;
+
+        MaterialManager* mp_materialManager;
+
     public:
 
         flecs::world m_world;

@@ -147,6 +147,88 @@ namespace Loops
 
             delete[] tan1;
         }
+
+        void CalculateTangentArray(long vertexCount,
+            Loops::Vertex* vertex, const unsigned int* indicies,
+            uint32_t indexCount, long numVerticesInBuffer)
+        {
+            glm::vec3* tan1 = new glm::vec3[vertexCount * 2];
+            glm::vec3* tan2 = tan1 + vertexCount;
+
+            auto triangleCount = indexCount / 3;
+            for (long a = 0; a < triangleCount; a++)
+            {
+                long i1 = *(indicies + (a * 3));
+                long i2 = *(indicies + (a * 3) + 1);
+                long i3 = *(indicies + (a * 3) + 2);
+
+                i1 = i1 >= numVerticesInBuffer ? i1 - numVerticesInBuffer : i1;
+                i2 = i2 >= numVerticesInBuffer ? i2 - numVerticesInBuffer : i2;
+                i3 = i3 >= numVerticesInBuffer ? i3 - numVerticesInBuffer : i3;
+
+                const glm::vec3 v1{(vertex + i1)->m_position.x, (vertex + i1)->m_position.y, (vertex + i1)->m_position.z};
+                const glm::vec3 v2{(vertex + i2)->m_position.x, (vertex + i2)->m_position.y, (vertex + i2)->m_position.z};
+                const glm::vec3 v3{(vertex + i3)->m_position.x, (vertex + i3)->m_position.y, (vertex + i3)->m_position.z};
+
+                const glm::vec2& w1 = (vertex + i1)->m_uv;
+                const glm::vec2& w2 = (vertex + i2)->m_uv;
+                const glm::vec2& w3 = (vertex + i3)->m_uv;
+
+                const glm::vec3 deltaPos1 = v2 - v1;
+                const glm::vec3 deltaPos2 = v3 - v1;
+                const glm::vec2 deltaUV1 = w2 - w1;
+                const glm::vec2 deltaUV2 = w3 - w1;
+
+                const float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
+                glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y) * r;
+                glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x) * r;
+
+                tan1[i1] += tangent; tan1[i2] += tangent; tan1[i3] += tangent;
+                tan2[i1] += bitangent; tan2[i2] += bitangent; tan2[i3] += bitangent;
+
+                //float x1 = v2.x - v1.x;
+                //float x2 = v3.x - v1.x;
+                //float y1 = v2.y - v1.y;
+                //float y2 = v3.y - v1.y;
+                //float z1 = v2.z - v1.z;
+                //float z2 = v3.z - v1.z;
+
+                //float s1 = w2.x - w1.x;
+                //float s2 = w3.x - w1.x;
+                //float t1 = w2.y - w1.y;
+                //float t2 = w3.y - w1.y;
+
+                //
+                //float r = 1.0F / (s1 * t2 - s2 * t1);
+                //glm::vec3 sdir((t2 * x1 - t1 * x2) * r, (t2 * y1 - t1 * y2) * r,
+                //    (t2 * z1 - t1 * z2) * r);
+                //glm::vec3 tdir((s1 * x2 - s2 * x1) * r, (s1 * y2 - s2 * y1) * r,
+                //    (s1 * z2 - s2 * z1) * r);
+
+                //tan1[i1] += sdir;
+                //tan1[i2] += sdir;
+                //tan1[i3] += sdir;
+
+                //tan2[i1] += tdir;
+                //tan2[i2] += tdir;
+                //tan2[i3] += tdir;
+            }
+
+            for (long a = 0; a < vertexCount; a++)
+            {
+                const glm::vec3& n = (vertex + a)->m_normal;
+                const glm::vec3& t = tan1[a];
+
+                // Gram-Schmidt orthogonalize
+                auto temp = glm::normalize(t - n * glm::dot(n, t));
+                (vertex + a)->m_tangent = glm::vec4(temp, 0.0f);
+
+                // Calculate handedness
+                (vertex + a)->m_tangent.w = (glm::dot(glm::cross(n, t), tan2[a]) < 0.0F) ? -1.0F : 1.0F;
+            }
+
+            delete[] tan1;
+        }
     }
 }
 

@@ -26,12 +26,14 @@ set(CORE_FILES
     inc/FrustumCuller.h
     inc/TextureManager.h
     inc/MaterialManager.h
+    inc/LightManager.h
 
     inc/tasks/WireFrameTask.h
     inc/tasks/ColorUnlitTask.h
     inc/tasks/TextureUnlitTask.h
     inc/tasks/BoundsRenderTask.h
     inc/tasks/FrustumRenderTask.h
+    inc/tasks/PhongShadingTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
@@ -52,6 +54,7 @@ set(CORE_FILES
     inc/math/Cube.h
     inc/math/Quad.h
     inc/math/Sphere.h
+    inc/math/Colors.h
     inc/math/TangentCalculator.h
 
     inc/imgui/ImguiSystem.h
@@ -73,6 +76,7 @@ set(CORE_FILES
     src/FrustumCuller.cpp
     src/TextureManager.cpp
     src/MaterialManager.cpp
+    src/LightManager.cpp
 
     src/input/InputManager.cpp
     src/input/InputManagerGLFW.cpp
@@ -82,6 +86,7 @@ set(CORE_FILES
     src/tasks/TextureUnlitTask.cpp
     src/tasks/BoundsRenderTask.cpp
     src/tasks/FrustumRenderTask.cpp
+    src/tasks/PhongShadingTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
@@ -149,6 +154,8 @@ add_custom_command(
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/ClothSim.comp -o ${SPV_PATH}/ClothSim.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.vert -o ${SPV_PATH}/UnlitTexturedVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.frag -o ${SPV_PATH}/UnlitTexturedFrag.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/PhongShading.vert -o ${SPV_PATH}/PhongShadingVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/PhongShading.frag -o ${SPV_PATH}/PhongShadingFrag.spv
 )
 
 add_dependencies(${TARGET_NAME} generateShaderBinaries)

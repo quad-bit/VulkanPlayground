@@ -76,7 +76,7 @@ namespace Loops
     public:
         BoundsManager();
         ~BoundsManager();
-        void AddBound(const glm::vec3& min, const glm::vec3& max, uint32_t m_submeshId, uint32_t m_entityId);
+        void AddBound(const glm::vec3& min, const glm::vec3& max, uint32_t submeshId, uint32_t entityId);
         void Update(uint32_t currentFrameInFlight, const flecs::world& world);
 
         inline std::tuple< const Loops::Bounds*, uint32_t> GetPrimitiveBounds() const;

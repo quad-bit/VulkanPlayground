@@ -9,7 +9,8 @@
 #include "ImguiUtil.h"
 #include "imgui/ImguiSystem.h"
 #include "tasks/TextureUnlitTask.h"
-#include "tasks/BoundsRenderTask.h"
+//#include "tasks/BoundsRenderTask.h"
+#include "tasks/PhongShadingTask.h"
 #include <memory>
 
 namespace Loops::Tasking
@@ -26,7 +27,8 @@ namespace Loops::Tasking
             NUM_STAGES = 4
         };
 
-        std::unique_ptr<TextureUnlitTask> mp_textureUnlitTask;
+        //std::unique_ptr<TextureUnlitTask> mp_textureUnlitTask;
+        std::unique_ptr<PhongShadingTask> mp_phongShadingTask;
         const MaterialManager* m_materialManager = nullptr;
 
     protected:

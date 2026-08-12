@@ -3,6 +3,8 @@
 
 #include <flecs.h>
 #include "Components.h"
+#include "RenderData.h"
+#include <vector>
 
 namespace Loops
 {
@@ -18,6 +20,8 @@ namespace Loops
         uint32_t m_materialCount = 0;
 
     public:
+        static constexpr uint32_t MAX_MATERIALS = 20;
+
         MaterialManager(/*flecs::world& world*/);
         ~MaterialManager();
         PbrMaterial* GetPbrMaterialRef();

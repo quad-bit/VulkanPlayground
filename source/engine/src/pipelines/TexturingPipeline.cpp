@@ -23,19 +23,28 @@ Loops::Tasking::TexturingPipeline::TexturingPipeline(const PipelineInfo& info,
 
     VkFormat colorFormat{ TextureManager::GetInstance()->GetBestFormat(TEXTURE_TYPE::FBO, false)};
 
-    mp_textureUnlitTask = std::make_unique<TextureUnlitTask>(taskInfo,
+    /*mp_textureUnlitTask = std::make_unique<TextureUnlitTask>(taskInfo,
         pVulkanManager->GetDefaultColorImageView(),
         pVulkanManager->GetDefaultDepthImageView(),
         colorFormat, pVulkanManager->GetDepthFormat(),
         pVulkanManager->GetDefaultClearColor(),
-        pVulkanManager->GetDefaultDepthClearValue());
+        pVulkanManager->GetDefaultDepthClearValue());*/
+
+    mp_phongShadingTask = std::make_unique<PhongShadingTask>(taskInfo,
+        pVulkanManager->GetDefaultColorImageView(),
+        pVulkanManager->GetDefaultDepthImageView(),
+        colorFormat, pVulkanManager->GetDepthFormat(),
+        pVulkanManager->GetDefaultClearColor(),
+        pVulkanManager->GetDefaultDepthClearValue(),
+        m_materialManager);
 
     imguiUtil->CreateRenderingInfo();
 }
 
 Loops::Tasking::TexturingPipeline::~TexturingPipeline()
 {
-    mp_textureUnlitTask.reset();
+    //mp_textureUnlitTask.reset();
+    mp_phongShadingTask.reset();
 
     for (auto& sem : m_timelineSemaphores)
         sem.reset();
@@ -70,9 +79,15 @@ void Loops::Tasking::TexturingPipeline::Update(uint32_t currentFrameInFlight,
     // Trigger textured unlit opaque task
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
-        mp_textureUnlitTask->Update(currentFrameInFlight,
+        /*mp_textureUnlitTask->Update(currentFrameInFlight,
             m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, std::nullopt, 
+            sceneManager->GetRenderData(currentFrameInFlight),
+            *sceneManager, m_materialManager->GetSceneMaterials());*/
+
+        mp_phongShadingTask->Update(currentFrameInFlight,
+            m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
+            signalValue, std::nullopt,
             sceneManager->GetRenderData(currentFrameInFlight),
             *sceneManager, m_materialManager->GetSceneMaterials());
     }

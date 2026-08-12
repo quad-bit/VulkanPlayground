@@ -5,6 +5,7 @@
 #include "Event.h"
 #include "EventBus.h"
 #include "TextureManager.h"
+#include "LightManager.h"
 
 #include <plog/Initializers/RollingFileInitializer.h>
 #include <plog/Formatters/TxtFormatter.h>
@@ -46,6 +47,8 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     m_maxFramesInFlight = mp_VulkanManager->GetMaxFramesInFlight();
 
     // imgui
+    //VkFormat colorFormat{ TextureManager::GetInstance()->GetBestFormat(TEXTURE_TYPE::FBO, false) };
+
     mp_ImguiSystem = std::make_unique<Loops::ImguiSystem>(mp_WindowManagerObj->glfwWindow,
         mp_VulkanManager.get(), mp_VulkanManager->GetLogicalDevice(),
         mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetGraphicsQueue(),
@@ -62,6 +65,8 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
         mp_VulkanManager->GetQueueFamilyIndex(),
         mp_VulkanManager->GetMaxFramesInFlight(),
         info.m_screenSize, info.m_designSize);
+
+    LightManager::GetInstance()->Init(mp_SceneManager->m_world);
 
     ImguiEditor::GetInstance()->Init(mp_ImguiSystem.get(), mp_SceneManager.get(), &m_boundsManager);
 
@@ -191,6 +196,8 @@ void Loops::EngineManager::DeInit()
             mp_texturePipeline.reset();
             mp_texturePipeline = nullptr;
         }
+
+        LightManager::DeInit();
 
         mp_SceneManager->DeInitialise();
 

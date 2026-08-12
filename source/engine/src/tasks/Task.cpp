@@ -71,9 +71,11 @@ Loops::Tasking::GraphicsTask::~GraphicsTask()
     for (auto& layout : m_setLayouts)
         vkDestroyDescriptorSetLayout(m_info.m_device, layout, nullptr);
 
-    vkDestroyDescriptorPool(m_info.m_device, m_descriptorPool, nullptr);
+    if (m_descriptorPool != VK_NULL_HANDLE)
+        vkDestroyDescriptorPool(m_info.m_device, m_descriptorPool, nullptr);
 
-    vkDestroyCommandPool(m_info.m_device, m_commandPool, nullptr);
+    if(m_commandPool != VK_NULL_HANDLE)
+        vkDestroyCommandPool(m_info.m_device, m_commandPool, nullptr);
 }
 
 const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetColorAttachmentViews() const

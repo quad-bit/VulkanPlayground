@@ -754,6 +754,19 @@ const std::vector<VkDescriptorSet>& Loops::TextureManager::GetTextureSet() const
     return m_textureDescriptorSets;
 }
 
+std::pair<VkImage, VkImageView> Loops::TextureManager::GetImage(uint32_t index) const
+{
+    VkImage image = m_imageList.at(index).m_vkImage;
+    VkImageView imageView = m_imageList.at(index).m_vkImageView;
+    return { image, imageView };
+}
+
+VkSampler Loops::TextureManager::GetSampler(uint32_t index) const
+{
+    VkSampler sampler = m_samplerMap.at(index);
+    return sampler;
+}
+
 void Loops::TextureManager::DeInit()
 {
     s_instancePtr->DeInitPrivate();

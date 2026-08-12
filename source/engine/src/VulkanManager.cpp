@@ -598,9 +598,12 @@ void Loops::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
                 VK_FORMAT_B8G8R8A8_SRGB,
                 VK_FORMAT_R8G8B8A8_SRGB,
                 VK_FORMAT_A8B8G8R8_SRGB_PACK32,
+                VK_FORMAT_B8G8R8A8_UNORM
             };
-            for (auto& availableFormat : formats) {
-                if (std::find(preferredImageFormats.begin(), preferredImageFormats.end(), availableFormat.format) != preferredImageFormats.end()) {
+            for (auto& availableFormat : formats)
+            {
+                if (std::find(preferredImageFormats.begin(), preferredImageFormats.end(), availableFormat.format) != preferredImageFormats.end())
+                {
                     m_surfaceFormat = availableFormat;
                     break;
                 }

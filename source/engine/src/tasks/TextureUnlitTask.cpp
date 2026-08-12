@@ -398,6 +398,9 @@ void Loops::Tasking::TextureUnlitTask::Update(const uint32_t& frameInFlight,
                     //vkCmdBindDescriptorSets(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 2, set, 0, nullptr);
 
                     int boundVertexBuffer = -1, boundIndexBuffer = -1;
+
+#define ITERATE_DRAWABLE_ARRAY 0
+#if ITERATE_DRAWABLE_ARRAY
                     for (uint32_t i = 0; i < renderData.m_drawableCount; i++)
                     {
                         const Loops::Drawable& drawable = renderData.m_drawables[i];
@@ -416,7 +419,7 @@ void Loops::Tasking::TextureUnlitTask::Update(const uint32_t& frameInFlight,
                         }
 
                         // Push Constant 
-                        uint32_t matIndex = drawable.m_matIndex;
+                        uint32_t matIndex = drawable.m_matrixIndex;
                         VkPushConstantsInfo info{};
                         info.layout = m_pipelineLayout;
                         info.offset = 0;
@@ -449,6 +452,58 @@ void Loops::Tasking::TextureUnlitTask::Update(const uint32_t& frameInFlight,
                             vkCmdDrawIndexed(m_commandBuffers[frameInFlight], numIndicies, 1, firstIndex, 0, 0);
                         }
                     }
+#else
+                    const std::vector<uint32_t>& drawableIndicies = renderData.m_drawablesPerMaterial.at(Loops::EFFECT_TYPE::OPAQUE_EFT).at(Loops::TECHNIQUE_TYPE::PBR);
+                    for (const auto& drawableIndex : drawableIndicies)
+                    {
+                        const Loops::Drawable& drawable = renderData.m_drawables[drawableIndex];
+
+                        // Bind vertex and index buffer
+                        if (boundVertexBuffer != drawable.m_vertexBufferId || boundIndexBuffer != drawable.m_indexBufferId)
+                        {
+                            boundVertexBuffer = drawable.m_vertexBufferId;
+                            boundIndexBuffer = drawable.m_indexBufferId;
+                            auto& vertexBuffer = sceneManager.GetVertexBuffer(drawable.m_vertexBufferId);
+                            auto& indexBuffer = sceneManager.GetIndexBuffer(drawable.m_indexBufferId);
+
+                            VkDeviceSize offset{ 0 };
+                            vkCmdBindVertexBuffers(m_commandBuffers[frameInFlight], 0, 1, &vertexBuffer, &offset);
+                            vkCmdBindIndexBuffer(m_commandBuffers[frameInFlight], indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+                        }
+
+                        // Push Constant 
+                        uint32_t matIndex = drawable.m_matrixIndex;
+                        VkPushConstantsInfo info{};
+                        info.layout = m_pipelineLayout;
+                        info.offset = 0;
+                        info.pValues = &matIndex;
+                        info.size = sizeof(matIndex);
+                        info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+                        info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
+                        vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
+
+                        // Launch draw
+                        for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
+                        {
+                            const Loops::MeshView& meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
+                            auto materialIndex = meshView.m_materialIndex;
+                            auto& material = materials.at(materialIndex);
+                            uint32_t textureIndex = ((PbrMaterial*)material.m_materialData)->m_baseColorTextureIndex;
+                            VkPushConstantsInfo info{};
+                            info.layout = m_pipelineLayout;
+                            info.offset = sizeof(matIndex);
+                            info.pValues = &textureIndex;
+                            info.size = sizeof(textureIndex);
+                            info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+                            info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
+                            vkCmdPushConstants2(m_commandBuffers[frameInFlight], &info);
+
+                            uint32_t numIndicies = meshView.m_indexCount;
+                            uint32_t firstIndex = meshView.m_firstIndex;
+                            vkCmdDrawIndexed(m_commandBuffers[frameInFlight], numIndicies, 1, firstIndex, 0, 0);
+                        }
+                    }
+#endif
                 }
                 vkCmdEndRendering(m_commandBuffers[frameInFlight]);
             };

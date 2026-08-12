@@ -414,7 +414,7 @@ void Loops::Tasking::ColorUnlitTask::Update(VkCommandBuffer& commandBuffer, cons
                 }
 
                 // Push Constant 
-                uint32_t matIndex = drawable.m_matIndex;
+                uint32_t matIndex = drawable.m_matrixIndex;
                 VkPushConstantsInfo info{};
                 info.layout = m_pipelineLayout;
                 info.offset = 0;
@@ -507,7 +507,7 @@ void Loops::Tasking::ColorUnlitTask::Update(const uint32_t& frameInFlight, const
                         }
 
                         // Push Constant 
-                        uint32_t matIndex = drawable.m_matIndex;
+                        uint32_t matIndex = drawable.m_matrixIndex;
                         VkPushConstantsInfo info{};
                         info.layout = m_pipelineLayout;
                         info.offset = 0;

@@ -53,8 +53,6 @@ namespace Loops
 
         const std::unordered_map<TEXTURE_TYPE, std::vector<VkFormat>> m_preferredCompressedTextureFormatMapPC
         {
-            {FBO, {VK_FORMAT_R8G8B8A8_UNORM}},
-            {DEPTH_STENCIL, {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT}},
             {DIFFUSE, {VK_FORMAT_BC7_SRGB_BLOCK}},
             {NORMAL_MAPS, {VK_FORMAT_BC5_SNORM_BLOCK}},
             {AMBIENT_OCCLUSION_MAPS, {VK_FORMAT_BC4_UNORM_BLOCK}},
@@ -67,8 +65,8 @@ namespace Loops
         {
             {FBO, {VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM}},
             {DEPTH_STENCIL, {VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D32_SFLOAT}},
-            {DIFFUSE, {VK_FORMAT_R8G8B8A8_SRGB}},
-            {NORMAL_MAPS, {VK_FORMAT_R8G8_SNORM}},
+            {DIFFUSE, {VK_FORMAT_R8G8B8A8_UNORM}},//SRGB is making it a bit dark, figure this out
+            {NORMAL_MAPS, {VK_FORMAT_R8G8B8A8_UNORM}},
             {AMBIENT_OCCLUSION_MAPS, {VK_FORMAT_R16_UNORM}},
             {EMMISIVE_MAPS, {VK_FORMAT_R8G8B8A8_SRGB}},// 3 channel
             {SPECULAR_GLOSS_MAPS, {VK_FORMAT_R8G8B8A8_SRGB}},
@@ -149,6 +147,9 @@ namespace Loops
         void CreateTextureDescriptorSet();
         const VkDescriptorSetLayout& GetTextureSetLayout() const;
         const std::vector<VkDescriptorSet>& GetTextureSet() const;
+
+        std::pair<VkImage, VkImageView> GetImage(uint32_t index) const;
+        VkSampler GetSampler(uint32_t index) const;
     };
 }
 

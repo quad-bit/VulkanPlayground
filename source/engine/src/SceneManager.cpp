@@ -8,6 +8,7 @@
 #include <plog/Log.h>
 #include <glm/gtx/euler_angles.hpp>
 #include <stack>
+#include <unordered_map>
 
 uint32_t meshViewCount = 0;
 
@@ -47,6 +48,8 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
     {
         UpdateGlobalMatrix(UpdateGlobalMatrix, parent);
     }
+
+    m_world.progress();
 
     // camera
     {
@@ -89,40 +92,98 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
     RenderData& renderData = m_renderDataList[currentFrameInFlight];
     renderData.m_drawableCount = 0;
     renderData.m_viewCount = 0;
+    // get rid of clearing, get the total number of views per material
+    // and use fixed size vectors
+
+    const auto& materialList = mp_materialManager->GetSceneMaterials();
 
 #if 0
     auto AddWithoutCulling = [this, &renderData]() -> void
         {
-            auto AddAllEntities = [&renderData, this](auto self, const flecs::entity& e)-> void
+            std::unordered_map<uint32_t, uint32_t> entityIdToMatrixIndexMap;
+            uint32_t matrixCount = 0;
+            auto& boundInfoList = m_boundManager.GetPrimtiveBoundInfo();
+            Drawable* currentDrawable = nullptr; // &renderData.m_drawables[renderData.m_drawableCount];
+            auto AddAllEntities = [&renderData, &entityIdToMatrixIndexMap, &matrixCount,
+                &currentDrawable, this](auto self, const flecs::entity& e)-> void
                 {
                     if (e.has<Loops::Mesh>())
                     {
                         Mesh m = e.get<Loops::Mesh>();
                         if (m.m_meshViewCount > 0)
                         {
-                            auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
-                            auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
-                            drawable.m_matIndex = renderData.m_drawableCount++;
-                            assert(renderData.m_drawableCount < MAX_ENTITIES);
-
-                            // resetting
-                            drawable.m_numOfViews = 0;
-
-                            mat = e.get<Loops::Transform>().m_modelMatGlobal;
-                            drawable.m_viewStartIndex = renderData.m_viewCount;
-                            drawable.m_vertexBufferId = m.m_vertexBufferIndex;
-                            drawable.m_indexBufferId = m.m_indexBufferIndex;
-
+                            // get rid of iterating and finding
                             for (int i = 0; i < m.m_meshViewCount; i++)
                             {
                                 auto& view = m.m_meshViews[i];
-                                renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
-                                assert(drawable.m_numOfViews <= MAX_MESH_VIEWS_PER_MESH);
-                            }
-                            renderData.m_viewCount += drawable.m_numOfViews;
+                                const uint32_t entityId = e.id();
+                                auto it2 = entityIdToMatrixIndexMap.find(entityId);
 
-                            // REMOVE THIS ONLY FOR DEBUGGING
-                            drawable.m_name = e.name();
+                                // Matrix
+                                uint32_t matrixIndex;
+                                if (it2 == entityIdToMatrixIndexMap.end())
+                                {
+                                    matrixIndex = matrixCount++;
+                                    Loops::ASSERT_MSG_DEBUG(matrixCount <= MAX_ENTITIES, "Count exceeded");
+                                    renderData.m_modelMats[matrixIndex] = e.get<Loops::Transform>().m_modelMatGlobal;
+                                    entityIdToMatrixIndexMap.insert({ entityId, matrixIndex });
+                                }
+                                else
+                                    matrixIndex = it2->second;
+
+                                // View
+                                const uint32_t viewIndex = renderData.m_viewCount++;
+                                renderData.m_meshViews[viewIndex] = view;
+
+                                const uint32_t materialIndex = view.m_materialIndex;
+                                uint32_t drawableIndex = 0;
+
+                                // Drawable
+                                if (currentDrawable == nullptr)
+                                {
+                                    drawableIndex = renderData.m_drawableCount++;
+                                    currentDrawable = &renderData.m_drawables[drawableIndex];
+                                    currentDrawable->m_numOfViews = 1;
+                                    currentDrawable->m_matrixIndex = matrixIndex;
+                                    currentDrawable->m_viewStartIndex = viewIndex;
+                                    currentDrawable->m_materialIndex = materialIndex;
+                                    currentDrawable->m_vertexBufferId = m.m_vertexBufferIndex;
+                                    currentDrawable->m_indexBufferId = m.m_indexBufferIndex;
+                                }
+                                else
+                                {
+                                    if (currentDrawable->m_materialIndex == materialIndex &&
+                                        currentDrawable->m_matrixIndex == matrixIndex)
+                                    {
+                                        currentDrawable->m_numOfViews++;
+                                        // as the drawable count is pointing 1 ahead
+                                        drawableIndex = renderData.m_drawableCount - 1;
+                                    }
+                                    else
+                                    {
+                                        drawableIndex = renderData.m_drawableCount++;
+                                        currentDrawable = &renderData.m_drawables[drawableIndex];
+                                        currentDrawable->m_numOfViews = 1;
+                                        currentDrawable->m_matrixIndex = matrixIndex;
+                                        currentDrawable->m_viewStartIndex = viewIndex;
+                                        currentDrawable->m_materialIndex = materialIndex;
+                                        currentDrawable->m_vertexBufferId = m.m_vertexBufferIndex;
+                                        currentDrawable->m_indexBufferId = m.m_indexBufferIndex;
+                                    }
+                                }
+
+                                // Material map
+                                const auto& material = mp_materialManager->GetSceneMaterials().at(materialIndex);
+
+                                const Loops::EFFECT_TYPE& effectType = material.m_effect;
+                                const Loops::TECHNIQUE_TYPE& techniqueType = material.m_techniqueType;
+
+                                auto it3 = renderData.m_drawablesPerMaterial.find(effectType);
+                                if (it3 == renderData.m_drawablesPerMaterial.end())
+                                    renderData.m_drawablesPerMaterial.insert({ effectType, { {techniqueType, {drawableIndex } } } });
+                                else
+                                    it3->second[techniqueType].push_back(drawableIndex);
+                            }
                         }
                     }
 
@@ -141,11 +202,19 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
     AddWithoutCulling();
 
 #else
-    auto AddPostFrustumCulling = [this, &renderData]()
+    auto AddPostFrustumCulling = [this, &renderData, &materialList]()
         {
+            // index of the matrix in matrix array inn renderdata
+            std::unordered_map<uint32_t, uint32_t> entityIdToMatrixIndexMap;
+            uint32_t matrixCount = 0;
             auto& boundInfoList = m_boundManager.GetPrimtiveBoundInfo();
+            Drawable* currentDrawable = nullptr; // &renderData.m_drawables[renderData.m_drawableCount];
             auto [primitiveBoundList, numPrimitives] = m_boundManager.GetPrimitiveBounds();
-            auto AddLeafNodePrimitivesToRenderData = [&primitiveBoundList, &boundInfoList, this, &renderData](const BVHNode* node)
+            renderData.m_drawablesPerMaterial.clear();
+
+            auto AddLeafNodePrimitivesToRenderData = [&primitiveBoundList,
+                &boundInfoList, &entityIdToMatrixIndexMap, &matrixCount,
+                this, &renderData, &materialList, &currentDrawable](const BVHNode* node)
                 {
                     auto& leaf = std::get<BVHLeafNode>(node->m_node);
                     for (uint32_t i = 0; i < leaf.m_numBounds; i++)
@@ -155,39 +224,89 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
                         auto& boundInfo = (*it).second;
 
                         const flecs::entity& e = m_world.entity(boundInfo.m_entityId);
-                        auto submeshId = boundInfo.m_submeshId;
+                        const auto submeshId = boundInfo.m_submeshId;
 
                         if (e.has<Loops::Mesh>())
                         {
                             Mesh m = e.get<Loops::Mesh>();
                             if (m.m_meshViewCount > 0)
                             {
-                                auto& drawable = renderData.m_drawables[renderData.m_drawableCount];
-                                auto& mat = renderData.m_modelMats[renderData.m_drawableCount];
-                                drawable.m_matIndex = renderData.m_drawableCount++;
-                                assert(renderData.m_drawableCount <= MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH);
-
-                                // resetting
-                                drawable.m_numOfViews = 0;
-
-                                mat = e.get<Loops::Transform>().m_modelMatGlobal;
-                                drawable.m_viewStartIndex = renderData.m_viewCount;
-                                drawable.m_vertexBufferId = m.m_vertexBufferIndex;
-                                drawable.m_indexBufferId = m.m_indexBufferIndex;
+                                // get rid of iterating and finding
                                 for (int i = 0; i < m.m_meshViewCount; i++)
                                 {
                                     auto& view = m.m_meshViews[i];
                                     if (view.m_viewIndex == submeshId)
                                     {
-                                        renderData.m_meshViews[drawable.m_viewStartIndex + drawable.m_numOfViews++] = view;
-                                        assert(drawable.m_numOfViews <= MAX_MESH_VIEWS_PER_MESH);
+                                        const uint32_t entityId = e.id();
+                                        auto it2 = entityIdToMatrixIndexMap.find(entityId);
+
+                                        // Matrix
+                                        uint32_t matrixIndex;
+                                        if (it2 == entityIdToMatrixIndexMap.end())
+                                        {
+                                            matrixIndex = matrixCount++;
+                                            Loops::ASSERT_MSG_DEBUG(matrixCount <= MAX_ENTITIES, "Count exceeded");
+                                            renderData.m_modelMats[matrixIndex] = e.get<Loops::Transform>().m_modelMatGlobal;
+                                            entityIdToMatrixIndexMap.insert({ entityId, matrixIndex });
+                                        }
+                                        else
+                                            matrixIndex = it2->second;
+
+                                        // View
+                                        const uint32_t viewIndex = renderData.m_viewCount++;
+                                        renderData.m_meshViews[viewIndex] = view;
+
+                                        const uint32_t materialIndex = view.m_materialIndex;
+                                        uint32_t drawableIndex = 0;
+
+                                        // Drawable
+                                        if (currentDrawable == nullptr)
+                                        {
+                                            drawableIndex = renderData.m_drawableCount++;
+                                            currentDrawable = &renderData.m_drawables[drawableIndex];
+                                            currentDrawable->m_numOfViews = 1;
+                                            currentDrawable->m_matrixIndex = matrixIndex;
+                                            currentDrawable->m_viewStartIndex = viewIndex;
+                                            currentDrawable->m_materialIndex = materialIndex;
+                                            currentDrawable->m_vertexBufferId = m.m_vertexBufferIndex;
+                                            currentDrawable->m_indexBufferId = m.m_indexBufferIndex;
+                                        }
+                                        else
+                                        {
+                                            if (currentDrawable->m_materialIndex == materialIndex &&
+                                                currentDrawable->m_matrixIndex == matrixIndex)
+                                            {
+                                                currentDrawable->m_numOfViews++;
+                                                // as the drawable count is pointing 1 ahead
+                                                drawableIndex = renderData.m_drawableCount - 1;
+                                            }
+                                            else
+                                            {
+                                                drawableIndex = renderData.m_drawableCount++;
+                                                currentDrawable = &renderData.m_drawables[drawableIndex];
+                                                currentDrawable->m_numOfViews = 1;
+                                                currentDrawable->m_matrixIndex = matrixIndex;
+                                                currentDrawable->m_viewStartIndex = viewIndex;
+                                                currentDrawable->m_materialIndex = materialIndex;
+                                                currentDrawable->m_vertexBufferId = m.m_vertexBufferIndex;
+                                                currentDrawable->m_indexBufferId = m.m_indexBufferIndex;
+                                            }
+                                        }
+
+                                        // Material map
+                                        const auto& material = mp_materialManager->GetSceneMaterials().at(materialIndex);
+
+                                        const Loops::EFFECT_TYPE& effectType = material.m_effect;
+                                        const Loops::TECHNIQUE_TYPE& techniqueType = material.m_techniqueType;
+
+                                        auto it3 = renderData.m_drawablesPerMaterial.find(effectType);
+                                        if (it3 == renderData.m_drawablesPerMaterial.end())
+                                            renderData.m_drawablesPerMaterial.insert({ effectType, { {techniqueType, {drawableIndex } } } });
+                                        else
+                                            it3->second[techniqueType].push_back(drawableIndex);
                                         break;
                                     }
                                 }
-                                renderData.m_viewCount += drawable.m_numOfViews;
-
-                                // REMOVE THIS ONLY FOR DEBUGGING
-                                drawable.m_name = e.name();
                             }
                         }
                     }
@@ -230,9 +349,13 @@ Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos,
         m_world.component<Transform>();
         m_world.component<Mesh>();
         m_world.component<Camera>();
+        m_world.component<Material>();
+        m_world.component<Light>();
 
         m_parentEntities.reserve(cm_maxEntities);
     }
+
+    mp_materialManager = pMaterialManager;
 
     for (auto& info : infos)
     {
@@ -384,7 +507,8 @@ const VkBuffer& Loops::SceneManager::GetIndexBuffer(uint32_t id) const
 
 Loops::CameraData Loops::SceneManager::GetSceneViewCameraData() const
 {
-    glm::vec3 cameraPos{ m_sceneViewCamera.get<Loops::Transform>().m_position};
+    const auto& position = m_sceneViewCamera.get<Loops::Transform>().m_position;
+    glm::vec4 cameraPos{ position.x, position.y, position.z, 1.0f};
     const Loops::Camera& cam = m_sceneViewCamera.get<Loops::Camera>();
     CameraData data{ cam.GetViewMatrix(), cam.GetProjectionMat(), cameraPos};
     return data;

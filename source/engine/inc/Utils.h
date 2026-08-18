@@ -33,6 +33,17 @@ namespace Loops
 
     namespace VkUtils
     {
+        struct VulkanContext
+        {
+            VkDevice m_logicalDevice;
+            VkPhysicalDevice m_physicalDevice;
+            VkQueue m_graphicsQueue;
+            uint32_t m_graphicsQueueFamilyIndex;
+            uint32_t m_maxFrameInFlights;
+            uint32_t m_screenWidth, m_screenHeight;
+            uint32_t m_renderWidth, m_renderHeight;
+        };
+
         void ErrorCheck(VkResult result);
 
         size_t GetMemoryAlignedDataSizeForBuffer(const VkPhysicalDevice& device, const size_t& dataSize);

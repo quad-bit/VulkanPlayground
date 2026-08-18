@@ -253,7 +253,6 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
             nullptr, &m_doubleSidedPipeline));
     }
 
-
     if (!m_ownAttachments)
     {
         //Render pass
@@ -334,10 +333,9 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
                 VkDescriptorBufferInfo lightBufferInfo{ m_lightDataBuffer.m_vkBuffer, i * m_lightUniformDataSizePerFrame, sizeof(LightUniform) * LightManager::MAX_LIGHTS };
 
                 // Get the shadowMaps from LightManager
-                const uint32_t whiteTextureIndex = 0;
-                auto [image, imageView] = TextureManager::GetInstance()->GetImage(whiteTextureIndex);
-                auto sampler = TextureManager::GetInstance()->GetSampler(whiteTextureIndex);
-                VkDescriptorImageInfo directionalShadowMapInfo{sampler, imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                const auto& directionalShadowMap = LightManager::GetInstance()->GetDirectionalLightShadowMap(i);
+                const auto& sampler = LightManager::GetInstance()->GetShadowSampler();
+                const VkDescriptorImageInfo directionalShadowMapInfo{sampler, directionalShadowMap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
                 const VkWriteDescriptorSet writes[3]
                 {
@@ -376,7 +374,7 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
 
                 Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
 
-                VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                const VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
@@ -510,37 +508,11 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
                 {
                     vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
                     vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
-                    //vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-
-                    // Bind descriptor sets
-                    // Scene set 0
-                    // Transform set 1
-                    // Texture set 2
-                    // Materials set 3
-                    /*VkDescriptorSet set[4]{ m_sceneSet[frameInFlight],
-                        m_transformSets[frameInFlight],
-                        TextureManager::GetInstance()->GetTextureSet()[frameInFlight],
-                        m_materialSet[0]
-                    };
-
-                    VkBindDescriptorSetsInfo bindInfo = {};
-                    bindInfo.descriptorSetCount = 4;
-                    bindInfo.firstSet = 0;
-                    bindInfo.layout = m_pipelineLayout;
-                    bindInfo.pDescriptorSets = set;
-                    bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-                    bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
-                    bindInfo.dynamicOffsetCount = 0;
-                    bindInfo.pDynamicOffsets = nullptr;
-                    vkCmdBindDescriptorSets2(m_commandBuffers[frameInFlight], &bindInfo);*/
 
                     int boundVertexBuffer = -1, boundIndexBuffer = -1;
                     auto techIt = renderData.m_drawablesPerMaterial.find(Loops::EFFECT_TYPE::OPAQUE_EFT);
                     if (techIt != renderData.m_drawablesPerMaterial.end())
                     {
-                        //vkCmdSetViewport(m_commandBuffers[frameInFlight], 0, 1, &viewport);
-                        //vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
-
                         // Bind descriptor sets
                         // Scene set 0
                         // Transform set 1

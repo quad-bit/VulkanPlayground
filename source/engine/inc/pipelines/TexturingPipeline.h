@@ -21,10 +21,11 @@ namespace Loops::Tasking
         enum TimelineStages
         {
             UNINITIALIZED = 0,
-            OPAQUE_FINISHED = 1,
-            GUI_FINISHED = 2,
-            SAFE_TO_PRESENT = 3,
-            NUM_STAGES = 4
+            SHADOW_PASS_FINISHED = 1,
+            OPAQUE_FINISHED = 2,
+            GUI_FINISHED = 3,
+            SAFE_TO_PRESENT = 4,
+            NUM_STAGES = 5
         };
 
         //std::unique_ptr<TextureUnlitTask> mp_textureUnlitTask;

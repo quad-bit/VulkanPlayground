@@ -465,17 +465,43 @@ void Loops::VulkanManager::CopyAndPresent(const VkImage & srcImage, const VkSema
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
         0, 0, nullptr, 0, nullptr, image_barrier.size(), image_barrier.data());
 
-    VkImageCopy region{};
-    region.dstOffset = { 0,0,0 };
-    region.dstSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
-    region.extent = { (uint32_t)m_surfaceWidth, (uint32_t)m_surfaceHeight, 1 };
-    region.srcOffset = { 0,0,0 };
-    region.srcSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 };
+    VkImageBlit2 blitRegion{};
+    blitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+    blitRegion.pNext = nullptr;
 
-    vkCmdCopyImage(m_commandBuffers[m_frameInFlightIndex],
+    // Source mapping
+    blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.srcSubresource.mipLevel = 0;
+    blitRegion.srcSubresource.baseArrayLayer = 0;
+    blitRegion.srcSubresource.layerCount = 1;
+    blitRegion.srcOffsets[0] = { 0, 0, 0 };
+    blitRegion.srcOffsets[1] = { static_cast<int32_t>(m_surfaceWidth), static_cast<int32_t>(m_surfaceHeight), 1 };
+
+    // Destination mapping
+    blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    blitRegion.dstSubresource.mipLevel = 0;
+    blitRegion.dstSubresource.baseArrayLayer = 0;
+    blitRegion.dstSubresource.layerCount = 1;
+    blitRegion.dstOffsets[0] = { 0, 0, 0 };
+    blitRegion.dstOffsets[1] = { static_cast<int32_t>(m_surfaceWidth), static_cast<int32_t>(m_surfaceHeight), 1 };
+
+    VkBlitImageInfo2 blitInfo{};
+    blitInfo.dstImage = m_swapchainImageList[m_currentSwpachainIndex];
+    blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    blitInfo.filter = VK_FILTER_LINEAR;
+    blitInfo.pNext = nullptr;
+    blitInfo.pRegions = &blitRegion;
+    blitInfo.regionCount = 1;
+    blitInfo.srcImage = srcImage;
+    blitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    blitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+
+    vkCmdBlitImage2(m_commandBuffers[m_frameInFlightIndex], &blitInfo);
+
+    /*vkCmdCopyImage(m_commandBuffers[m_frameInFlightIndex],
         srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         m_swapchainImageList[m_currentSwpachainIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1, &region);
+        1, &region);*/
 
     // Make it presentable
 
@@ -600,11 +626,12 @@ void Loops::VulkanManager::CreateSurface(GLFWwindow * glfwWindow)
                 VK_FORMAT_A8B8G8R8_SRGB_PACK32,
                 VK_FORMAT_B8G8R8A8_UNORM
             };
-            for (auto& availableFormat : formats)
+            for (auto& preferredFormat : preferredImageFormats)
             {
-                if (std::find(preferredImageFormats.begin(), preferredImageFormats.end(), availableFormat.format) != preferredImageFormats.end())
+                if (std::find_if(formats.begin(), formats.end(), [&preferredFormat](const VkSurfaceFormatKHR& format) {
+                    return format.format == preferredFormat;}) != formats.end())
                 {
-                    m_surfaceFormat = availableFormat;
+                    m_surfaceFormat.format = preferredFormat;
                     break;
                 }
             }

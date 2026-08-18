@@ -132,15 +132,15 @@ public:
 
         {
             Loops::Transform transform{};
-            transform.m_position = glm::vec3(0, 5, -30);//-10
+            transform.m_position = glm::vec3(0, 5, -10);//-10
             transform.m_eulerAngles = glm::vec3(glm::radians(10.0f), 0.0f, 0.0f);//20.0f
             //camTransform.m_position = glm::vec3(0, 5, -15);
             //camTransform.m_eulerAngles = glm::vec3(glm::radians(10.0f), 0.0f, 0.0f);
 
             auto dirLightData = Loops::LightManager::GetInstance()->GetDirectionalLight();
-            dirLightData->m_diffuse = Loops::Math::WHITE_COLOR;
+            dirLightData->m_diffuse = Loops::Math::WHITE_COLOR/1.6f;
             dirLightData->m_specular = glm::vec3(.3f, .3f, .5f);
-            dirLightData->m_ambient = Loops::Math::WHITE_COLOR/1.5f;// glm::vec3(.3f, .3f, .3f);
+            dirLightData->m_ambient = Loops::Math::WHITE_COLOR/2.0f;// glm::vec3(.3f, .3f, .3f);
 
             Loops::Light dirLight{};
             dirLight.m_data = dirLightData;
@@ -148,6 +148,15 @@ public:
             auto e = world.entity("DirectionalLight");
             e.emplace<Loops::Transform>(transform);
             e.emplace<Loops::Light>(dirLight);
+        }
+
+        {
+            auto castle = world.lookup("ABeautifulGame_Root::Castle_W1");
+            if (castle.is_valid())
+            {
+                //Loops::Transform& transform = castle.get_mut<Loops::Transform>();
+                //transform.m_position += glm::vec3(.8, 0, 0);
+            }
         }
     }
 

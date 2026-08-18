@@ -6,11 +6,13 @@
 #include "EventBus.h"
 #include "TextureManager.h"
 #include "LightManager.h"
+//#include "Utils.h"
 
 #include <plog/Initializers/RollingFileInitializer.h>
 #include <plog/Formatters/TxtFormatter.h>
 #include <plog/Formatters/FuncMessageFormatter.h>
 #include <plog/Appenders/ColorConsoleAppender.h>
+
 
 Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCallbacks& callbacks) : m_appCallbacks(callbacks)
 {
@@ -30,6 +32,17 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     mp_VulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = mp_VulkanManager->Init(mp_WindowManagerObj->glfwWindow);
+
+    const Loops::VkUtils::VulkanContext vulkanContext
+    {
+        mp_VulkanManager->GetLogicalDevice(),
+        mp_VulkanManager->GetPhysicalDevice(),
+        mp_VulkanManager->GetGraphicsQueue(),
+        mp_VulkanManager->GetQueueFamilyIndex(),
+        mp_VulkanManager->GetMaxFramesInFlight(),
+        info.m_screenSize.m_width, info.m_screenSize.m_height,
+        info.m_designSize.m_width, info.m_designSize.m_height,
+    };
 
     Memory::MemoryManager::GetInstance()->InitVMA(mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetLogicalDevice(), mp_VulkanManager->GetInstance());
 
@@ -66,7 +79,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
         mp_VulkanManager->GetMaxFramesInFlight(),
         info.m_screenSize, info.m_designSize);
 
-    LightManager::GetInstance()->Init(mp_SceneManager->m_world);
+    LightManager::GetInstance()->Init(mp_SceneManager->m_world, vulkanContext);
 
     ImguiEditor::GetInstance()->Init(mp_ImguiSystem.get(), mp_SceneManager.get(), &m_boundsManager);
 

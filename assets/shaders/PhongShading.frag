@@ -68,26 +68,40 @@ layout(push_constant) uniform PushConstsVert
 };
 
 // ====================================
-float ShadowCalculation(vec4 fragLightPos, int lightIndex)
+float ShadowCalculationDirectional(int lightIndex, vec3 inNormal)
 {
     vec3 projectedCoords = vec3(inVertex.posInLightSpace[lightIndex].xyz/inVertex.posInLightSpace[lightIndex].w);
-    projectedCoords = projectedCoords*0.5f + vec3(0.5f);
+    
+    float tempZ = projectedCoords.z;
+    projectedCoords.y *= -1.0f;
+    projectedCoords = projectedCoords * 0.5f + vec3(0.5f);
+    projectedCoords.z = tempZ;
+
+    if (projectedCoords.z > 1.0 || projectedCoords.z < 0.0) {
+        return 1.0; 
+    }
+
     float closestDepth = texture(directionalShadowMap, projectedCoords.xy).r;
     float currentDepth = projectedCoords.z;
-    float shadow  = currentDepth > closestDepth ? 1.0f : 0.0f;
+
+    // Dynamic bias calculation to alleviate shadow acne
+    float bias = max(0.005 * (1.0 - dot(normalize(inNormal), vec3(0.0, 1.0, 0.0))), 0.0005);
+    float shadow  = currentDepth - bias > closestDepth ? 1.0f : 0.0f;
     return shadow;
+
+    // float shadowFactor = 0.0;
+    // vec2 texelSize = 1.0 / textureSize(directionalShadowMap, 0);
+    // // 3x3 Kernel PCF
+    // for(int x = -1; x <= 1; ++x)
+    // {
+    //     for(int y = -1; y <= 1; ++y)
+    //     {
+    //         vec3 sampleCoord = vec3(projectedCoords.xy + vec2(x, y) * texelSize, projectedCoords.z - bias);
+    //         shadowFactor += texture(directionalShadowMap, sampleCoord.xy).r; 
+    //     }
+    // }
+    // return shadowFactor / 9.0;
 }
-
-// vec3 GetNormal(vec4 normal, vec4 tangent, int normalMapIndex, vec2 texCoords)
-// {
-//     vec3 N = normalize(normal).xyz;
-//     vec3 T = normalize(tangent).xyz;
-//     vec3 B = normalize(cross(N, T) * tangent.w).xyz; // tangent.w
-
-//     mat3 TBN = mat3(T, B, N);
-//     N = TBN * normalize(texture(textures[normalMapIndex], texCoords)).xyz * 2.0 - vec3(1.0f);
-//     return N;
-// }
 
 vec4 CalculateDirectionalLightColor(Light directionalLight, vec3 normal, vec3 viewDir, int diffuseIndex, int specularIndex)
 {
@@ -108,7 +122,10 @@ vec4 CalculateDirectionalLightColor(Light directionalLight, vec3 normal, vec3 vi
     vec4 ambient = directionalLight.ambient * diffuseComponent;
     vec4 diffuse = directionalLight.diffuse * diff * diffuseComponent;
     vec4 specular = directionalLight.specular * spec * specularComponent;
-    return (ambient + diffuse + specular);
+
+    float shadow = ShadowCalculationDirectional(0, inVertex.normal);
+
+    return (ambient + (1.0 - shadow) * (diffuse + specular));
 }
 
 vec4 CalculatePointLightColor(Light pointLight)
@@ -132,7 +149,6 @@ void main()
     vec3 N = inVertex.TBN * normalFromTexture;
 
     vec4 result = CalculateDirectionalLightColor(lights[0], N, V, diffuseMapIndex, specularMapIndex);
-    // vec4 result = texture(textures[diffuseMapIndex], inVertex.fragTexCoord);
     
     // phase 2: point lights
     //for(int i = 0; i < NR_POINT_LIGHTS; i++)

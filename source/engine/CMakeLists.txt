@@ -156,6 +156,8 @@ add_custom_command(
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/UnlitTextured.frag -o ${SPV_PATH}/UnlitTexturedFrag.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/PhongShading.vert -o ${SPV_PATH}/PhongShadingVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/PhongShading.frag -o ${SPV_PATH}/PhongShadingFrag.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Depth.vert -o ${SPV_PATH}/DepthVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Depth.frag -o ${SPV_PATH}/DepthFrag.spv
 )
 
 add_dependencies(${TARGET_NAME} generateShaderBinaries)

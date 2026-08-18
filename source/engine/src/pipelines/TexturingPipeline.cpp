@@ -1,6 +1,7 @@
 #include "pipelines/TexturingPipeline.h"
 #include "MaterialManager.h"
 #include "TextureManager.h"
+#include "LightManager.h"
 
 Loops::Tasking::TexturingPipeline::TexturingPipeline(const PipelineInfo& info,
     const std::unique_ptr<VulkanManager>& pVulkanManager,
@@ -76,9 +77,21 @@ void Loops::Tasking::TexturingPipeline::Update(uint32_t currentFrameInFlight,
     // Get the active swapchain index
     uint32_t activeSwapchainImageindex = vulkanManager->GetActiveSwapchainImageIndex(m_swapchainImageAcquiredSemaphores[currentFrameInFlight]);
 
+    // trigger shadow pass
+    {
+        uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::SHADOW_PASS_FINISHED);
+        Loops::LightManager::GetInstance()->Update(
+            currentFrameInFlight,
+            m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
+            signalValue, std::nullopt,
+            sceneManager->GetRenderData(currentFrameInFlight),
+            *sceneManager);
+    }
+
     // Trigger textured unlit opaque task
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
+        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::SHADOW_PASS_FINISHED);
         /*mp_textureUnlitTask->Update(currentFrameInFlight,
             m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, std::nullopt, 
@@ -87,7 +100,7 @@ void Loops::Tasking::TexturingPipeline::Update(uint32_t currentFrameInFlight,
 
         mp_phongShadingTask->Update(currentFrameInFlight,
             m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
-            signalValue, std::nullopt,
+            signalValue, waitValue,
             sceneManager->GetRenderData(currentFrameInFlight),
             *sceneManager, m_materialManager->GetSceneMaterials());
     }

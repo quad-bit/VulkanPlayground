@@ -79,6 +79,6 @@ void main()
     outVertex.fragPos = modelMat * vec4(inPos.xyz, 1.0);
     for(int i = 0; i < MAX_LIGHTS; i++)
     {
-        outVertex.posInLightSpace[i] = lights[i].lightMatrix * outVertex.fragPos;
+        outVertex.posInLightSpace[i] = lights[i].lightMatrix * modelMat * vec4(inPos.xyz, 1.0);
     }
 }

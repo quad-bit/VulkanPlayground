@@ -757,7 +757,7 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
             imageInfo.format = depthFormat;
             imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
             imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
             imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
             imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -792,8 +792,11 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
             }
         };
 
-    colorInfoList.resize(numColorTargets);
-    CreateColorTargets(colorInfoList);
+    if (numColorTargets > 0)
+    {
+        colorInfoList.resize(numColorTargets);
+        CreateColorTargets(colorInfoList);
+    }
 
     if (numDepthTargets > 0)
     {
@@ -802,23 +805,32 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
     }
 
 #pragma omp parallel for
-    std::vector<VkRenderingInfo> renderingInfoList;
-    for (uint32_t i = 0; i < numColorTargets; i++)
+
+    uint32_t numTargets{ std::max(numColorTargets, numDepthTargets) };
+    std::vector<VkRenderingInfo> renderingInfoList(numTargets);
+    for (uint32_t i = 0; i < numTargets; i++)
     {
         VkRenderingInfo info{};
-        info.colorAttachmentCount = 1;
-        info.layerCount = 1;
-        info.pColorAttachments = &colorInfoList[i];
         info.pDepthAttachment = nullptr;
+        info.layerCount = 1;
+        info.colorAttachmentCount = 0;
+        info.pColorAttachments = nullptr;
+
+        if (numColorTargets > 0)
+        {
+            info.layerCount = 1;
+            info.colorAttachmentCount = 1;
+            info.pColorAttachments = &colorInfoList[i];
+        }
 
         if (numDepthTargets > 0)
         {
-           info.pDepthAttachment = (numDepthTargets == numColorTargets) ? &depthInfoList[i] : &depthInfoList[0];
+           info.pDepthAttachment = (numDepthTargets == 1) ? &depthInfoList[0] : &depthInfoList[i];
         }
 
         info.renderArea = VkRect2D{ {0, 0}, {static_cast<uint32_t>(imageWidth), static_cast<uint32_t>(imageHeight)} };
         info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-        renderingInfoList.push_back(std::move(info));
+        renderingInfoList[i] = info;
     }
 
     return renderingInfoList;

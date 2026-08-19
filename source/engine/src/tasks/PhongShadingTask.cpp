@@ -5,7 +5,7 @@
 
 void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValue> clearColorValue,
     std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-    const Loops::MaterialManager* pMaterialManager)
+    const Loops::MaterialManager* pMaterialManager, const VkDescriptorSetLayout& transformSetLayout)
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -42,16 +42,7 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
 
         // Transform array set 1
         {
-            VkDescriptorSetLayoutBinding bindings[1]
-            {
-                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
-            };
-
-            VkDescriptorSetLayoutCreateInfo createInfo{};
-            createInfo.bindingCount = 1;
-            createInfo.pBindings = &bindings[0];
-            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_customLayout[TRANSFORM_SET]));
+            m_customLayout[TRANSFORM_SET] = transformSetLayout;
         }
 
         // texture array set 2
@@ -348,41 +339,7 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
         }
     }
 
-    // Transform set 1
-    {
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
-
-        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
-        m_transformUniformDataSizePerFrame = dataSizePerFrame;
-
-        VkUtils::CreateBufferVma(dataSizePerFrame * numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
-
-        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
-        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not mapped");
-
-        {
-            m_transformSets.resize(numUniforms);
-
-            for (uint16_t i = 0; i < numUniforms; i++)
-            {
-                VkDescriptorSetAllocateInfo setAllocInfo{};
-                setAllocInfo.descriptorPool = m_descriptorPool;
-                setAllocInfo.descriptorSetCount = 1;
-                setAllocInfo.pSetLayouts = &m_customLayout[TRANSFORM_SET];
-                setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-
-                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
-
-                const VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
-                const VkWriteDescriptorSet writes
-                {
-                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
-                };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
-            }
-        }
-    }
+    // Transform set 1 is handled in SceneManager
     // Texture set 2 is handled in TextureManager
     // Material set 3
     {
@@ -443,18 +400,19 @@ Loops::Tasking::PhongShadingTask::PhongShadingTask(const GraphicsTaskInfo& info,
     const VkFormat& colorFormat, const VkFormat& depthFormat,
     std::optional<const VkClearColorValue> clearColorValue,
     std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-    const Loops::MaterialManager* pMaterialManager) :
+    const Loops::MaterialManager* pMaterialManager,
+    const VkDescriptorSetLayout& transformSetLayout) :
     GraphicsTask("PhongShadingTask", info, colorViews, depthViews,
         colorFormat, depthFormat)
 {
-    Init(clearColorValue, depthStencilClearValue, pMaterialManager);
+    Init(clearColorValue, depthStencilClearValue, pMaterialManager, transformSetLayout);
 }
 
 void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
     const VkSemaphore& timelineSem, uint64_t signalValue,
     std::optional<uint64_t> waitValue, const Loops::RenderData& renderData,
     const Loops::SceneManager& sceneManager, const std::unordered_map<uint32_t,
-    Loops::Material>& materials)
+    Loops::Material>& materials, const VkDescriptorSet& transformSet)
 {
     {
         // set 0 binding 0 camera
@@ -475,8 +433,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
 
     // set 1 binding 0 transform array
     {
-        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
-        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * frameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
+        //handled in scene manager
     }
 
     // set 2 binding 0 texture array
@@ -502,7 +459,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
 
         Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
-        auto RenderCommands = [this, &viewport, &scissor, &renderData, &sceneManager, &materials](uint32_t frameInFlight)
+        auto RenderCommands = [this, &viewport, &scissor, &renderData, &sceneManager, &materials, &transformSet](uint32_t frameInFlight)
             {
                 vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
                 {
@@ -519,7 +476,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
                         // Texture set 2
                         // Materials set 3
                         VkDescriptorSet set[4]{ m_sceneSet[frameInFlight],
-                            m_transformSets[frameInFlight],
+                            transformSet,
                             TextureManager::GetInstance()->GetTextureSet()[frameInFlight],
                             m_materialSet[0]
                         };
@@ -621,12 +578,8 @@ void Loops::Tasking::PhongShadingTask::Update(VkCommandBuffer& commandBuffer,
 
 Loops::Tasking::PhongShadingTask::~PhongShadingTask()
 {
-    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[0], nullptr);
-    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[1], nullptr);
-    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[3], nullptr);
-
-    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[SCENE_SET], nullptr);
+    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[MATERIAL_SET], nullptr);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);

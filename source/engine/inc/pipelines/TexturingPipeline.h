@@ -38,7 +38,8 @@ namespace Loops::Tasking
         TexturingPipeline(const PipelineInfo& info,
             const std::unique_ptr<VulkanManager>& pVulkanManager,
             const std::unique_ptr<ImguiSystem>& imguiUtil,
-            const Loops::MaterialManager* materialManager);
+            const Loops::MaterialManager* materialManager,
+            const std::unique_ptr<SceneManager>& sceneManager);
 
         virtual ~TexturingPipeline();
 

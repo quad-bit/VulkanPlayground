@@ -6,7 +6,8 @@
 Loops::Tasking::TexturingPipeline::TexturingPipeline(const PipelineInfo& info,
     const std::unique_ptr<VulkanManager>& pVulkanManager,
     const std::unique_ptr<ImguiSystem>& imguiUtil,
-    const Loops::MaterialManager* materialManager) : Pipeline(info),
+    const Loops::MaterialManager* materialManager,
+    const std::unique_ptr<SceneManager>& sceneManager) : Pipeline(info),
     m_materialManager(materialManager)
 {
     {
@@ -37,7 +38,7 @@ Loops::Tasking::TexturingPipeline::TexturingPipeline(const PipelineInfo& info,
         colorFormat, pVulkanManager->GetDepthFormat(),
         pVulkanManager->GetDefaultClearColor(),
         pVulkanManager->GetDefaultDepthClearValue(),
-        m_materialManager);
+        m_materialManager, sceneManager->GetTransformDescriptorSetLayout());
 
     imguiUtil->CreateRenderingInfo();
 }
@@ -102,7 +103,8 @@ void Loops::Tasking::TexturingPipeline::Update(uint32_t currentFrameInFlight,
             m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(),
             signalValue, waitValue,
             sceneManager->GetRenderData(currentFrameInFlight),
-            *sceneManager, m_materialManager->GetSceneMaterials());
+            *sceneManager, m_materialManager->GetSceneMaterials(),
+            sceneManager->GetTransformDescriptorSet(currentFrameInFlight));
     }
 
     // Trigger imgui

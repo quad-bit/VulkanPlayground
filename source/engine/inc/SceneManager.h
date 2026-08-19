@@ -71,6 +71,33 @@ namespace Loops
 
         MaterialManager* mp_materialManager;
 
+
+        // global resources, used accross multiple tasks/effects/techniques ======= >>
+
+        VkDescriptorPool m_globalDescriptorPool{ VK_NULL_HANDLE };
+        VkDescriptorSetLayout m_transformSetLayout{ VK_NULL_HANDLE };
+        std::vector<VkDescriptorSet> m_transformSets;
+        VulkanBuffer m_transformBuffer;
+
+        //std::vector<VkDescriptorSet> m_sceneSet;
+        //VulkanBuffer m_cameraBuffer;
+
+        //VkDescriptorSetLayout m_materialSetLayout{ VK_NULL_HANDLE };
+        //std::vector<VkDescriptorSet> m_materialSet;
+        //VulkanBuffer m_materialBuffer;
+
+        void* m_transformUniformMemoryPointer = nullptr;
+        //void* m_cameraUniformMemoryPointer = nullptr;
+        //void* m_lightUniformMemoryPointer = nullptr;
+        //void* m_materialUniformMemoryPointer = nullptr;
+        size_t m_transformUniformDataSizePerFrame = 0;
+        //size_t m_cameraUniformDataSizePerFrame = 0;
+        //size_t m_lightUniformDataSizePerFrame = 0;
+        //size_t m_materialUniformDataSizePerFrame = 0;
+        // << ======== global resources, used accross multiple tasks/effects/techniques
+
+        void CreateGlobalResources();
+
     public:
 
         flecs::world m_world;
@@ -107,6 +134,9 @@ namespace Loops
 
         const VkBuffer& GetVertexBuffer(uint32_t id) const;
         const VkBuffer& GetIndexBuffer(uint32_t id) const;
+
+        const VkDescriptorSetLayout& GetTransformDescriptorSetLayout() const;
+        const VkDescriptorSet& GetTransformDescriptorSet(uint32_t frameIndex) const;
     };
 }
 

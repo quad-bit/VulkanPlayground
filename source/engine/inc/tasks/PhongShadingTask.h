@@ -33,9 +33,6 @@ namespace Loops::Tasking
             //int lightIndicies[3];
         };
 
-        std::vector<VkDescriptorSet> m_transformSets;
-        VulkanBuffer m_transformBuffer;
-
         std::vector<VkDescriptorSet> m_sceneSet;
         VulkanBuffer m_cameraBuffer, m_lightDataBuffer;
 
@@ -50,18 +47,17 @@ namespace Loops::Tasking
 
         VkPipeline m_doubleSidedPipeline = VK_NULL_HANDLE;
 
-        void* m_transformUniformMemoryPointer = nullptr;
         void* m_cameraUniformMemoryPointer = nullptr;
         void* m_lightUniformMemoryPointer = nullptr;
         void* m_materialUniformMemoryPointer = nullptr;
-        size_t m_transformUniformDataSizePerFrame = 0;
         size_t m_cameraUniformDataSizePerFrame = 0;
         size_t m_lightUniformDataSizePerFrame = 0;
         size_t m_materialUniformDataSizePerFrame = 0;
 
         void Init(std::optional<const VkClearColorValue> clearColorValue,
             std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-            const Loops::MaterialManager* pMaterialManager);
+            const Loops::MaterialManager* pMaterialManager,
+            const VkDescriptorSetLayout& transformSetLayout);
 
     public:
         PhongShadingTask(const GraphicsTaskInfo& info,
@@ -70,13 +66,15 @@ namespace Loops::Tasking
             const VkFormat& colorFormat, const VkFormat& depthFormat,
             std::optional<const VkClearColorValue> clearColorValue,
             std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-            const Loops::MaterialManager* pMaterialManager);
+            const Loops::MaterialManager* pMaterialManager,
+            const VkDescriptorSetLayout& transformSetLayout);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem,
             uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::RenderData& renderData,
             const Loops::SceneManager& sceneManager,
-            const std::unordered_map<uint32_t, Loops::Material>& materials);
+            const std::unordered_map<uint32_t, Loops::Material>& materials,
+            const VkDescriptorSet& transformSet);
 
         // Case where submission is handled elsewhere
         void Update(VkCommandBuffer& commandBuffer, const uint32_t& frameInFlight,

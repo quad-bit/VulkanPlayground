@@ -27,7 +27,6 @@ namespace Loops
         static constexpr uint16_t SHADOWMAP_WIDTH = 2048;
         static constexpr uint16_t SHADOWMAP_HEIGHT = 2048;
 
-
         LightManager();
         void DeInitPrivate();
 
@@ -55,6 +54,7 @@ namespace Loops
         VkShaderModule m_vertexShaderModule = VK_NULL_HANDLE;
         VkShaderModule m_fragmentShaderModule = VK_NULL_HANDLE;
 
+        // for shadow pass
         uint32_t m_cameraUniformDataSizePerFrame{ 0 };
         VulkanBuffer m_cameraBuffer;
         void* m_cameraUniformMemoryPointer{ nullptr };
@@ -71,6 +71,8 @@ namespace Loops
         std::vector<glm::mat4> m_lightTransforms;
 
         VkSampler m_shadowSampler = VK_NULL_HANDLE;
+
+        // global resource
 
     public:
         static constexpr uint32_t MAX_LIGHTS = 4;

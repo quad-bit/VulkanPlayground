@@ -118,7 +118,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     auto SetupTexturePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
         {
-            mp_texturePipeline = std::make_unique<Tasking::TexturingPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem, mp_materialManager.get());
+            mp_texturePipeline = std::make_unique<Tasking::TexturingPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem, mp_materialManager.get(), mp_SceneManager);
         };
 
     auto SetupPipeline = [this, &info,

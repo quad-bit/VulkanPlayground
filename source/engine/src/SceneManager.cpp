@@ -327,6 +327,13 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
     const Loops::Camera& cam = m_cameraEntity.get<Loops::Camera>();
     renderData.m_cameraData.m_viewMat = cam.GetViewMatrix();
     renderData.m_cameraData.m_projectionMat = cam.GetProjectionMat();
+
+    // set 1 binding 0 transform array
+    {
+        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
+        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_transformUniformMemoryPointer) + m_transformUniformDataSizePerFrame * currentFrameInFlight), renderData.m_modelMats, sizeof(glm::mat4) * renderData.m_drawableCount);
+    }
+
 }
 
 Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::Mesh& mesh)
@@ -335,6 +342,128 @@ Loops::MeshView& Loops::SceneManager::GetMeshView(flecs::entity& entity, Loops::
     view.m_viewIndex = meshViewCount++;
     assert(meshViewCount <= MAX_ENTITIES * MAX_MESH_VIEWS_PER_MESH);
     return view;
+}
+
+void Loops::SceneManager::CreateGlobalResources()
+{
+    {
+        // Transform array set 1
+        {
+            VkDescriptorSetLayoutBinding bindings[1]
+            {
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr}
+            };
+
+            VkDescriptorSetLayoutCreateInfo createInfo{};
+            createInfo.bindingCount = 1;
+            createInfo.pBindings = &bindings[0];
+            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_device, &createInfo, nullptr, &m_transformSetLayout));
+        }
+
+        VkDescriptorPoolSize pool_sizes[2] =
+        {
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * m_maxFrameInFlights},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2 * m_maxFrameInFlights}
+        };
+
+        VkDescriptorPoolCreateInfo poolInfo{};
+        poolInfo.flags = 0;
+        poolInfo.maxSets = 4 * m_maxFrameInFlights;
+        poolInfo.poolSizeCount = 2;
+        poolInfo.pPoolSizes = pool_sizes;
+        poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_globalDescriptorPool));
+    }
+
+    // Transform set 1
+    {
+        const uint16_t numUniforms = m_maxFrameInFlights;
+
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+        m_transformUniformDataSizePerFrame = dataSizePerFrame;
+
+        VkUtils::CreateBufferVma(dataSizePerFrame * numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+
+        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation, &m_transformUniformMemoryPointer);
+        ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not mapped");
+
+        {
+            m_transformSets.resize(numUniforms);
+
+            for (uint16_t i = 0; i < numUniforms; i++)
+            {
+                VkDescriptorSetAllocateInfo setAllocInfo{};
+                setAllocInfo.descriptorPool = m_globalDescriptorPool;
+                setAllocInfo.descriptorSetCount = 1;
+                setAllocInfo.pSetLayouts = &m_transformSetLayout;
+                setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+
+                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_device, &setAllocInfo, &m_transformSets[i]));
+
+                const VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
+                const VkWriteDescriptorSet writes
+                {
+                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
+                };
+                vkUpdateDescriptorSets(m_device, 1, &writes, 0, nullptr);
+            }
+        }
+    }
+
+    // TODO: Create the global MaterialStruct and then create the material set
+    // Material set 3
+    {
+    //    const uint16_t numUniforms = 1;// m_info.m_maxFrameInFlights;
+
+    //    m_materialUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_physicalDevice, sizeof(PhongMaterialUniform) * MaterialManager::MAX_MATERIALS);
+    //    VkUtils::CreateBufferVma(m_materialUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+    //        Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vkBuffer, m_materialBuffer.m_vmaAllocation);
+    //    vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vmaAllocation, &m_materialUniformMemoryPointer);
+    //    ASSERT_MSG(m_materialUniformMemoryPointer != nullptr, "not mapped");
+
+    //    {
+    //        const auto& materialMap = mp_materialManager->GetSceneMaterials();
+    //        m_materialArray.resize(MaterialManager::MAX_MATERIALS);
+    //        for (const auto& [index, material] : materialMap)
+    //        {
+    //            if (material.m_effect == EFFECT_TYPE::OPAQUE_EFT && (material.m_techniqueType == TECHNIQUE_TYPE::PBR || material.m_techniqueType == TECHNIQUE_TYPE::PBR_DOUBLE_SIDED))
+    //            {
+    //                m_materialArray[index].m_color = material.m_materialData->m_baseColorFactor;
+    //                m_materialArray[index].m_diffuseMapIndex = material.m_materialData->m_baseColorTextureIndex;
+    //                const PbrMaterial* pbr = static_cast<const PbrMaterial*>(material.m_materialData);
+    //                m_materialArray[index].m_normalMapIndex = pbr->m_normalTextureIndex;
+    //            }
+    //            /*else
+    //                ASSERT_MSG_DEBUG(0, "case not handled");*/
+    //        }
+
+    //        ASSERT_MSG(m_materialUniformMemoryPointer != nullptr, "not yet mapped");
+    //        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_materialUniformMemoryPointer)), m_materialArray.data(), sizeof(PhongMaterialUniform) * MaterialManager::MAX_MATERIALS);
+    //    }
+
+    //    {
+    //        m_materialSet.resize(numUniforms);
+
+    //        for (uint16_t i = 0; i < numUniforms; i++)
+    //        {
+    //            VkDescriptorSetAllocateInfo setAllocInfo{};
+    //            setAllocInfo.descriptorPool = m_globalDescriptorPool;
+    //            setAllocInfo.descriptorSetCount = 1;
+    //            setAllocInfo.pSetLayouts = &m_materialSetLayout;
+    //            setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    //            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_materialSet[i]));
+
+    //            VkDescriptorBufferInfo bufferInfo{ m_materialBuffer.m_vkBuffer, i * m_materialUniformDataSizePerFrame, m_materialUniformDataSizePerFrame };
+    //            const VkWriteDescriptorSet writes
+    //            {
+    //                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
+    //            };
+    //            vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+    //        }
+    //    }
+    }
 }
 
 Loops::SceneManager::SceneManager(const std::vector<ModelLoadInfo>& infos,
@@ -467,6 +596,8 @@ void Loops::SceneManager::Initialise(const VkDevice& device, const VkPhysicalDev
     //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
 
     ////camTransform.m_position = glm::vec3(0, 0, -5);
+
+    CreateGlobalResources();
 }
 
 void Loops::SceneManager::DeInitialise()
@@ -476,6 +607,11 @@ void Loops::SceneManager::DeInitialise()
         vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_vertexBufferWrappers[i].m_vkVertexBuffer, m_vertexBufferWrappers[i].m_vmaAllocation);
         vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_indexBufferWrappers[i].m_vkIndexBuffer, m_indexBufferWrappers[i].m_vmaAllocation);
     }
+
+    vkDestroyDescriptorPool(m_device, m_globalDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(m_device, m_transformSetLayout, nullptr);
+    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
 }
 
 void Loops::SceneManager::AddParentEntity(flecs::entity e)
@@ -503,6 +639,16 @@ const VkBuffer& Loops::SceneManager::GetIndexBuffer(uint32_t id) const
 {
     assert(id < m_indexBufferWrapperCount);
     return m_indexBufferWrappers[id].m_vkIndexBuffer;
+}
+
+const VkDescriptorSetLayout& Loops::SceneManager::GetTransformDescriptorSetLayout() const
+{
+    return m_transformSetLayout;
+}
+
+const VkDescriptorSet& Loops::SceneManager::GetTransformDescriptorSet(uint32_t frameIndex) const
+{
+    return m_transformSets[frameIndex];
 }
 
 Loops::CameraData Loops::SceneManager::GetSceneViewCameraData() const

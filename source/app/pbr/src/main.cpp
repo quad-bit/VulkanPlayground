@@ -140,7 +140,7 @@ public:
             auto dirLightData = Loops::LightManager::GetInstance()->GetDirectionalLight();
             dirLightData->m_diffuse = Loops::Math::WHITE_COLOR/1.0f;
             dirLightData->m_specular = glm::vec3(.3f, .3f, .5f);
-            dirLightData->m_ambient = Loops::Math::WHITE_COLOR/5.0f;// glm::vec3(.3f, .3f, .3f);
+            dirLightData->m_ambient = Loops::Math::WHITE_COLOR/10.0f;// glm::vec3(.3f, .3f, .3f);
 
             Loops::Light dirLight{};
             dirLight.m_data = dirLightData;

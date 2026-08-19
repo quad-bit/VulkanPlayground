@@ -38,7 +38,9 @@ Loops::Tasking::TexturingPipeline::TexturingPipeline(const PipelineInfo& info,
         colorFormat, pVulkanManager->GetDepthFormat(),
         pVulkanManager->GetDefaultClearColor(),
         pVulkanManager->GetDefaultDepthClearValue(),
-        m_materialManager, sceneManager->GetTransformDescriptorSetLayout());
+        m_materialManager, sceneManager->GetTransformDescriptorSetLayout(),
+        sceneManager->GetCameraBuffer(),
+        sceneManager->GetCameraDataSizePerFrame());
 
     imguiUtil->CreateRenderingInfo();
 }

@@ -34,7 +34,8 @@ namespace Loops::Tasking
         };
 
         std::vector<VkDescriptorSet> m_sceneSet;
-        VulkanBuffer m_cameraBuffer, m_lightDataBuffer;
+        VulkanBuffer m_lightDataBuffer;
+        const VulkanBuffer& m_cameraBuffer;
 
         std::vector<VkDescriptorSet> m_materialSet;
         VulkanBuffer m_materialBuffer;
@@ -47,7 +48,7 @@ namespace Loops::Tasking
 
         VkPipeline m_doubleSidedPipeline = VK_NULL_HANDLE;
 
-        void* m_cameraUniformMemoryPointer = nullptr;
+        //const void* m_cameraUniformMemoryPointer = nullptr;
         void* m_lightUniformMemoryPointer = nullptr;
         void* m_materialUniformMemoryPointer = nullptr;
         size_t m_cameraUniformDataSizePerFrame = 0;
@@ -67,7 +68,10 @@ namespace Loops::Tasking
             std::optional<const VkClearColorValue> clearColorValue,
             std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
             const Loops::MaterialManager* pMaterialManager,
-            const VkDescriptorSetLayout& transformSetLayout);
+            const VkDescriptorSetLayout& transformSetLayout,
+            const Loops::VulkanBuffer& cameraBuffer,
+            size_t cameraUniformDataSizePerFrame
+            );
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem,
             uint64_t signalValue, std::optional<uint64_t> waitValue,

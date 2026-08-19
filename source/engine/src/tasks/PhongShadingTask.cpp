@@ -295,11 +295,7 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
         const uint16_t numUniforms = m_info.m_maxFrameInFlights;
 
         // camera
-        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
-        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
-        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
-        ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not mapped");
+        // handled in sceneManager
 
         // light
         m_lightUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(LightUniform) * LightManager::MAX_LIGHTS);
@@ -401,9 +397,12 @@ Loops::Tasking::PhongShadingTask::PhongShadingTask(const GraphicsTaskInfo& info,
     std::optional<const VkClearColorValue> clearColorValue,
     std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
     const Loops::MaterialManager* pMaterialManager,
-    const VkDescriptorSetLayout& transformSetLayout) :
+    const VkDescriptorSetLayout& transformSetLayout,
+    const Loops::VulkanBuffer& cameraBuffer,
+    size_t cameraUniformDataSizePerFrame) :
     GraphicsTask("PhongShadingTask", info, colorViews, depthViews,
-        colorFormat, depthFormat)
+        colorFormat, depthFormat), m_cameraBuffer(cameraBuffer),
+    m_cameraUniformDataSizePerFrame(cameraUniformDataSizePerFrame)
 {
     Init(clearColorValue, depthStencilClearValue, pMaterialManager, transformSetLayout);
 }
@@ -415,11 +414,9 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
     Loops::Material>& materials, const VkDescriptorSet& transformSet)
 {
     {
-        // set 0 binding 0 camera
+        // set 0 binding 0 camera 
         {
-            CameraData uniform{ renderData.m_cameraData.m_viewMat, renderData.m_cameraData.m_projectionMat, renderData.m_cameraData.m_cameraPos };
-            ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
-            memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * frameInFlight), &uniform, sizeof(CameraData));
+            //handled in SceneManager
         }
 
         // set 0 binding 1 Light
@@ -580,9 +577,6 @@ Loops::Tasking::PhongShadingTask::~PhongShadingTask()
 {
     vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[SCENE_SET], nullptr);
     vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[MATERIAL_SET], nullptr);
-
-    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vkBuffer, m_materialBuffer.m_vmaAllocation);

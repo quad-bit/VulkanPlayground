@@ -328,6 +328,13 @@ void Loops::SceneManager::Prepare(uint32_t currentFrameInFlight)
     renderData.m_cameraData.m_viewMat = cam.GetViewMatrix();
     renderData.m_cameraData.m_projectionMat = cam.GetProjectionMat();
 
+    // set 0 binding 0 camera
+    {
+        CameraData uniform{ renderData.m_cameraData.m_viewMat, renderData.m_cameraData.m_projectionMat, renderData.m_cameraData.m_cameraPos };
+        ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not yet mapped");
+        memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_cameraUniformMemoryPointer) + m_cameraUniformDataSizePerFrame * currentFrameInFlight), &uniform, sizeof(CameraData));
+    }
+
     // set 1 binding 0 transform array
     {
         ASSERT_MSG(m_transformUniformMemoryPointer != nullptr, "not yet mapped");
@@ -374,6 +381,17 @@ void Loops::SceneManager::CreateGlobalResources()
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_device, &poolInfo, nullptr, &m_globalDescriptorPool));
+    }
+
+    // camera buffer and backing memory
+    {
+        const uint16_t numUniforms = m_maxFrameInFlights;
+
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_physicalDevice, sizeof(CameraData));
+        VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
+        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
+        ASSERT_MSG(m_cameraUniformMemoryPointer != nullptr, "not mapped");
     }
 
     // Transform set 1
@@ -610,8 +628,12 @@ void Loops::SceneManager::DeInitialise()
 
     vkDestroyDescriptorPool(m_device, m_globalDescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(m_device, m_transformSetLayout, nullptr);
+
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
+
+    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
+    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 }
 
 void Loops::SceneManager::AddParentEntity(flecs::entity e)
@@ -649,6 +671,16 @@ const VkDescriptorSetLayout& Loops::SceneManager::GetTransformDescriptorSetLayou
 const VkDescriptorSet& Loops::SceneManager::GetTransformDescriptorSet(uint32_t frameIndex) const
 {
     return m_transformSets[frameIndex];
+}
+
+const Loops::VulkanBuffer& Loops::SceneManager::GetCameraBuffer() const
+{
+    return m_cameraBuffer;
+}
+
+const size_t Loops::SceneManager::GetCameraDataSizePerFrame() const
+{
+    return m_cameraUniformDataSizePerFrame;
 }
 
 Loops::CameraData Loops::SceneManager::GetSceneViewCameraData() const

@@ -38,7 +38,7 @@ namespace Loops::Tasking
     protected:
 
     public:
-        BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil);
+        BvhRenderPipeline(const VkUtils::VulkanContext* const vulkanContext, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil);
         virtual ~BvhRenderPipeline();
 
         void Update(uint32_t currentFrameInFlight, const std::unique_ptr<SceneManager>& sceneManager, const BoundsManager& boundsManager,

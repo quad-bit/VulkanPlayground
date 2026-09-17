@@ -11,45 +11,97 @@ void Loops::Tasking::GraphicsTask::CreateAttachments(uint32_t numColorTargets, u
     resource.m_colorTargets.resize(numColorTargets);
     resource.m_depthTargets.resize(numDepthTargets);
     m_renderInfoList = VkUtils::CreateRendertargets(resource.m_colorTargets.data(), resource.m_colorTargets.size(), resource.m_depthTargets.data(),
-        resource.m_depthTargets.size(), colorFormat, depthFormatValue, m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height,
-        m_info.m_device, clearColorValue, depthClearValue, m_colorInfoList, m_depthInfoList);
+        resource.m_depthTargets.size(), colorFormat, depthFormatValue, m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height,
+        m_vulkanContext->m_logicalDevice, clearColorValue, depthClearValue, m_colorInfoList, m_depthInfoList);
 
     for (auto& target : resource.m_colorTargets)
     {
         std::vector<VkImage> images{ target.m_vkImage };
-        VkUtils::ChangeImageLayout(m_info.m_device, images, m_info.m_graphicsQueue, m_info.m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkUtils::ChangeImageLayout(m_vulkanContext->m_logicalDevice, images, m_vulkanContext->m_graphicsQueue, m_vulkanContext->m_graphicsQueueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
     for (auto& target : resource.m_depthTargets)
     {
         std::vector<VkImage> images{ target.m_vkImage };
-        VkUtils::ChangeImageLayout(m_info.m_device, images, m_info.m_graphicsQueue, m_info.m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        VkUtils::ChangeImageLayout(m_vulkanContext->m_logicalDevice, images, m_vulkanContext->m_graphicsQueue, m_vulkanContext->m_graphicsQueueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT | VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT);
     }
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
+void Loops::Tasking::GraphicsTask::CreateAttachments(uint32_t numDepthTargets,
+    const VkFormat& depthFormat,
+    const VkClearDepthStencilValue& depthStencilClearValue)
+{
+    const VkFormat tempColorFormat{ VK_FORMAT_B8G8R8A8_UNORM };
+    const VkClearColorValue tempColorValue{};
+
+    m_taskResource = TaskOwnedResource{};
+    TaskOwnedResource& resource = std::get<TaskOwnedResource>(m_taskResource);
+    resource.m_depthTargets.resize(numDepthTargets);
+    m_renderInfoList = VkUtils::CreateRendertargets(
+        nullptr, 0,
+        resource.m_depthTargets.data(), resource.m_depthTargets.size(),
+        tempColorFormat, depthFormat,
+        m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height,
+        m_vulkanContext->m_logicalDevice, tempColorValue, depthStencilClearValue,
+        m_colorInfoList, m_depthInfoList);
+
+    VkImageAspectFlags aspect{ VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT };
+
+    if (depthFormat == VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT ||
+        depthFormat == VkFormat::VK_FORMAT_D24_UNORM_S8_UINT)
+        aspect |= VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT;
+
+    for (auto& target : resource.m_depthTargets)
+    {
+        std::vector<VkImage> images{ target.m_vkImage };
+        VkUtils::ChangeImageLayout(m_vulkanContext->m_logicalDevice,
+            images, m_vulkanContext->m_graphicsQueue,
+            m_vulkanContext->m_graphicsQueueFamilyIndex,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            aspect);
+    }
+}
+
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const VkUtils::VulkanContext* const vulkanContext, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
     const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue) :
-    m_info(info), m_ownAttachments(true), m_colorFormat(colorFormat), m_depthFormat(depthFormat.has_value() ? depthFormat.value() : VK_FORMAT_UNDEFINED)
+    m_vulkanContext(vulkanContext), m_ownAttachments(true), m_colorFormat(colorFormat), m_depthFormat(depthFormat.has_value() ? depthFormat.value() : VK_FORMAT_UNDEFINED)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
     CreateAttachments(numColorTargets, numDepthTargets, colorFormat, depthFormat, clearColorValue, depthStencilClearValue);
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat) : m_info(info), m_colorAttachmentViews(colorViews),
-    m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat), m_depthFormat(depthFormat)
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name,
+    const VkUtils::VulkanContext * const vulkanContext,
+    const std::vector<VkImageView>& colorViews,
+    const std::vector<VkImageView>& depthViews,
+    const VkFormat& colorFormat, const VkFormat& depthFormat) :
+    m_vulkanContext(vulkanContext), m_colorAttachmentViews(colorViews),
+    m_depthAttachmentViews(depthViews), m_colorFormat(colorFormat),
+    m_depthFormat(depthFormat)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const Loops::Tasking::GraphicsTaskInfo& info, 
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name,
+    const VkUtils::VulkanContext * const vulkanContext,
+    uint32_t numDepthTargets, const VkFormat& depthFormat,
+    const VkClearDepthStencilValue& depthStencilClearValue) : m_vulkanContext(vulkanContext),
+    m_depthFormat(depthFormat), m_ownAttachments(true)
+{
+    strncpy(m_name, name, sizeof(m_name) - 1);
+    CreateAttachments(numDepthTargets, depthFormat, depthStencilClearValue);
+}
+
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name,
+    const VkUtils::VulkanContext* const vulkanContext,
     const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat):
-    m_info(info), m_colorAttachmentViews(colorViews), m_colorFormat(colorFormat)
+    m_vulkanContext(vulkanContext), m_colorAttachmentViews(colorViews), m_colorFormat(colorFormat)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
 
-Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const GraphicsTaskInfo& info) : m_info(info)
+Loops::Tasking::GraphicsTask::GraphicsTask(const char* name, const VkUtils::VulkanContext * const vulkanContext) : m_vulkanContext(vulkanContext)
 {
     strncpy(m_name, name, sizeof(m_name) - 1);
 }
@@ -60,22 +112,26 @@ Loops::Tasking::GraphicsTask::~GraphicsTask()
     {
         auto& taskOwnedResource = std::get<Loops::Tasking::TaskOwnedResource>(m_taskResource);
         VkUtils::DestroyRenderTargets(taskOwnedResource.m_colorTargets.data(), taskOwnedResource.m_colorTargets.size(), taskOwnedResource.m_depthTargets.data(),
-            taskOwnedResource.m_depthTargets.size(), m_info.m_device);
+            taskOwnedResource.m_depthTargets.size(), m_vulkanContext->m_logicalDevice);
     }
 
-    vkDestroyPipeline(m_info.m_device, m_pipeline, nullptr);
-    vkDestroyShaderModule(m_info.m_device, m_vertexShaderModule, nullptr);
-    vkDestroyShaderModule(m_info.m_device, m_fragmentShaderModule, nullptr);
+    if(m_pipeline != VK_NULL_HANDLE)
+        vkDestroyPipeline(m_vulkanContext->m_logicalDevice, m_pipeline, nullptr);
+    if(m_vertexShaderModule != VK_NULL_HANDLE)
+        vkDestroyShaderModule(m_vulkanContext->m_logicalDevice, m_vertexShaderModule, nullptr);
+    if (m_fragmentShaderModule != VK_NULL_HANDLE)
+        vkDestroyShaderModule(m_vulkanContext->m_logicalDevice, m_fragmentShaderModule, nullptr);
 
-    vkDestroyPipelineLayout(m_info.m_device, m_pipelineLayout, nullptr);
+    if (m_pipelineLayout != VK_NULL_HANDLE)
+        vkDestroyPipelineLayout(m_vulkanContext->m_logicalDevice, m_pipelineLayout, nullptr);
     for (auto& layout : m_setLayouts)
-        vkDestroyDescriptorSetLayout(m_info.m_device, layout, nullptr);
+        vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, layout, nullptr);
 
     if (m_descriptorPool != VK_NULL_HANDLE)
-        vkDestroyDescriptorPool(m_info.m_device, m_descriptorPool, nullptr);
+        vkDestroyDescriptorPool(m_vulkanContext->m_logicalDevice, m_descriptorPool, nullptr);
 
     if(m_commandPool != VK_NULL_HANDLE)
-        vkDestroyCommandPool(m_info.m_device, m_commandPool, nullptr);
+        vkDestroyCommandPool(m_vulkanContext->m_logicalDevice, m_commandPool, nullptr);
 }
 
 const std::vector<VkImageView>& Loops::Tasking::GraphicsTask::GetColorAttachmentViews() const
@@ -126,6 +182,6 @@ void Loops::Tasking::GraphicsTask::Submit(uint32_t frameInFlight, const VkSemaph
     // If the threads are being killed, we need to skip the queue submission to allow the program to exit gracefully
     //if (m_alive)
     {
-        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_info.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_vulkanContext->m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
     }
 }

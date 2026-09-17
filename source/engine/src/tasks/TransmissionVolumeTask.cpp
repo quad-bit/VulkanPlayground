@@ -1,43 +1,62 @@
-#include "tasks/PhongShadingTask.h"
+#include "tasks/TransmissionVolumeTask.h"
 #include "LightManager.h"
-#include "TextureManager.h"
 #include "MaterialManager.h"
+#include "TextureManager.h"
+#include "memory/MemoryManager.h"
+#include "VulkanWrappers.h"
 
-void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValue> clearColorValue,
+void Loops::Tasking::TransmissionVolumeTask::Init(
+    std::optional<const VkClearColorValue> clearColorValue,
     std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-    const Loops::MaterialManager* pMaterialManager, const VkDescriptorSetLayout& transformSetLayout)
+    const Loops::MaterialManager* pMaterialManager,
+    const VkDescriptorSetLayout& transformSetLayout)
 {
-    VkCommandPoolCreateInfo createInfo{};
-    createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
-    createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+}
 
-    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
+Loops::Tasking::TransmissionVolumeTask::TransmissionVolumeTask(
+    const VkUtils::VulkanContext * const vulkanContext,
+    uint32_t graphicsQueueFamilyIndex,
+    const std::vector<VkDescriptorSet>& sceneSets,
+    const std::vector<VkDescriptorSet>& transformSets,
+    const VkDescriptorSetLayout& sceneSetLayout,
+    const VkDescriptorSetLayout& transformSetLayout,
+    const std::vector<VkImageView>& opaqueColorImageCopyViews,
+    const std::vector<VkImageView>& opaqueDepthImageCopyViews,
+    const std::vector<VkImageView>& backDepthImageViews,
+    const std::vector<VkImageView>& colorTargetViews,
+    const std::vector<VkImageView>& depthTargetViews,
+    const VkFormat& colorFormat, const VkFormat& depthFormat,
+    const Loops::MaterialManager* pMaterialManager,
+    bool createCommandBuffers) :
+    GraphicsTask("TransmissionVolumeTask", vulkanContext, colorTargetViews, depthTargetViews,
+        colorFormat, depthFormat),
+    m_backDepthImageViews(backDepthImageViews),
+    m_opaqueColorImageCopyViews(opaqueColorImageCopyViews),
+    m_opaqueDepthImageCopyViews(opaqueDepthImageCopyViews)
+{
+    if (createCommandBuffers)
+    {
+        VkCommandPoolCreateInfo createInfo{};
+        createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
+        createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-    m_commandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
-    VkCommandBufferAllocateInfo alloc_info{};
-    alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
-    alloc_info.commandPool = m_commandPool;
-    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
 
-    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
+        m_commandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
+        VkCommandBufferAllocateInfo alloc_info{};
+        alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
+        alloc_info.commandPool = m_commandPool;
+        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+
+        Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
+    }
 
     {
-        // set 0 for scene & Light & directionalShadowMap & directionalShadowMap
+        // set 0 for scene & Light & directionalShadowMap
         {
-            VkDescriptorSetLayoutBinding bindings[3]
-            {
-                {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
-                LightManager::GetInstance()->GetLightDataBinding(),
-                LightManager::GetInstance()->GetDirectionalShadowMapBinding()
-            };
-
-            VkDescriptorSetLayoutCreateInfo createInfo{};
-            createInfo.bindingCount = 3;
-            createInfo.pBindings = &bindings[0];
-            createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_customLayout[SCENE_SET]));
+            m_customLayout[SCENE_SET] = sceneSetLayout;
         }
 
         // Transform array set 1
@@ -52,59 +71,57 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
 
         // material array set 3
         {
-            VkDescriptorSetLayoutBinding bindings[1]
+            VkDescriptorSetLayoutBinding bindings[4]
             {
-                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},
+                {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+                {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+                {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
             };
 
             VkDescriptorSetLayoutCreateInfo createInfo{};
-            createInfo.bindingCount = 1;
+            createInfo.bindingCount = 4;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
             Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_customLayout[MATERIAL_SET]));
         }
 
-        VkDescriptorPoolSize pool_sizes[3] =
+        // create only the material descriptor set
+        VkDescriptorPoolSize pool_sizes[2] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_vulkanContext->m_maxFrameInFlights},
             {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * m_vulkanContext->m_maxFrameInFlights},
-            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 4 * m_vulkanContext->m_maxFrameInFlights}
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3 * m_vulkanContext->m_maxFrameInFlights}
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 4 * m_vulkanContext->m_maxFrameInFlights;
-        poolInfo.poolSizeCount = 3;
+        poolInfo.maxSets = 2 * m_vulkanContext->m_maxFrameInFlights;
+        poolInfo.poolSizeCount = 2;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
         Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext->m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
     }
 
-    /*layout(push_constant) uniform PushConsts
     {
-        int transformIndex;
-        int materialIndex;
-    };*/
-
-
-    std::array<VkPushConstantRange, 1> range
-    {
-        VkPushConstantRange
+        std::array<VkPushConstantRange, 1> range
         {
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-            0,
-            sizeof(PushConsts)
-        }
-    };
+            VkPushConstantRange
+            {
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                0,
+                sizeof(PushConsts)
+            }
+        };
 
-    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
-    pipelineLayoutCreateInfo.pPushConstantRanges = range.data();
-    pipelineLayoutCreateInfo.pSetLayouts = m_customLayout.data();
-    pipelineLayoutCreateInfo.pushConstantRangeCount = (uint32_t)range.size();
-    pipelineLayoutCreateInfo.setLayoutCount = m_customLayout.size();
-    pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
+        pipelineLayoutCreateInfo.pPushConstantRanges = range.data();
+        pipelineLayoutCreateInfo.pSetLayouts = m_customLayout.data();
+        pipelineLayoutCreateInfo.pushConstantRangeCount = (uint32_t)range.size();
+        pipelineLayoutCreateInfo.setLayoutCount = m_customLayout.size();
+        pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+        Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+    }
 
     // pipeline
     {
@@ -115,8 +132,8 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
         pipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
 
         // Create pipeline
-        std::string vertSpvPath = std::string{ SPV_PATH } + "PhongShadingVert.spv";
-        std::string fragSpvPath = std::string{ SPV_PATH } + "PhongShadingFrag.spv";
+        std::string vertSpvPath = std::string{ SPV_PATH } + "VolumeTransmissionVert.spv";
+        std::string fragSpvPath = std::string{ SPV_PATH } + "VolumeTransmissionFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
         std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
@@ -238,110 +255,30 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
 
         Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
             nullptr, &m_pipeline));
-
-        pipelineRasterizationStateCreateInfo.cullMode = VK_CULL_MODE_NONE;
-        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
-            nullptr, &m_doubleSidedPipeline));
     }
 
     if (!m_ownAttachments)
     {
-        //Render pass
-        VkClearValue clearValues{ clearColorValue.has_value() ? clearColorValue.value() : VkClearColorValue{.0f, .0f, .0f, 1.0f} };
-        m_colorInfoList.resize(m_vulkanContext->m_maxFrameInFlights);
-
-        VkClearValue clearValuesDepth{};
-        clearValuesDepth.depthStencil = depthStencilClearValue.has_value() ? depthStencilClearValue.value() : VkClearDepthStencilValue{ 1.0f, 0u };
-        m_depthInfoList.resize(m_vulkanContext->m_maxFrameInFlights);
-
-        for (uint32_t i = 0; i < m_colorAttachmentViews.size(); i++)
-        {
-            m_colorInfoList[i].clearValue = clearValues;
-            m_colorInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-            m_colorInfoList[i].imageView = m_colorAttachmentViews[i];
-            m_colorInfoList[i].loadOp = clearColorValue.has_value() ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-            m_colorInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
-            m_colorInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        }
-
-        for (uint32_t i = 0; i < m_depthAttachmentViews.size(); i++)
-        {
-            m_depthInfoList[i].clearValue = clearValuesDepth;
-            m_depthInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-            m_depthInfoList[i].imageView = m_depthAttachmentViews[i];
-            m_depthInfoList[i].loadOp = depthStencilClearValue.has_value() ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-            m_depthInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
-            m_depthInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-        }
-
-        for (uint32_t i = 0; i < m_vulkanContext->m_maxFrameInFlights; i++)
-        {
-            VkRenderingInfo info{};
-            info.colorAttachmentCount = (1);
-            info.layerCount = (1);
-            info.pColorAttachments = &m_colorInfoList[i];
-            info.pDepthAttachment = (m_depthAttachmentViews.size() == m_colorAttachmentViews.size()) ? &m_depthInfoList[i] : &m_depthInfoList[0];
-            info.renderArea = VkRect2D{ {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
-            info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-            m_renderInfoList.push_back(std::move(info));
-        }
+        const bool clearTargetOnLoad{ false };
+        m_renderInfoList = VkUtils::CreateRenderingInfo(
+            colorTargetViews, depthTargetViews,
+            VkClearColorValue{ 1.0f, 1.0f, 1.0f, 1.0f },// dummy as not clearing
+            VkClearDepthStencilValue{ 1.0f, 0 },// dummy as not clearing
+            m_vulkanContext->m_renderDimensions.m_width,
+            m_vulkanContext->m_renderDimensions.m_height,
+            m_colorInfoList, m_depthInfoList,
+            clearTargetOnLoad
+        );
     }
 
-    // scene set 0
-    // binding 0 camera
-    // binding 1 lightdata
-    // binding 2 directionalShadowMap
-    {
-        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
-
-        // camera
-        // handled in sceneManager
-
-        // light
-        m_lightUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(LightUniform) * LightManager::MAX_LIGHTS);
-        VkUtils::CreateBufferVma(m_lightUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
-            Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_lightDataBuffer.m_vkBuffer, m_lightDataBuffer.m_vmaAllocation);
-        vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_lightDataBuffer.m_vmaAllocation, &m_lightUniformMemoryPointer);
-        ASSERT_MSG(m_lightUniformMemoryPointer != nullptr, "not mapped");
-
-        m_sceneSet.resize(numUniforms);
-        for (uint16_t i = 0; i < numUniforms; i++)
-        {
-            VkDescriptorSetAllocateInfo setAllocInfo{};
-            setAllocInfo.descriptorPool = m_descriptorPool;
-            setAllocInfo.descriptorSetCount = 1;
-            setAllocInfo.pSetLayouts = &m_customLayout[SCENE_SET];
-            setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-
-            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_sceneSet[i]));
-
-            {
-                VkDescriptorBufferInfo cameraBufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(CameraData) };
-                VkDescriptorBufferInfo lightBufferInfo{ m_lightDataBuffer.m_vkBuffer, i * m_lightUniformDataSizePerFrame, sizeof(LightUniform) * LightManager::MAX_LIGHTS };
-
-                // Get the shadowMaps from LightManager
-                const auto& directionalShadowMap = LightManager::GetInstance()->GetDirectionalLightShadowMap(i);
-                const auto& sampler = LightManager::GetInstance()->GetShadowSampler();
-                const VkDescriptorImageInfo directionalShadowMapInfo{sampler, directionalShadowMap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-
-                const VkWriteDescriptorSet writes[3]
-                {
-                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_sceneSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &cameraBufferInfo, nullptr},
-                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_sceneSet[i], 1, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &lightBufferInfo, nullptr},
-                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_sceneSet[i], 2, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &directionalShadowMapInfo, nullptr, nullptr}
-                };
-                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 3, writes, 0, nullptr);
-            }
-        }
-    }
-
+    // Scene set 0 is handled in Opaque
     // Transform set 1 is handled in SceneManager
     // Texture set 2 is handled in TextureManager
     // Material set 3
     {
-        const uint16_t numUniforms = 1;// m_vulkanContext->m_maxFrameInFlights;
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;// as set contains the opaque renderTargets also
 
-        m_materialUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(PhongMaterialUniform) * MaterialManager::MAX_MATERIALS);
+        m_materialUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(VolumeMaterialUniform) * MaterialManager::MAX_MATERIALS);
         VkUtils::CreateBufferVma(m_materialUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vkBuffer, m_materialBuffer.m_vmaAllocation);
         vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vmaAllocation, &m_materialUniformMemoryPointer);
@@ -352,19 +289,46 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
             m_materialArray.resize(MaterialManager::MAX_MATERIALS);
             for (const auto& [index, material] : materialMap)
             {
-                if (material.m_effect == EFFECT_TYPE::OPAQUE_EFT && (material.m_techniqueType == TECHNIQUE_TYPE::PBR || material.m_techniqueType == TECHNIQUE_TYPE::PBR_DOUBLE_SIDED))
+                if (material.m_effect == EFFECT_TYPE::TRANSLUCENT_EFT && (material.m_techniqueType == TECHNIQUE_TYPE::VOLUME_TRANSMISSION))
                 {
-                    m_materialArray[index].m_color = material.m_materialData->m_baseColorFactor;
+                    /*m_materialArray[index].m_color = material.m_materialData->m_baseColorFactor;
                     m_materialArray[index].m_diffuseMapIndex = material.m_materialData->m_baseColorTextureIndex;
                     const PbrMaterial* pbr = static_cast<const PbrMaterial*>(material.m_materialData);
-                    m_materialArray[index].m_normalMapIndex = pbr->m_normalTextureIndex;
+                    m_materialArray[index].m_normalMapIndex = pbr->m_normalTextureIndex;*/
+
+                    const VolumeTransmissionMaterial* volTr = static_cast<const VolumeTransmissionMaterial*>(material.m_materialData);
+
+                    m_materialArray[index].m_attenuationColor = volTr->m_attenuationColor;
+                    m_materialArray[index].m_attenuationDistance = volTr->m_thicknessFactor;
+                    m_materialArray[index].m_metallicRoughnessTextureIndex = volTr->m_metallicRoughnessTextureIndex;
+                    m_materialArray[index].m_normalTextureIndex = volTr->m_normalTextureIndex;
+                    m_materialArray[index].m_transmissionFactor = volTr->m_transmissionFactor;
                 }
                 /*else
                     ASSERT_MSG_DEBUG(0, "case not handled");*/
             }
 
             ASSERT_MSG(m_materialUniformMemoryPointer != nullptr, "not yet mapped");
-            memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_materialUniformMemoryPointer)), m_materialArray.data(), sizeof(PhongMaterialUniform) * MaterialManager::MAX_MATERIALS);
+            memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_materialUniformMemoryPointer)), m_materialArray.data(), sizeof(VolumeMaterialUniform) * MaterialManager::MAX_MATERIALS);
+        }
+
+        // Sampler
+        {
+            VkSamplerCreateInfo samplerInfo{};
+            samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+            samplerInfo.magFilter = VK_FILTER_LINEAR;
+            samplerInfo.minFilter = VK_FILTER_LINEAR;
+            samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+            samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+            samplerInfo.compareEnable = VK_TRUE;                 // Enable comparison
+            samplerInfo.compareOp = VK_COMPARE_OP_LESS;          // Compare reference vs sampled depth
+            samplerInfo.maxAnisotropy = 1.0f;
+            samplerInfo.minLod = 0.0f;
+            samplerInfo.maxLod = 1.0f;
+
+            VkUtils::ErrorCheck(vkCreateSampler(m_vulkanContext->m_logicalDevice, &samplerInfo, nullptr, &m_sampler));
         }
 
         {
@@ -379,70 +343,30 @@ void Loops::Tasking::PhongShadingTask::Init(std::optional<const VkClearColorValu
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
                 Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_materialSet[i]));
 
-                VkDescriptorBufferInfo bufferInfo{ m_materialBuffer.m_vkBuffer, i * m_materialUniformDataSizePerFrame, m_materialUniformDataSizePerFrame };
-                const VkWriteDescriptorSet writes
+                const VkDescriptorBufferInfo bufferInfo{ m_materialBuffer.m_vkBuffer, i * m_materialUniformDataSizePerFrame, m_materialUniformDataSizePerFrame };
+                const VkDescriptorImageInfo sceneColorImageInfo{ m_sampler, m_opaqueColorImageCopyViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                const VkDescriptorImageInfo sceneDepthImageInfo{ m_sampler, m_opaqueDepthImageCopyViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                const VkDescriptorImageInfo backDepthImageInfo{ m_sampler, m_backDepthImageViews[i], VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                const VkWriteDescriptorSet writes[4]
                 {
-                    VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
+                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr},
+                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 1, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneColorImageInfo, nullptr, nullptr},
+                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 2, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sceneDepthImageInfo, nullptr, nullptr },
+                    {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 3, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &backDepthImageInfo, nullptr, nullptr }
                 };
-                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 4, writes, 0, nullptr);
             }
         }
     }
 }
 
-Loops::Tasking::PhongShadingTask::PhongShadingTask(const VkUtils::VulkanContext * const vulkanContext,
-    const std::vector<VkImageView>& colorViews,
-    const std::vector<VkImageView>& depthViews,
-    const VkFormat& colorFormat, const VkFormat& depthFormat,
-    std::optional<const VkClearColorValue> clearColorValue,
-    std::optional<const VkClearDepthStencilValue> depthStencilClearValue,
-    const Loops::MaterialManager* pMaterialManager,
-    const VkDescriptorSetLayout& transformSetLayout,
-    const Loops::VulkanBuffer& cameraBuffer,
-    size_t cameraUniformDataSizePerFrame) :
-    GraphicsTask("PhongShadingTask", vulkanContext, colorViews, depthViews,
-        colorFormat, depthFormat), m_cameraBuffer(cameraBuffer),
-    m_cameraUniformDataSizePerFrame(cameraUniformDataSizePerFrame)
-{
-    Init(clearColorValue, depthStencilClearValue, pMaterialManager, transformSetLayout);
-}
-
-void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
+void Loops::Tasking::TransmissionVolumeTask::Update(const uint32_t& frameInFlight,
     const VkSemaphore& timelineSem, uint64_t signalValue,
     std::optional<uint64_t> waitValue, const Loops::RenderData& renderData,
-    const Loops::SceneManager& sceneManager, const std::unordered_map<uint32_t,
-    Loops::Material>& materials, const VkDescriptorSet& transformSet)
+    const Loops::SceneManager& sceneManager, 
+    const std::unordered_map<uint32_t, Loops::Material>& materials,
+    const VkDescriptorSet& transformSet, const VkDescriptorSet& sceneSet)
 {
-    {
-        // set 0 binding 0 camera 
-        {
-            //handled in SceneManager
-        }
-
-        // set 0 binding 1 Light
-        {
-            const auto& lightUniforms = LightManager::GetInstance()->GetLightUniformArray();
-
-            ASSERT_MSG(m_lightUniformMemoryPointer != nullptr, "not yet mapped");
-            memcpy(reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(m_lightUniformMemoryPointer) + m_lightUniformDataSizePerFrame * frameInFlight), lightUniforms.data(), sizeof(LightUniform) * lightUniforms.size());
-        }
-    }
-
-    // set 1 binding 0 transform array
-    {
-        //handled in scene manager
-    }
-
-    // set 2 binding 0 texture array
-    {
-        // handled in TextureManager
-    }
-
-    // set 3 binding 0 material array
-    {
-        // copied in Init as its not changing during the update
-    }
-
     // Build Command Buffers
     {
         VkViewport viewport = { 0.0f, static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), static_cast<float>(m_vulkanContext->m_renderDimensions.m_width), -static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), 0.0f, 1.0f };
@@ -456,7 +380,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
 
         Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(m_commandBuffers[frameInFlight], &beginInfo));
 
-        auto RenderCommands = [this, &viewport, &scissor, &renderData, &sceneManager, &materials, &transformSet](uint32_t frameInFlight)
+        auto RenderCommands = [this, &viewport, &scissor, &sceneSet, &renderData, &sceneManager, &materials, &transformSet](uint32_t frameInFlight)
             {
                 vkCmdBeginRendering(m_commandBuffers[frameInFlight], &m_renderInfoList[frameInFlight]);
                 {
@@ -464,7 +388,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
                     vkCmdSetScissor(m_commandBuffers[frameInFlight], 0, 1, &scissor);
 
                     int boundVertexBuffer = -1, boundIndexBuffer = -1;
-                    auto techIt = renderData.m_drawablesPerMaterial.find(Loops::EFFECT_TYPE::OPAQUE_EFT);
+                    auto techIt = renderData.m_drawablesPerMaterial.find(Loops::EFFECT_TYPE::TRANSLUCENT_EFT);
                     if (techIt != renderData.m_drawablesPerMaterial.end())
                     {
                         // Bind descriptor sets
@@ -472,7 +396,7 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
                         // Transform set 1
                         // Texture set 2
                         // Materials set 3
-                        VkDescriptorSet set[4]{ m_sceneSet[frameInFlight],
+                        VkDescriptorSet set[4]{ sceneSet,
                             transformSet,
                             TextureManager::GetInstance()->GetTextureSet()[frameInFlight],
                             m_materialSet[0]
@@ -538,19 +462,11 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
                                 }
                             };
 
-                        auto pbrIt = techIt->second.find(Loops::TECHNIQUE_TYPE::PBR);
-                        auto pbrDSidedIt = techIt->second.find(Loops::TECHNIQUE_TYPE::PBR_DOUBLE_SIDED);
-                        if (pbrIt != techIt->second.end())
+                        auto volTrIt = techIt->second.find(Loops::TECHNIQUE_TYPE::VOLUME_TRANSMISSION);
+                        if (volTrIt != techIt->second.end())
                         {
                             vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-                            const std::vector<uint32_t>& drawableIndicies = pbrIt->second;
-                            RecordDraw(drawableIndicies);
-                        }
-                        
-                        if (pbrDSidedIt != techIt->second.end())
-                        {
-                            vkCmdBindPipeline(m_commandBuffers[frameInFlight], VK_PIPELINE_BIND_POINT_GRAPHICS, m_doubleSidedPipeline);
-                            const std::vector<uint32_t>& drawableIndicies = pbrDSidedIt->second;
+                            const std::vector<uint32_t>& drawableIndicies = volTrIt->second;
                             RecordDraw(drawableIndicies);
                         }
                     }
@@ -566,33 +482,12 @@ void Loops::Tasking::PhongShadingTask::Update(const uint32_t& frameInFlight,
     Submit(frameInFlight, timelineSem, signalValue, waitValue);
 }
 
-void Loops::Tasking::PhongShadingTask::Update(VkCommandBuffer& commandBuffer,
-    const uint32_t& frameInFlight, const Loops::RenderData& renderData,
-    const Loops::SceneManager& sceneManager, 
-    std::optional<CameraData> secondaryCameraData)
+Loops::Tasking::TransmissionVolumeTask::~TransmissionVolumeTask()
 {
-}
-
-const std::vector<VkDescriptorSet>& Loops::Tasking::PhongShadingTask::GetSceneSets() const
-{
-    return m_sceneSet;
-}
-
-const VkDescriptorSetLayout& Loops::Tasking::PhongShadingTask::GetSceneSetLayout() const
-{
-    return m_customLayout[SCENE_SET];
-}
-
-Loops::Tasking::PhongShadingTask::~PhongShadingTask()
-{
-    vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_customLayout[SCENE_SET], nullptr);
     vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_customLayout[MATERIAL_SET], nullptr);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_materialBuffer.m_vkBuffer, m_materialBuffer.m_vmaAllocation);
 
-    vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_lightDataBuffer.m_vmaAllocation);
-    vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_lightDataBuffer.m_vkBuffer, m_lightDataBuffer.m_vmaAllocation);
-
-    vkDestroyPipeline(m_vulkanContext->m_logicalDevice, m_doubleSidedPipeline, nullptr);
+    vkDestroySampler(m_vulkanContext->m_logicalDevice, m_sampler, nullptr);
 }

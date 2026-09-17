@@ -40,8 +40,8 @@ namespace Loops
             VkQueue m_graphicsQueue;
             uint32_t m_graphicsQueueFamilyIndex;
             uint32_t m_maxFrameInFlights;
-            uint32_t m_screenWidth, m_screenHeight;
-            uint32_t m_renderWidth, m_renderHeight;
+            Dimension m_renderDimensions;
+            Dimension m_screenDimensions;
         };
 
         void ErrorCheck(VkResult result);
@@ -179,8 +179,9 @@ namespace Loops
             std::vector<VkImage>& imageList,
             const VkQueue& queue,
             uint32_t queueFamilyIndex,
-            VkImageLayout oldLayout,
-            VkImageLayout newLayout
+            const VkImageLayout oldLayout,
+            const VkImageLayout newLayout,
+            const VkImageAspectFlags& aspectFlag
         );
 
         std::tuple<VkBuffer, VkDeviceMemory> CreateStagingBuffer(
@@ -211,6 +212,17 @@ namespace Loops
             std::vector<VkRenderingAttachmentInfo>& depthInfoList
         );
 
+        std::vector<VkRenderingInfo> CreateRenderingInfo(
+            const std::vector<VkImageView> colorViews,
+            const std::vector<VkImageView> depthViews,
+            const VkClearColorValue& clearColorValue,
+            const VkClearDepthStencilValue& depthStencilClearValue,
+            size_t imageWidth, size_t imageHeight,
+            std::vector<VkRenderingAttachmentInfo>& colorInfoList,
+            std::vector<VkRenderingAttachmentInfo>& depthInfoList,
+            bool clearAttachmentsOnLoad
+        );
+
         void DestroyRenderTargets(
             Loops::VulkanImage* colorTargets,
             uint32_t numColorTargets,
@@ -218,5 +230,23 @@ namespace Loops
             uint32_t numDepthTargets,
             const VkDevice& device
         );
+
+        struct VulkanRenderPassDebugInfo
+        {
+            const VkCommandBuffer& m_commandBuffer;
+            VulkanRenderPassDebugInfo(const VkCommandBuffer& commandBuffer, const char* passName) : m_commandBuffer(commandBuffer)
+            {
+                VkDebugUtilsLabelEXT labelInfo = {
+                    //.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_INFO_EXT,
+                    .pLabelName = passName
+                };
+                vkCmdBeginDebugUtilsLabelEXT(commandBuffer, &labelInfo);
+            }
+
+            ~VulkanRenderPassDebugInfo()
+            {
+                vkCmdEndDebugUtilsLabelEXT(m_commandBuffer);
+            }
+        };
     }
 }

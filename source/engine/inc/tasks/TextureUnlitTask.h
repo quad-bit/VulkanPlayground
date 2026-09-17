@@ -35,7 +35,7 @@ namespace Loops::Tasking
             std::optional<const VkClearDepthStencilValue> depthStencilClearValue);
 
     public:
-        TextureUnlitTask(const GraphicsTaskInfo& info,
+        TextureUnlitTask(const VkUtils::VulkanContext * const vulkanContext,
             const std::vector<VkImageView>& colorViews,
             const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat,

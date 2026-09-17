@@ -61,6 +61,7 @@ namespace Loops
         TEXTURED_UNLIT_DOUBLE_SIDED,
         LAMBERTIAN,
         LAMBERTIAN_DOUBLE_SIDED,
+        VOLUME_TRANSMISSION
     };
 
     struct MaterialData;
@@ -77,7 +78,7 @@ namespace Loops
     {
     public:
         glm::vec4 m_baseColorFactor = glm::vec4(1.0f);
-        int m_baseColorTextureIndex;
+        int m_baseColorTextureIndex = -1;
         uint32_t m_baseTextureCoordinateSet; // uv0 vs uv1
     };
 
@@ -119,6 +120,20 @@ namespace Loops
             SPECULAR_GLOSSINESS,
             NONE
         }m_pbrWorkflows{ NONE };
+    };
+
+    class VolumeTransmissionMaterial : public MaterialData
+    {
+    public:
+        int m_metallicRoughnessTextureIndex = -1;
+        int m_normalTextureIndex = -1;
+
+        // KHR_materials_transmission
+        int m_transmissionFactor = 1;
+
+        // KHR_materials_volume
+        glm::vec4 m_attenuationColor{ 1.0f };
+        float m_thicknessFactor = 1.0f;
     };
     // ============= MATERIAL ===============
 

@@ -11,6 +11,7 @@
 #include "tasks/TextureUnlitTask.h"
 //#include "tasks/BoundsRenderTask.h"
 #include "tasks/PhongShadingTask.h"
+#include "effects/TranslucentEffect.h"
 #include <memory>
 
 namespace Loops::Tasking
@@ -23,19 +24,24 @@ namespace Loops::Tasking
             UNINITIALIZED = 0,
             SHADOW_PASS_FINISHED = 1,
             OPAQUE_FINISHED = 2,
-            GUI_FINISHED = 3,
-            SAFE_TO_PRESENT = 4,
-            NUM_STAGES = 5
+            TRANSLUCENT_COPY_FINISHED = 3,
+            TRANSLUCENT_BACK_DEPTH_FINISHED = 4,
+            TRANSLUCENT_FINISHED = 5,
+            GUI_FINISHED = 6,
+            SAFE_TO_PRESENT = 7,
+            NUM_STAGES = 8
         };
 
         //std::unique_ptr<TextureUnlitTask> mp_textureUnlitTask;
         std::unique_ptr<PhongShadingTask> mp_phongShadingTask;
+        std::unique_ptr<TranslucentEffect> mp_translucentEffect;
         const MaterialManager* m_materialManager = nullptr;
+        std::vector<VkImage> m_defaultColorTargets, m_defaultDepthTargets;
 
     protected:
 
     public:
-        TexturingPipeline(const PipelineInfo& info,
+        TexturingPipeline(const VkUtils::VulkanContext * const vulkanContext,
             const std::unique_ptr<VulkanManager>& pVulkanManager,
             const std::unique_ptr<ImguiSystem>& imguiUtil,
             const Loops::MaterialManager* materialManager,

@@ -44,7 +44,7 @@ namespace Loops
         std::vector<VkRenderingAttachmentInfo> m_renderAttachmentInfoList;
         std::vector<VkRenderingInfo> m_renderingInfo;
 
-        VkUtils::VulkanContext m_vulkanContext;
+        const VkUtils::VulkanContext * m_vulkanContext = nullptr;
         std::vector<VkDescriptorSetLayout> m_layout;
         VkCommandPool m_commandPool = VK_NULL_HANDLE;
         std::vector<VkCommandBuffer> m_commandBuffers;
@@ -78,7 +78,7 @@ namespace Loops
         static constexpr uint32_t MAX_LIGHTS = 4;
         static LightManager* GetInstance();
         static void DeInit();
-        void Init(flecs::world& world, const VkUtils::VulkanContext& vulkanContext);
+        void Init(flecs::world& world, const VkUtils::VulkanContext* vulkanContext);
         PointLight* GetNewPointLight();
         DirectionalLight* GetDirectionalLight();
 

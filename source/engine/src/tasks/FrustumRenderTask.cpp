@@ -1,8 +1,8 @@
 #include "tasks/FrustumRenderTask.h"
 #include "memory/MemoryManager.h"
 
-Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& info, const VkPipelineRenderingCreateInfo& pipelineRenderingCreateInfo) 
-    : GraphicsTask("FrustumRenderTask", info)
+Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const VkUtils::VulkanContext * const vulkanContext, const VkPipelineRenderingCreateInfo& pipelineRenderingCreateInfo) 
+    : GraphicsTask("FrustumRenderTask", vulkanContext)
 {
     {
         m_setLayouts.resize(1);
@@ -16,21 +16,21 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& inf
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[0]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_setLayouts[0]));
         }
 
         VkDescriptorPoolSize pool_sizes[1] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_info.m_maxFrameInFlights},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_vulkanContext->m_maxFrameInFlights},
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = m_info.m_maxFrameInFlights; //camera 1
+        poolInfo.maxSets = m_vulkanContext->m_maxFrameInFlights; //camera 1
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext->m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
     }
 
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo{};
@@ -38,7 +38,7 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& inf
     pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
 
     {
         // Create pipeline
@@ -46,8 +46,8 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& inf
         std::string fragSpvPath = std::string{ SPV_PATH } + "FrustumFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
-        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
-        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
+        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -136,14 +136,14 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& inf
         graphicsPipelineCreateInfo.stageCount = 2;
         graphicsPipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_info.m_device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
             nullptr, &m_pipeline));
     }
 
     // Camera Uniform
     {
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
-        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(FrustumRenderTask::View));
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(FrustumRenderTask::View));
         VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
@@ -160,14 +160,14 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const GraphicsTaskInfo& inf
                 setAllocInfo.pSetLayouts = &m_setLayouts[0];
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_viewSet[i]));
+                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_viewSet[i]));
 
                 VkDescriptorBufferInfo bufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(FrustumRenderTask::View) };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
                 };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
             }
         }
     }

@@ -3,15 +3,15 @@
 #include "memory/MemoryManager.h"
 #include "tasks/WireFrameTask.h"
 
-//Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info) :
+//Loops::Tasking::WireFrameTask::WireFrameTask(const VkUtils::VulkanContext * const vulkanContext) :
 //    GraphicsTask("WireframeTask", info)
 //{
 //    //CreateAttachments();
 //    Init();
 //}
 
-Loops::Tasking::WireFrameTask::WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews,
-    const VkFormat& colorFormat) : GraphicsTask("WireframeTask", info, colorViews, colorFormat)
+Loops::Tasking::WireFrameTask::WireFrameTask(const VkUtils::VulkanContext * const vulkanContext, const std::vector<VkImageView>& colorViews,
+    const VkFormat& colorFormat) : GraphicsTask("WireframeTask", vulkanContext, colorViews, colorFormat)
 {
     Init();
 }
@@ -20,19 +20,19 @@ void Loops::Tasking::WireFrameTask::Init()
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    createInfo.queueFamilyIndex = m_info.m_queueFamilyIndex;
+    createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_info.m_device, &createInfo, nullptr, &m_commandPool));
+    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
 
-    m_commandBuffers.resize(m_info.m_maxFrameInFlights);
+    m_commandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
     VkCommandBufferAllocateInfo alloc_info{};
-    alloc_info.commandBufferCount = m_info.m_maxFrameInFlights;
+    alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
     alloc_info.commandPool = m_commandPool;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
+    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
 
     {
         // set 0 for camera, set 1 for transform
@@ -47,7 +47,7 @@ void Loops::Tasking::WireFrameTask::Init()
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_setLayouts[CAMERA_SET]));
         }
 
         {
@@ -60,21 +60,21 @@ void Loops::Tasking::WireFrameTask::Init()
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_setLayouts[TRANSFORM_SET]));
         }
 
         VkDescriptorPoolSize pool_sizes[1] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_info.m_maxFrameInFlights},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_vulkanContext->m_maxFrameInFlights},
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 3 * m_info.m_maxFrameInFlights; //camera 1, transforms 2
+        poolInfo.maxSets = 3 * m_vulkanContext->m_maxFrameInFlights; //camera 1, transforms 2
         poolInfo.poolSizeCount = 1;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext->m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
     }
 
     VkPushConstantRange range{};
@@ -89,13 +89,13 @@ void Loops::Tasking::WireFrameTask::Init()
     pipelineLayoutCreateInfo.setLayoutCount = m_setLayouts.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
 
     //Render pass
     VkClearValue clearValues{ VkClearColorValue{0.6033f, 0.6073f, 0.6133f, 1.0f} };
-    m_colorInfoList.resize(m_info.m_maxFrameInFlights);
+    m_colorInfoList.resize(m_vulkanContext->m_maxFrameInFlights);
 
-    for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
+    for (uint32_t i = 0; i < m_vulkanContext->m_maxFrameInFlights; i++)
     {
         m_colorInfoList[i].clearValue = clearValues;
         m_colorInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
@@ -105,14 +105,14 @@ void Loops::Tasking::WireFrameTask::Init()
         m_colorInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     }
 
-    for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
+    for (uint32_t i = 0; i < m_vulkanContext->m_maxFrameInFlights; i++)
     {
         VkRenderingInfo info{};
         info.colorAttachmentCount = (1);
         info.layerCount = (1);
         info.pColorAttachments = &m_colorInfoList[i];
         info.pDepthAttachment = nullptr;// &m_depthInfoList[i];
-        info.renderArea = VkRect2D{ {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+        info.renderArea = VkRect2D{ {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
         info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
         m_renderInfoList.push_back(std::move(info));
     }
@@ -129,8 +129,8 @@ void Loops::Tasking::WireFrameTask::Init()
         std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitColorFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
-        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
-        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
+        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -239,7 +239,7 @@ void Loops::Tasking::WireFrameTask::Init()
         graphicsPipelineCreateInfo.stageCount = 2;
         graphicsPipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_info.m_device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
             nullptr, &m_pipeline));
     }
 
@@ -254,8 +254,8 @@ void Loops::Tasking::WireFrameTask::Init()
         //    m_pCamera = std::make_unique<Loops::Camera>(camTransform, screenWidth / (float)screenHeight);
         //}
 
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
-        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(CameraData));
         VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame * numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
@@ -272,7 +272,7 @@ void Loops::Tasking::WireFrameTask::Init()
         //}
 
         //void* pData;
-        //Loops::VkUtils::ErrorCheck(vkMapMemory(m_info.m_device, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
+        //Loops::VkUtils::ErrorCheck(vkMapMemory(m_vulkanContext->m_logicalDevice, m_cameraUniformMemory, 0, sizeof(SceneUniform)* numUniforms, 0, &pData));
         //memcpy(pData, uniformArray.data(), sizeof(SceneUniform)* numUniforms);
 
         {
@@ -283,7 +283,7 @@ void Loops::Tasking::WireFrameTask::Init()
             setAllocInfo.pSetLayouts = &m_setLayouts[CAMERA_SET];
             setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, m_viewSet.data()));
+            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, m_viewSet.data()));
 
             for (uint16_t i = 0; i < numUniforms; i++)
             {
@@ -292,16 +292,16 @@ void Loops::Tasking::WireFrameTask::Init()
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
                 };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
             }
         }
     }
 
     // Transform Uniform
     {
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
 
-        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
         m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
         VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
@@ -321,14 +321,14 @@ void Loops::Tasking::WireFrameTask::Init()
                 setAllocInfo.pSetLayouts = &m_setLayouts[TRANSFORM_SET];
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
+                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_transformSets[i]));
 
                 VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
                 };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
             }
         }
     }
@@ -350,8 +350,8 @@ void Loops::Tasking::WireFrameTask::Update(const uint32_t& frameInFlight, const 
 
     // Build Command Buffers
     {
-        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
-        VkRect2D   scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+        VkViewport viewport = { 0.0f, static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), static_cast<float>(m_vulkanContext->m_renderDimensions.m_width), -static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), 0.0f, 1.0f };
+        VkRect2D   scissor = { {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
 
         Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
 

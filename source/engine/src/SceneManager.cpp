@@ -29,8 +29,17 @@ void Loops::SceneManager::Update(uint32_t currentFrameInFlight)
             glm::mat4 rotZMat = glm::rotate(t.m_eulerAngles.z, glm::vec3(0, 0, 1));
 
             auto rotationMat = rotZMat * rotYMat * rotXMat;
-
             t.m_modelMat = translationMat * rotationMat * scaleMat;
+
+            //glm::mat4 model = glm::mat4(1.0f);
+            //// Correct order: Translate * Rotate * Scale
+            //model = glm::translate(model, t.m_position);
+            //model = glm::rotate(model, t.m_eulerAngles.x, glm::vec3(1, 0, 0));
+            //model = glm::rotate(model, t.m_eulerAngles.y, glm::vec3(0, 1, 0));
+            //model = glm::rotate(model, t.m_eulerAngles.z, glm::vec3(0, 0, 1));
+
+            //model = glm::scale(model, t.m_scale);
+            //t.m_modelMat = model;
         }
 
         t.m_modelMatGlobal = matrixStack.top() * t.m_modelMat;
@@ -471,14 +480,14 @@ void Loops::SceneManager::CreateGlobalResources()
     //            setAllocInfo.descriptorSetCount = 1;
     //            setAllocInfo.pSetLayouts = &m_materialSetLayout;
     //            setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    //            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_materialSet[i]));
+    //            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_materialSet[i]));
 
     //            VkDescriptorBufferInfo bufferInfo{ m_materialBuffer.m_vkBuffer, i * m_materialUniformDataSizePerFrame, m_materialUniformDataSizePerFrame };
     //            const VkWriteDescriptorSet writes
     //            {
     //                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_materialSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
     //            };
-    //            vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+    //            vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
     //        }
     //    }
     }
@@ -671,6 +680,11 @@ const VkDescriptorSetLayout& Loops::SceneManager::GetTransformDescriptorSetLayou
 const VkDescriptorSet& Loops::SceneManager::GetTransformDescriptorSet(uint32_t frameIndex) const
 {
     return m_transformSets[frameIndex];
+}
+
+const std::vector<VkDescriptorSet>& Loops::SceneManager::GetTransformDescriptorSets() const
+{
+    return m_transformSets;
 }
 
 const Loops::VulkanBuffer& Loops::SceneManager::GetCameraBuffer() const

@@ -59,19 +59,19 @@ void Loops::LightManager::DeInitPrivate()
 {
     VkUtils::DestroyRenderTargets(nullptr, 0,
         m_depthTargets.data(), m_depthTargets.size(),
-        m_vulkanContext.m_logicalDevice);
+        m_vulkanContext->m_logicalDevice);
 
-    vkDestroyDescriptorSetLayout(m_vulkanContext.m_logicalDevice, m_layout[SCENE_SET], nullptr);
-    vkDestroyDescriptorSetLayout(m_vulkanContext.m_logicalDevice, m_layout[TRANSFORM_SET], nullptr);
+    vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_layout[SCENE_SET], nullptr);
+    vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_layout[TRANSFORM_SET], nullptr);
 
-    vkDestroyCommandPool(m_vulkanContext.m_logicalDevice, m_commandPool, nullptr);
-    vkDestroyDescriptorPool(m_vulkanContext.m_logicalDevice, m_descriptorPool, nullptr);
+    vkDestroyCommandPool(m_vulkanContext->m_logicalDevice, m_commandPool, nullptr);
+    vkDestroyDescriptorPool(m_vulkanContext->m_logicalDevice, m_descriptorPool, nullptr);
 
-    vkDestroyShaderModule(m_vulkanContext.m_logicalDevice, m_vertexShaderModule, nullptr);
-    vkDestroyShaderModule(m_vulkanContext.m_logicalDevice, m_fragmentShaderModule, nullptr);
+    vkDestroyShaderModule(m_vulkanContext->m_logicalDevice, m_vertexShaderModule, nullptr);
+    vkDestroyShaderModule(m_vulkanContext->m_logicalDevice, m_fragmentShaderModule, nullptr);
 
-    vkDestroyPipelineLayout(m_vulkanContext.m_logicalDevice, m_pipelineLayout, nullptr);
-    vkDestroyPipeline(m_vulkanContext.m_logicalDevice, m_pipeline, nullptr);
+    vkDestroyPipelineLayout(m_vulkanContext->m_logicalDevice, m_pipelineLayout, nullptr);
+    vkDestroyPipeline(m_vulkanContext->m_logicalDevice, m_pipeline, nullptr);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);
@@ -79,7 +79,7 @@ void Loops::LightManager::DeInitPrivate()
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
-    vkDestroySampler(m_vulkanContext.m_logicalDevice, m_shadowSampler, nullptr);
+    vkDestroySampler(m_vulkanContext->m_logicalDevice, m_shadowSampler, nullptr);
 }
 
 void Loops::LightManager::DeInit()
@@ -88,7 +88,7 @@ void Loops::LightManager::DeInit()
     delete s_instancePtr;
 }
 
-void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext& vulkanContext)
+void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext* vulkanContext)
 {
     world.system<Transform, Light>("LightSystem")
         //.kind(0)
@@ -149,8 +149,8 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
 
         // setup render target for depth pass
         {
-            m_depthTargets.resize(vulkanContext.m_maxFrameInFlights);
-            m_renderAttachmentInfoList.resize(vulkanContext.m_maxFrameInFlights);
+            m_depthTargets.resize(vulkanContext->m_maxFrameInFlights);
+            m_renderAttachmentInfoList.resize(vulkanContext->m_maxFrameInFlights);
             std::vector<VkRenderingAttachmentInfo> temp;
 
             VkFormat tempFormat;
@@ -161,7 +161,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                 m_depthTargets.data(), m_depthTargets.size(),
                 tempFormat, depthFormatValue,
                 SHADOWMAP_WIDTH, SHADOWMAP_HEIGHT,
-                vulkanContext.m_logicalDevice,
+                vulkanContext->m_logicalDevice,
                 {}, depthClearValue,
                 temp, m_renderAttachmentInfoList);
 
@@ -172,29 +172,30 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                 m_depthTargetLayouts.push_back(VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
             }
 
-            VkUtils::ChangeImageLayout(vulkanContext.m_logicalDevice,
-                images, vulkanContext.m_graphicsQueue,
-                vulkanContext.m_graphicsQueueFamilyIndex,
-                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+            VkUtils::ChangeImageLayout(vulkanContext->m_logicalDevice,
+                images, vulkanContext->m_graphicsQueue,
+                vulkanContext->m_graphicsQueueFamilyIndex,
+                VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT | VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT);
         }
 
         //setup Command and descriptor pools, descriptor layout
         {
             VkCommandPoolCreateInfo createInfo{};
             createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-            createInfo.queueFamilyIndex = m_vulkanContext.m_graphicsQueueFamilyIndex;
+            createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
             createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-            Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext.m_logicalDevice, &createInfo, nullptr, &m_commandPool));
+            Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
 
-            m_commandBuffers.resize(m_vulkanContext.m_maxFrameInFlights);
+            m_commandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
             VkCommandBufferAllocateInfo alloc_info{};
-            alloc_info.commandBufferCount = m_vulkanContext.m_maxFrameInFlights;
+            alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
             alloc_info.commandPool = m_commandPool;
             alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-            Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext.m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
+            Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
 
             {
                 constexpr uint16_t numSets{ 2 };
@@ -210,7 +211,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                     createInfo.bindingCount = 1;
                     createInfo.pBindings = &bindings[0];
                     createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                    Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext.m_logicalDevice, &createInfo, nullptr, &m_layout[SCENE_SET]));
+                    Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_layout[SCENE_SET]));
                 }
 
                 // Transform array set 1
@@ -224,22 +225,22 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                     createInfo.bindingCount = 1;
                     createInfo.pBindings = &bindings[0];
                     createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-                    Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext.m_logicalDevice, &createInfo, nullptr, &m_layout[TRANSFORM_SET]));
+                    Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_layout[TRANSFORM_SET]));
                 }
 
                 VkDescriptorPoolSize pool_sizes[2] =
                 {
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_vulkanContext.m_maxFrameInFlights},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_vulkanContext.m_maxFrameInFlights}
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, m_vulkanContext->m_maxFrameInFlights},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, m_vulkanContext->m_maxFrameInFlights}
                 };
 
                 VkDescriptorPoolCreateInfo poolInfo{};
                 poolInfo.flags = 0;
-                poolInfo.maxSets = 2 * m_vulkanContext.m_maxFrameInFlights;
+                poolInfo.maxSets = 2 * m_vulkanContext->m_maxFrameInFlights;
                 poolInfo.poolSizeCount = 2;
                 poolInfo.pPoolSizes = pool_sizes;
                 poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-                Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext.m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
+                Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext->m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
             }
         }
 
@@ -262,7 +263,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
             pipelineLayoutCreateInfo.setLayoutCount = m_layout.size();
             pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-            Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext.m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+            Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
         }
 
         // create pipeline
@@ -280,8 +281,8 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
             std::string fragSpvPath = std::string{ SPV_PATH } + "DepthFrag.spv";
 
             VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
-            std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext.m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
-            std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext.m_logicalDevice, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+            std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
+            std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
 
             VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
             pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -383,7 +384,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
             graphicsPipelineCreateInfo.stageCount = 2;
             graphicsPipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-            Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext.m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+            Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
                 nullptr, &m_pipeline));
         }
 
@@ -392,10 +393,10 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
             // scene set 0
                 // binding 0 camera
             {
-                const uint16_t numUniforms = m_vulkanContext.m_maxFrameInFlights;
+                const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
 
                 // camera
-                m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext.m_physicalDevice, sizeof(CameraData));
+                m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(CameraData));
                 VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
                     Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
                 vmaMapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vmaAllocation, &m_cameraUniformMemoryPointer);
@@ -410,7 +411,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                     setAllocInfo.pSetLayouts = &m_layout[SCENE_SET];
                     setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                    Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext.m_logicalDevice, &setAllocInfo, &m_sceneSet[i]));
+                    Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_sceneSet[i]));
 
                     {
                         VkDescriptorBufferInfo cameraBufferInfo{ m_cameraBuffer.m_vkBuffer, i * m_cameraUniformDataSizePerFrame, sizeof(CameraData) };
@@ -419,16 +420,16 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                         {
                             {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_sceneSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &cameraBufferInfo, nullptr},
                         };
-                        vkUpdateDescriptorSets(m_vulkanContext.m_logicalDevice, 1, writes, 0, nullptr);
+                        vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, writes, 0, nullptr);
                     }
                 }
             }
 
             // transform set 1
             {
-                const uint16_t numUniforms = m_vulkanContext.m_maxFrameInFlights;
+                const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
 
-                const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+                const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
                 m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
                 VkUtils::CreateBufferVma(dataSizePerFrame* numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
@@ -448,14 +449,14 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
                         setAllocInfo.pSetLayouts = &m_layout[TRANSFORM_SET];
                         setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                        Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext.m_logicalDevice, &setAllocInfo, &m_transformSets[i]));
+                        Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_transformSets[i]));
 
                         VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                         const VkWriteDescriptorSet writes
                         {
                             VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
                         };
-                        vkUpdateDescriptorSets(m_vulkanContext.m_logicalDevice, 1, &writes, 0, nullptr);
+                        vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
                     }
                 }
             }
@@ -476,7 +477,7 @@ void Loops::LightManager::Init(flecs::world& world, const VkUtils::VulkanContext
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 1.0f;
 
-    VkUtils::ErrorCheck(vkCreateSampler(m_vulkanContext.m_logicalDevice, &samplerInfo, nullptr, &m_shadowSampler));
+    VkUtils::ErrorCheck(vkCreateSampler(m_vulkanContext->m_logicalDevice, &samplerInfo, nullptr, &m_shadowSampler));
 }
 
 Loops::PointLight* Loops::LightManager::GetNewPointLight()
@@ -730,6 +731,6 @@ void Loops::LightManager::Update(const uint32_t& frameInFlight,
             submitInfo.pWaitSemaphoreInfos = &waitInfo;
         }
 
-        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_vulkanContext.m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_vulkanContext->m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
     }
 }

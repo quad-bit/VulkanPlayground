@@ -137,6 +137,7 @@ namespace Loops
 
         const VkDescriptorSetLayout& GetTransformDescriptorSetLayout() const;
         const VkDescriptorSet& GetTransformDescriptorSet(uint32_t frameIndex) const;
+        const std::vector<VkDescriptorSet>& GetTransformDescriptorSets() const;
 
         const Loops::VulkanBuffer& GetCameraBuffer() const;
         const size_t GetCameraDataSizePerFrame() const;

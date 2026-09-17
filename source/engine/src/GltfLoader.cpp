@@ -889,59 +889,75 @@ namespace
 
             PrintMaterialType(mat);
             Loops::EFFECT_TYPE effectType{ GetEffectType(mat)};
-            Loops::TECHNIQUE_TYPE techniqueType{ GetTechniqueType(mat)};
+            Loops::TECHNIQUE_TYPE techniqueType{ Loops::TECHNIQUE_TYPE::PBR };
 
-            //float alphaCutoffValue = 1.0f;
-            //if (mat.additionalValues.find("alphaMode") != mat.additionalValues.end())
-            //{
-            //    tinygltf::Parameter param = mat.additionalValues.at("alphaMode");
-            //    if (param.string_value == "BLEND")
-            //        effectType = Loops::EFFECT_TYPE::TRANSPARENT_EFT;
-            //    if (param.string_value == "MASK")
-            //    {
-            //        alphaCutoffValue = 0.5f;
-            //        effectType = Loops::EFFECT_TYPE::APLHA_MASK_EFT;
-            //    }
-            //}
-            //if (mat.extensions.find("KHR_materials_unlit") != mat.extensions.end())
-            //{
-            //    PLOGD << "Unlit material";
-            //    Loops::ASSERT_MSG(0, "Unlit not handled");
-            //}
-            //else
-            //{
-            //    bool isMetallicRoughness = mat.pbrMetallicRoughness.baseColorFactor.size() > 0 ||
-            //        mat.pbrMetallicRoughness.baseColorTexture.index >= 0 ||
-            //        mat.pbrMetallicRoughness.metallicRoughnessTexture.index >= 0;
-
-            //    bool isSpecularGlossiness = false;
-            //    auto extIt = mat.extensions.find("KHR_materials_pbrSpecularGlossiness");
-            //    if (extIt != mat.extensions.end())
-            //        isSpecularGlossiness = true;
-
-            //    bool isPBR = false;
-            //    if (isMetallicRoughness || isSpecularGlossiness)
-            //        isPBR = true;
-
-            //    if (isPBR)
-            //    {
-            //        techniqueType = Loops::TECHNIQUE_TYPE::PBR;
-            //        matData = pMaterialManager->GetPbrMaterialRef();
-            //        CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
-            //    }
-            //    else
-            //        Loops::ASSERT_MSG_DEBUG(0, "Type not handled");
-            //}
-            //if (mat.doubleSided)
-            //{
-            //    //Loops::ASSERT_MSG_DEBUG(0, "Double sided not handled");
-            //}
-
-            if (techniqueType == Loops::TECHNIQUE_TYPE::PBR || techniqueType == Loops::TECHNIQUE_TYPE::PBR_DOUBLE_SIDED)
+            if (effectType == Loops::EFFECT_TYPE::OPAQUE_EFT)
             {
-                float alphaCutoffValue = 1.0f;
-                matData = pMaterialManager->GetPbrMaterialRef();
-                CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
+                techniqueType = GetTechniqueType(mat);
+                if (techniqueType == Loops::TECHNIQUE_TYPE::PBR || techniqueType == Loops::TECHNIQUE_TYPE::PBR_DOUBLE_SIDED)
+                {
+                    float alphaCutoffValue = 1.0f;
+                    matData = pMaterialManager->GetPbrMaterialRef();
+                    CreatePBRMaterial(mat, alphaCutoffValue, static_cast<Loops::PbrMaterial*>(matData));
+                }
+            }
+            else if (effectType == Loops::EFFECT_TYPE::TRANSLUCENT_EFT)
+            {
+                techniqueType = Loops::TECHNIQUE_TYPE::VOLUME_TRANSMISSION;
+                matData = pMaterialManager->GetVolumeTransmissionMaterialRef();
+
+                Loops::VolumeTransmissionMaterial* volTrMat = static_cast<Loops::VolumeTransmissionMaterial*>(matData);
+
+                if (!mat.extensions.empty())
+                {
+                    for (const auto& ext : mat.extensions)
+                    {
+                        if (mat.additionalValues.find("normalTexture") != mat.additionalValues.end())
+                        {
+                            volTrMat->m_normalTextureIndex = GetLocalIndex(mat.additionalValues.at("normalTexture").TextureIndex());
+                        }
+
+                        if (mat.values.find("baseColorFactor") != mat.values.end())
+                        {
+                            volTrMat->m_baseColorFactor = glm::make_vec4(mat.values.at("baseColorFactor").ColorFactor().data());
+                        }
+
+                        if (ext.first == "KHR_materials_transmission")
+                        {
+                            if (ext.second.Has("transmissionFactor"))
+                            {
+                                auto& value = ext.second.Get("transmissionFactor");
+                                volTrMat->m_transmissionFactor = (int)value.Get<int>();
+                            }
+                        }
+
+                        if (ext.first == "KHR_materials_volume")
+                        {
+                            if (ext.second.Has("attenuationColor"))
+                            {
+                                auto& factor = ext.second.Get("attenuationColor");
+                                for (uint32_t i = 0; i < factor.ArrayLen(); i++)
+                                {
+                                    auto& val = factor.Get(i);
+                                    volTrMat->m_attenuationColor[i] = val.IsNumber() ? (float)val.Get<double>() : (float)val.Get<int>();
+                                }
+                            }
+
+                            if (ext.second.Has("thicknessFactor"))
+                            {
+                                auto& value = ext.second.Get("thicknessFactor");
+                                volTrMat->m_thicknessFactor = (float)value.Get<double>();
+                            }
+                        }
+
+                        if (mat.values.find("pbrMetallicRoughness") != mat.values.end())
+                        {
+                            volTrMat->m_metallicRoughnessTextureIndex = GetLocalIndex(mat.values.at("metallicRoughnessTexture").TextureIndex());
+                            volTrMat->m_baseColorFactor = glm::make_vec4(mat.values.at("baseColorFactor").ColorFactor().data());
+
+                        }
+                    }
+                }
             }
 
             Loops::ASSERT_MSG_DEBUG(matData != nullptr, "mat data not filled up");

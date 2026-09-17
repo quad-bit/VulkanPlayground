@@ -31,11 +31,11 @@ namespace Loops::Tasking
         std::unique_ptr<RenderToImguiImage> m_renderToTexture;
 
     public:
-        ColorUnlitTask(const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
+        ColorUnlitTask(const VkUtils::VulkanContext * const vulkanContext, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
             const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue,
             const std::optional<VkClearDepthStencilValue>& depthStencilClearValue, bool renderOutputToTexture = false);
 
-        ColorUnlitTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
+        ColorUnlitTask(const VkUtils::VulkanContext * const vulkanContext, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat, std::optional<const VkClearColorValue> clearColorValue,
             std::optional<const VkClearDepthStencilValue> depthStencilClearValue);
 

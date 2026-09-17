@@ -2,25 +2,17 @@
 #include "BoundsManager.h"
 #include <optional>
 
-Loops::Tasking::WireframePipeline::WireframePipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager) :
-    Pipeline(info)
+Loops::Tasking::WireframePipeline::WireframePipeline(const VkUtils::VulkanContext * const vulkanContext, const std::unique_ptr<VulkanManager>& pVulkanManager) :
+    Pipeline(vulkanContext)
 {
     {
-        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
-        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_vulkanContext->m_logicalDevice, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_vulkanContext->m_logicalDevice, uint32_t(TimelineStages::NUM_STAGES)));
     }
 
-    GraphicsTaskInfo taskInfo = {};
-    taskInfo.m_device = pVulkanManager->GetLogicalDevice();
-    taskInfo.m_graphicsQueue = pVulkanManager->GetGraphicsQueue();
-    taskInfo.m_maxFrameInFlights = pVulkanManager->GetMaxFramesInFlight();
-    taskInfo.m_physicalDevice = pVulkanManager->GetPhysicalDevice();
-    taskInfo.m_renderDimensions = info.m_designDimensions;
-    taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
+    m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
 
-    m_pWireframeTask = std::make_unique<Loops::Tasking::WireFrameTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), VK_FORMAT_B8G8R8A8_UNORM);
-
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
         pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat());
 }
 
@@ -50,7 +42,7 @@ void Loops::Tasking::WireframePipeline::Update(uint32_t currentFrameInFlight, co
         waitInfo.semaphoreCount = 1;
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
 
-        Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
+        Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_vulkanContext->m_logicalDevice, &waitInfo, UINT64_MAX));
     }
 
     // Trigger wireframe tasks

@@ -61,7 +61,7 @@ namespace Loops::Tasking
             const VkDescriptorSetLayout& transformSetLayout);
 
     public:
-        PhongShadingTask(const GraphicsTaskInfo& info,
+        PhongShadingTask(const VkUtils::VulkanContext * const vulkanContext,
             const std::vector<VkImageView>& colorViews,
             const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat,
@@ -85,6 +85,9 @@ namespace Loops::Tasking
             const Loops::RenderData& renderData,
             const Loops::SceneManager& sceneManager,
             std::optional<CameraData> secondaryCameraData);
+
+        const std::vector<VkDescriptorSet>& GetSceneSets() const;
+        const VkDescriptorSetLayout& GetSceneSetLayout() const;
 
         ~PhongShadingTask();
     };

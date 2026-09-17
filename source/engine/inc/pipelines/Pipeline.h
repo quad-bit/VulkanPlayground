@@ -9,19 +9,6 @@
 
 namespace Loops::Tasking
 {
-    struct PipelineInfo
-    {
-        VkDevice m_device;
-        VkPhysicalDevice m_physicalDevice;
-        Dimension m_screenDimensions;
-        Dimension m_designDimensions;
-        VkQueue m_graphicsQueue = VK_NULL_HANDLE;
-        VkQueue m_computeQueue = VK_NULL_HANDLE;
-        uint32_t m_graphicsQueueFamilyIndex;
-        uint32_t m_computeQueueFamilyIndex;
-        uint32_t m_maxFrameInFlights;
-    };
-
     enum class PipelineType
     {
         WIREFRAME,
@@ -37,10 +24,10 @@ namespace Loops::Tasking
         std::vector<VkSemaphore> m_swapchainImageAcquiredSemaphores;
         std::vector<std::unique_ptr<TimelineSemaphore>> m_timelineSemaphores;
 
-        PipelineInfo m_info;
+        const VkUtils::VulkanContext * const m_vulkanContext = nullptr;
 
     public:
-        Pipeline(const PipelineInfo& info);
+        Pipeline(const VkUtils::VulkanContext * const vulkanContext);
         ~Pipeline();
     };
 }

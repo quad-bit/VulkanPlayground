@@ -343,7 +343,10 @@ std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow
         m_colorAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, VK_FORMAT_B8G8R8A8_UNORM/*m_surfaceFormat.format*/, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+            std::tie(m_colorAttachments[i], m_colorAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice,
+                m_physicalDevice, m_surfaceWidth, m_surfaceHeight,
+                VK_FORMAT_B8G8R8A8_UNORM/*m_surfaceFormat.format*/,
+                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
@@ -365,7 +368,7 @@ std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow
         m_depthAttachmentMemory.resize(m_maxFrameInFlight);
         for (int i = 0; i < m_maxFrameInFlight; ++i)
         {
-            std::tie(m_depthAttachments[i], m_depthAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            std::tie(m_depthAttachments[i], m_depthAttachmentMemory[i]) = Loops::VkUtils::CreateImage(m_logicalDevice, m_physicalDevice, m_surfaceWidth, m_surfaceHeight, m_depthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
             VkImageViewCreateInfo createInfo{};
             createInfo.components = { VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY,VK_COMPONENT_SWIZZLE_IDENTITY };
             createInfo.format = m_depthFormat;
@@ -380,8 +383,8 @@ std::tuple<uint32_t, uint32_t> Loops::VulkanManager::Init(GLFWwindow* glfwWindow
             Loops::VkUtils::ErrorCheck(vkCreateImageView(m_logicalDevice, &createInfo, nullptr, &m_depthAttachmentViews[i]));
         }
 
-        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_colorAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_colorAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT);
+        Loops::VkUtils::ChangeImageLayout(m_logicalDevice, m_depthAttachments, m_graphicsQueue, m_queueFamilyIndex, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT | VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT);
     }
 
     return std::tuple<uint32_t, uint32_t>{ (uint32_t)m_surfaceWidth, (uint32_t)m_surfaceHeight };

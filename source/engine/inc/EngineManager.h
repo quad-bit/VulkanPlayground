@@ -58,6 +58,8 @@ namespace Loops
         std::unique_ptr<Loops::IO::InputManager> mp_InputManager;
         BoundsManager m_boundsManager;
 
+        VkUtils::VulkanContext m_vulkanContext{};
+
         uint32_t m_maxFramesInFlight;
         std::unique_ptr<Timer> mp_Timer;
 

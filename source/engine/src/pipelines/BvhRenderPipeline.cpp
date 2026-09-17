@@ -3,36 +3,28 @@
 #include <optional>
 #include <vk_mem_alloc.h>
 
-Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const PipelineInfo& info, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil) :
-    Pipeline(info)
+Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const VkUtils::VulkanContext* const vulkanContext, const std::unique_ptr<VulkanManager>& pVulkanManager, const std::unique_ptr<ImguiSystem>& imguiUtil) :
+    Pipeline(vulkanContext)
 {
     {
-        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
-        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_info.m_device, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_vulkanContext->m_logicalDevice, uint32_t(TimelineStages::NUM_STAGES)));
+        m_timelineSemaphores.emplace_back(std::make_unique<Loops::TimelineSemaphore>(m_vulkanContext->m_logicalDevice, uint32_t(TimelineStages::NUM_STAGES)));
     }
-
-    GraphicsTaskInfo taskInfo = {};
-    taskInfo.m_device = pVulkanManager->GetLogicalDevice();
-    taskInfo.m_graphicsQueue = pVulkanManager->GetGraphicsQueue();
-    taskInfo.m_maxFrameInFlights = pVulkanManager->GetMaxFramesInFlight();
-    taskInfo.m_physicalDevice = pVulkanManager->GetPhysicalDevice();
-    taskInfo.m_renderDimensions = info.m_designDimensions;
-    taskInfo.m_queueFamilyIndex = info.m_graphicsQueueFamilyIndex;
 
     //VkFormat colorFormat{ VK_FORMAT_B8G8R8A8_UNORM };
     VkFormat colorFormat{ pVulkanManager->GetSurfaceColorFormat()};
 
 #ifdef BVH_SCENE_VIEW_ENABLED
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_info.m_maxFrameInFlights, 1, colorFormat,
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
 
-    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_info.m_maxFrameInFlights, 1, colorFormat,
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue(), true);
     imguiUtil->CreateRenderingInfo(VkClearColorValue{0.0f, 0.0f, 0.0f, 1.0f});
 #else
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
         pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat());
-    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
         pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
     imguiUtil->CreateRenderingInfo();
 #endif // BVH_SCENE_VIEW_ENABLED
@@ -70,7 +62,7 @@ void Loops::Tasking::BvhRenderPipeline::Update(uint32_t currentFrameInFlight, co
         waitInfo.semaphoreCount = 1;
         waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
 
-        Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_info.m_device, &waitInfo, UINT64_MAX));
+        Loops::VkUtils::ErrorCheck(vkWaitSemaphores(m_vulkanContext->m_logicalDevice, &waitInfo, UINT64_MAX));
     }
 
     // Get the active swapchain index

@@ -34,11 +34,15 @@ set(CORE_FILES
     inc/tasks/BoundsRenderTask.h
     inc/tasks/FrustumRenderTask.h
     inc/tasks/PhongShadingTask.h
+    inc/tasks/TransmissionVolumeTask.h
+    inc/tasks/DepthRenderTask.h
     inc/tasks/Task.h
     inc/pipelines/Pipeline.h
     inc/pipelines/WireframePipeline.h
     inc/pipelines/BvhRenderPipeline.h
     inc/pipelines/TexturingPipeline.h
+    inc/effects/OpaqueEffect.h
+    inc/effects/TranslucentEffect.h
 
     inc/input/InputManager.h
     inc/input/MouseInputManager.h
@@ -87,11 +91,15 @@ set(CORE_FILES
     src/tasks/BoundsRenderTask.cpp
     src/tasks/FrustumRenderTask.cpp
     src/tasks/PhongShadingTask.cpp
+    src/tasks/TransmissionVolumeTask.cpp
+    src/tasks/DepthRenderTask.cpp
     src/tasks/Task.cpp
     src/pipelines/Pipeline.cpp
     src/pipelines/WireframePipeline.cpp
     src/pipelines/BvhRenderPipeline.cpp
     src/pipelines/TexturingPipeline.cpp
+    src/effects/OpaqueEffect.cpp
+    src/effects/TranslucentEffect.cpp
 
     src/memory/MemoryManager.cpp
     src/memory/LinearPoolAllocator.cpp
@@ -158,6 +166,8 @@ add_custom_command(
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/PhongShading.frag -o ${SPV_PATH}/PhongShadingFrag.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Depth.vert -o ${SPV_PATH}/DepthVert.spv
     COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/Depth.frag -o ${SPV_PATH}/DepthFrag.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/VolumeTransmission.vert -o ${SPV_PATH}/VolumeTransmissionVert.spv
+    COMMAND glslangvalidator -V ${ASSETS_PATH}/shaders/VolumeTransmission.frag -o ${SPV_PATH}/VolumeTransmissionFrag.spv
 )
 
 add_dependencies(${TARGET_NAME} generateShaderBinaries)

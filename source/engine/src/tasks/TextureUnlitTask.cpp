@@ -7,19 +7,19 @@ void Loops::Tasking::TextureUnlitTask::Init(
 {
     VkCommandPoolCreateInfo createInfo{};
     createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    createInfo.queueFamilyIndex = m_info.m_queueFamilyIndex;
+    createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
     createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_info.m_device, &createInfo, nullptr, &m_commandPool));
+    Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
 
-    m_commandBuffers.resize(m_info.m_maxFrameInFlights);
+    m_commandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
     VkCommandBufferAllocateInfo alloc_info{};
-    alloc_info.commandBufferCount = m_info.m_maxFrameInFlights;
+    alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
     alloc_info.commandPool = m_commandPool;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_info.m_device, &alloc_info, &m_commandBuffers[0]));
+    Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_commandBuffers[0]));
 
     {
         // set 0 for camera,  set 1 for transform, set 2 for textureArray,
@@ -33,7 +33,7 @@ void Loops::Tasking::TextureUnlitTask::Init(
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_customLayout[CAMERA_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_customLayout[CAMERA_SET]));
         }
 
         {
@@ -50,22 +50,22 @@ void Loops::Tasking::TextureUnlitTask::Init(
             createInfo.bindingCount = 1;
             createInfo.pBindings = &bindings[0];
             createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_info.m_device, &createInfo, nullptr, &m_customLayout[TRANSFORM_SET]));
+            Loops::VkUtils::ErrorCheck(vkCreateDescriptorSetLayout(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_customLayout[TRANSFORM_SET]));
         }
 
         VkDescriptorPoolSize pool_sizes[2] =
         {
-            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_info.m_maxFrameInFlights},
-            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * m_info.m_maxFrameInFlights}
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4 * m_vulkanContext->m_maxFrameInFlights},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4 * m_vulkanContext->m_maxFrameInFlights}
         };
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.flags = 0;
-        poolInfo.maxSets = 4 * m_info.m_maxFrameInFlights; //camera 1, transforms 2
+        poolInfo.maxSets = 4 * m_vulkanContext->m_maxFrameInFlights; //camera 1, transforms 2
         poolInfo.poolSizeCount = 2;
         poolInfo.pPoolSizes = pool_sizes;
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_info.m_device, &poolInfo, nullptr, &m_descriptorPool));
+        Loops::VkUtils::ErrorCheck(vkCreateDescriptorPool(m_vulkanContext->m_logicalDevice, &poolInfo, nullptr, &m_descriptorPool));
     }
 
     std::array<VkPushConstantRange, 1> range
@@ -84,17 +84,17 @@ void Loops::Tasking::TextureUnlitTask::Init(
     pipelineLayoutCreateInfo.setLayoutCount = m_customLayout.size();
     pipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 
-    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_info.m_device, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
+    Loops::VkUtils::ErrorCheck(vkCreatePipelineLayout(m_vulkanContext->m_logicalDevice, &pipelineLayoutCreateInfo, nullptr, &m_pipelineLayout));
 
     if (!m_ownAttachments)
     {
         //Render pass
         VkClearValue clearValues{ clearColorValue.has_value() ? clearColorValue.value() : VkClearColorValue{.0f, .0f, .0f, 1.0f} };
-        m_colorInfoList.resize(m_info.m_maxFrameInFlights);
+        m_colorInfoList.resize(m_vulkanContext->m_maxFrameInFlights);
 
         VkClearValue clearValuesDepth{};
         clearValuesDepth.depthStencil = depthStencilClearValue.has_value() ? depthStencilClearValue.value() : VkClearDepthStencilValue{ 1.0f, 0u };
-        m_depthInfoList.resize(m_info.m_maxFrameInFlights);
+        m_depthInfoList.resize(m_vulkanContext->m_maxFrameInFlights);
 
         for (uint32_t i = 0; i < m_colorAttachmentViews.size(); i++)
         {
@@ -116,14 +116,14 @@ void Loops::Tasking::TextureUnlitTask::Init(
             m_depthInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         }
 
-        for (uint32_t i = 0; i < m_info.m_maxFrameInFlights; i++)
+        for (uint32_t i = 0; i < m_vulkanContext->m_maxFrameInFlights; i++)
         {
             VkRenderingInfo info{};
             info.colorAttachmentCount = (1);
             info.layerCount = (1);
             info.pColorAttachments = &m_colorInfoList[i];
             info.pDepthAttachment = (m_depthAttachmentViews.size() == m_colorAttachmentViews.size()) ? &m_depthInfoList[i] : &m_depthInfoList[0];
-            info.renderArea = VkRect2D{ {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+            info.renderArea = VkRect2D{ {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
             info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
             m_renderInfoList.push_back(std::move(info));
         }
@@ -141,8 +141,8 @@ void Loops::Tasking::TextureUnlitTask::Init(
         std::string fragSpvPath = std::string{ SPV_PATH } + "UnlitTexturedFrag.spv";
 
         VkPipelineShaderStageCreateInfo vertShaderStage, fragShaderStage;
-        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
-        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_info.m_device, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
+        std::tie(m_vertexShaderModule, vertShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, vertSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT);
+        std::tie(m_fragmentShaderModule, fragShaderStage) = Loops::VkUtils::CreateShaderModule(m_vulkanContext->m_logicalDevice, fragSpvPath, VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT);
 
         VkPipelineVertexInputStateCreateInfo pipelineVertexInputStateCreateInfo = {};
         pipelineVertexInputStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -255,14 +255,14 @@ void Loops::Tasking::TextureUnlitTask::Init(
         graphicsPipelineCreateInfo.stageCount = 2;
         graphicsPipelineCreateInfo.pNext = &pipelineRenderingCreateInfo;
 
-        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_info.m_device, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
+        Loops::VkUtils::ErrorCheck(vkCreateGraphicsPipelines(m_vulkanContext->m_logicalDevice, VK_NULL_HANDLE, 1, &graphicsPipelineCreateInfo,
             nullptr, &m_pipeline));
     }
 
     // Camera Uniform
     {
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
-        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(CameraData));
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
+        m_cameraUniformDataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(CameraData));
         VkUtils::CreateBufferVma(m_cameraUniformDataSizePerFrame* numUniforms, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_cameraBuffer.m_vkBuffer, m_cameraBuffer.m_vmaAllocation);
 
@@ -278,7 +278,7 @@ void Loops::Tasking::TextureUnlitTask::Init(
             setAllocInfo.pSetLayouts = &m_customLayout[CAMERA_SET];
             setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_viewSet[i]));
+            Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_viewSet[i]));
 
             //for (uint16_t i = 0; i < numUniforms; i++)
             {
@@ -287,16 +287,16 @@ void Loops::Tasking::TextureUnlitTask::Init(
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_viewSet[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, nullptr, &bufferInfo, nullptr
                 };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
             }
         }
     }
 
     // Transform Uniform
     {
-        const uint16_t numUniforms = m_info.m_maxFrameInFlights;
+        const uint16_t numUniforms = m_vulkanContext->m_maxFrameInFlights;
 
-        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_info.m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
+        const size_t dataSizePerFrame = VkUtils::GetMemoryAlignedDataSizeForBuffer(m_vulkanContext->m_physicalDevice, sizeof(glm::mat4) * MAX_ENTITIES);
         m_transformUniformDataSizePerFrame = dataSizePerFrame;
 
         VkUtils::CreateBufferVma(dataSizePerFrame * numUniforms, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
@@ -316,26 +316,26 @@ void Loops::Tasking::TextureUnlitTask::Init(
                 setAllocInfo.pSetLayouts = &m_customLayout[TRANSFORM_SET];
                 setAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 
-                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_info.m_device, &setAllocInfo, &m_transformSets[i]));
+                Loops::VkUtils::ErrorCheck(vkAllocateDescriptorSets(m_vulkanContext->m_logicalDevice, &setAllocInfo, &m_transformSets[i]));
 
                 VkDescriptorBufferInfo bufferInfo{ m_transformBuffer.m_vkBuffer, i * dataSizePerFrame, dataSizePerFrame };
                 const VkWriteDescriptorSet writes
                 {
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, m_transformSets[i], 0, 0, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, nullptr, &bufferInfo, nullptr
                 };
-                vkUpdateDescriptorSets(m_info.m_device, 1, &writes, 0, nullptr);
+                vkUpdateDescriptorSets(m_vulkanContext->m_logicalDevice, 1, &writes, 0, nullptr);
             }
         }
     }
 }
 
-Loops::Tasking::TextureUnlitTask::TextureUnlitTask(const GraphicsTaskInfo& info,
+Loops::Tasking::TextureUnlitTask::TextureUnlitTask(const VkUtils::VulkanContext * const vulkanContext,
     const std::vector<VkImageView>& colorViews,
     const std::vector<VkImageView>& depthViews,
     const VkFormat& colorFormat, const VkFormat& depthFormat,
     std::optional<const VkClearColorValue> clearColorValue,
     std::optional<const VkClearDepthStencilValue> depthStencilClearValue) :
-    GraphicsTask("TextureUnlitTask", info, colorViews, depthViews,
+    GraphicsTask("TextureUnlitTask", vulkanContext, colorViews, depthViews,
         colorFormat, depthFormat)
 {
     Init(clearColorValue, depthStencilClearValue);
@@ -357,8 +357,8 @@ void Loops::Tasking::TextureUnlitTask::Update(const uint32_t& frameInFlight,
 
     // Build Command Buffers
     {
-        VkViewport viewport = { 0.0f, static_cast<float>(m_info.m_renderDimensions.m_height), static_cast<float>(m_info.m_renderDimensions.m_width), -static_cast<float>(m_info.m_renderDimensions.m_height), 0.0f, 1.0f };
-        VkRect2D scissor = { {0, 0}, {m_info.m_renderDimensions.m_width, m_info.m_renderDimensions.m_height} };
+        VkViewport viewport = { 0.0f, static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), static_cast<float>(m_vulkanContext->m_renderDimensions.m_width), -static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), 0.0f, 1.0f };
+        VkRect2D scissor = { {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
 
         Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(m_commandBuffers[frameInFlight], 0));
 
@@ -525,8 +525,8 @@ void Loops::Tasking::TextureUnlitTask::Update(VkCommandBuffer& commandBuffer,
 
 Loops::Tasking::TextureUnlitTask::~TextureUnlitTask()
 {
-    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[0], nullptr);
-    vkDestroyDescriptorSetLayout(m_info.m_device, m_customLayout[1], nullptr);
+    vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_customLayout[0], nullptr);
+    vkDestroyDescriptorSetLayout(m_vulkanContext->m_logicalDevice, m_customLayout[1], nullptr);
 
     vmaUnmapMemory(Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vmaAllocation);
     vmaDestroyBuffer(Loops::Memory::MemoryManager::GetInstance()->GetVmaAllocator(), m_transformBuffer.m_vkBuffer, m_transformBuffer.m_vmaAllocation);

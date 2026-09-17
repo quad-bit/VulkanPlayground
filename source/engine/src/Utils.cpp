@@ -486,12 +486,13 @@ void Loops::VkUtils::CopyDataIntoHostCoherentMemory(const VkDevice & device, con
 }
 
 void Loops::VkUtils::ChangeImageLayout(const VkDevice& device, std::vector<VkImage>& imageList, const VkQueue& queue,
-    uint32_t queueFamilyIndex, VkImageLayout oldLayout, VkImageLayout newLayout)
+    uint32_t queueFamilyIndex, const VkImageLayout oldLayout, const VkImageLayout newLayout,
+    const VkImageAspectFlags& aspectFlag)
 {
-    VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+    /*VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
     if (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL ||
         newLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
-            aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;*/
 
     VkCommandPool pool = VK_NULL_HANDLE;
     VkCommandPoolCreateInfo info{};
@@ -826,6 +827,76 @@ std::vector<VkRenderingInfo> Loops::VkUtils::CreateRendertargets(Loops::VulkanIm
         if (numDepthTargets > 0)
         {
            info.pDepthAttachment = (numDepthTargets == 1) ? &depthInfoList[0] : &depthInfoList[i];
+        }
+
+        info.renderArea = VkRect2D{ {0, 0}, {static_cast<uint32_t>(imageWidth), static_cast<uint32_t>(imageHeight)} };
+        info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderingInfoList[i] = info;
+    }
+
+    return renderingInfoList;
+}
+
+std::vector<VkRenderingInfo> Loops::VkUtils::CreateRenderingInfo(
+    const std::vector<VkImageView> colorViews,
+    const std::vector<VkImageView> depthViews,
+    const VkClearColorValue& clearColorValue,
+    const VkClearDepthStencilValue& depthStencilClearValue,
+    size_t imageWidth, size_t imageHeight,
+    std::vector<VkRenderingAttachmentInfo>& colorInfoList,
+    std::vector<VkRenderingAttachmentInfo>& depthInfoList,
+    bool clearAttachmentsOnLoad)
+{
+    const uint32_t numColorTargets = (uint32_t)colorViews.size();
+    const uint32_t numDepthTargets = (uint32_t)depthViews.size();
+    const uint32_t numTargets{ std::max(numColorTargets, numDepthTargets) };
+
+    VkClearValue clearValues{};
+    clearValues.color = { clearColorValue };
+    clearValues.depthStencil = { depthStencilClearValue };
+
+    colorInfoList.resize(numColorTargets);
+    depthInfoList.resize(numDepthTargets);
+
+    for (uint32_t i = 0; i < numDepthTargets; i++)
+    {
+        depthInfoList[i].clearValue = clearValues;
+        depthInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthInfoList[i].imageView = depthViews[i];
+        depthInfoList[i].loadOp = clearAttachmentsOnLoad ? VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR : VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+        depthInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+        depthInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    }
+
+    for (uint32_t i = 0; i < numColorTargets; i++)
+    {
+        colorInfoList[i].clearValue = clearValues;
+        colorInfoList[i].imageLayout = VkImageLayout::VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+        colorInfoList[i].imageView = colorViews[i];
+        colorInfoList[i].loadOp = clearAttachmentsOnLoad ? VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_CLEAR : VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorInfoList[i].storeOp = VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+        colorInfoList[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    }
+
+    std::vector<VkRenderingInfo> renderingInfoList(numTargets);
+    for (uint32_t i = 0; i < numTargets; i++)
+    {
+        VkRenderingInfo info{};
+        info.pDepthAttachment = nullptr;
+        info.layerCount = 1;
+        info.colorAttachmentCount = 0;
+        info.pColorAttachments = nullptr;
+
+        if (numColorTargets > 0)
+        {
+            info.layerCount = 1;
+            info.colorAttachmentCount = 1;
+            info.pColorAttachments = &colorInfoList[i];
+        }
+
+        if (numDepthTargets > 0)
+        {
+            info.pDepthAttachment = (numDepthTargets == 1) ? &depthInfoList[0] : &depthInfoList[i];
         }
 
         info.renderArea = VkRect2D{ {0, 0}, {static_cast<uint32_t>(imageWidth), static_cast<uint32_t>(imageHeight)} };

@@ -21,15 +21,15 @@ namespace Loops::Tasking
         TRANSFER
     };
 
-    struct GraphicsTaskInfo
-    {
-        VkDevice m_device;
-        VkPhysicalDevice m_physicalDevice;
-        Dimension m_renderDimensions;
-        VkQueue m_graphicsQueue;
-        uint32_t m_queueFamilyIndex;
-        uint32_t m_maxFrameInFlights;
-    };
+    //struct GraphicsTaskInfo
+    //{
+    //    VkDevice m_device;
+    //    VkPhysicalDevice m_physicalDevice;
+    //    Dimension m_renderDimensions;
+    //    VkQueue m_graphicsQueue;
+    //    uint32_t m_queueFamilyIndex;
+    //    uint32_t m_maxFrameInFlights;
+    //};
 
     struct TaskOwnedResource
     {
@@ -75,25 +75,43 @@ namespace Loops::Tasking
         std::vector<VkDescriptorSetLayout> m_setLayouts;
         VkDescriptorPool m_descriptorPool = VK_NULL_HANDLE;
 
-        GraphicsTaskInfo m_info;
+        //GraphicsTaskInfo m_info;
+        const VkUtils::VulkanContext* const m_vulkanContext = nullptr;
 
         bool m_ownAttachments = false;
         void CreateAttachments(uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat, const std::optional<VkFormat>& depthFormat,
             const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue);
 
+        void CreateAttachments(uint32_t numDepthTargets,
+            const VkFormat& depthFormat,
+            const VkClearDepthStencilValue& depthStencilClearValue);
+
         void Submit(uint32_t frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue);
 
     public:
-        GraphicsTask(const char* name, const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
-            const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue);
+        GraphicsTask(const char* name, const VkUtils::VulkanContext * const vulkanContext,
+            uint32_t numColorTargets, uint32_t numDepthTargets,
+            const VkFormat& colorFormat, const std::optional<VkFormat>& depthFormat,
+            const VkClearColorValue& clearColorValue,
+            const std::optional<VkClearDepthStencilValue>& depthStencilClearValue);
 
-        GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
+        GraphicsTask(const char* name, const VkUtils::VulkanContext* const vulkanContext,
+            const std::vector<VkImageView>& colorViews,
+            const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat);
 
-        GraphicsTask(const char* name, const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
+        // Depth only
+        GraphicsTask(const char* name, const VkUtils::VulkanContext* const vulkanContext,
+            uint32_t numDepthTargets,
+            const VkFormat& depthFormat,
+            const VkClearDepthStencilValue& depthStencilClearValue);
+
+        // color only
+        GraphicsTask(const char* name, const VkUtils::VulkanContext* const vulkanContext,
+            const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
 
         // this will allow creation of pipeline and then recording command into a supplied command buffer
-        GraphicsTask(const char* name, const GraphicsTaskInfo& info);
+        GraphicsTask(const char* name, const VkUtils::VulkanContext* const vulkanContext);
 
         virtual ~GraphicsTask();
 

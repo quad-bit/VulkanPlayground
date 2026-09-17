@@ -78,10 +78,10 @@ namespace Loops::Tasking
         void Init();
 
     public:
-        BoundsRenderTask(const GraphicsTaskInfo& info, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
+        BoundsRenderTask(const VkUtils::VulkanContext * const vulkanContext, uint32_t numColorTargets, uint32_t numDepthTargets, const VkFormat& colorFormat,
             const std::optional<VkFormat>& depthFormat, const VkClearColorValue& clearColorValue, const std::optional<VkClearDepthStencilValue>& depthStencilClearValue);
 
-        BoundsRenderTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
+        BoundsRenderTask(const VkUtils::VulkanContext * const vulkanContext, const std::vector<VkImageView>& colorViews, const std::vector<VkImageView>& depthViews,
             const VkFormat& colorFormat, const VkFormat& depthFormat);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,

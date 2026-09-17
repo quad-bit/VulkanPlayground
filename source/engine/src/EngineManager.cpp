@@ -33,16 +33,13 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
     mp_VulkanManager = std::make_unique<VulkanManager>(info.m_screenSize.m_width, info.m_screenSize.m_height);
     auto dim = mp_VulkanManager->Init(mp_WindowManagerObj->glfwWindow);
 
-    const Loops::VkUtils::VulkanContext vulkanContext
-    {
-        mp_VulkanManager->GetLogicalDevice(),
-        mp_VulkanManager->GetPhysicalDevice(),
-        mp_VulkanManager->GetGraphicsQueue(),
-        mp_VulkanManager->GetQueueFamilyIndex(),
-        mp_VulkanManager->GetMaxFramesInFlight(),
-        info.m_screenSize.m_width, info.m_screenSize.m_height,
-        info.m_designSize.m_width, info.m_designSize.m_height,
-    };
+    m_vulkanContext.m_graphicsQueue = mp_VulkanManager->GetGraphicsQueue();
+    m_vulkanContext.m_graphicsQueueFamilyIndex = mp_VulkanManager->GetQueueFamilyIndex();
+    m_vulkanContext.m_logicalDevice = mp_VulkanManager->GetLogicalDevice();
+    m_vulkanContext.m_maxFrameInFlights = mp_VulkanManager->GetMaxFramesInFlight();
+    m_vulkanContext.m_physicalDevice = mp_VulkanManager->GetPhysicalDevice();
+    m_vulkanContext.m_renderDimensions = { info.m_designSize.m_width , info.m_designSize.m_height };
+    m_vulkanContext.m_screenDimensions = { info.m_screenSize.m_width , info.m_screenSize.m_height };
 
     Memory::MemoryManager::GetInstance()->InitVMA(mp_VulkanManager->GetPhysicalDevice(), mp_VulkanManager->GetLogicalDevice(), mp_VulkanManager->GetInstance());
 
@@ -79,7 +76,7 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
         mp_VulkanManager->GetMaxFramesInFlight(),
         info.m_screenSize, info.m_designSize);
 
-    LightManager::GetInstance()->Init(mp_SceneManager->m_world, vulkanContext);
+    LightManager::GetInstance()->Init(mp_SceneManager->m_world, &m_vulkanContext);
 
     ImguiEditor::GetInstance()->Init(mp_ImguiSystem.get(), mp_SceneManager.get(), &m_boundsManager);
 
@@ -106,30 +103,30 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
 
     TextureManager::GetInstance()->GetInstance()->CreateTextureDescriptorSet();
 
-    auto SetupWireframePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+    auto SetupWireframePipeline = [this]()
         {
-            mp_wireframePipeline = std::make_unique<Tasking::WireframePipeline>(pipelineInfo, mp_VulkanManager);
+            mp_wireframePipeline = std::make_unique<Tasking::WireframePipeline>(&m_vulkanContext, mp_VulkanManager);
         };
 
-    auto SetupBvhRenderPipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+    auto SetupBvhRenderPipeline = [this]()
         {
-            mp_bvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem);
+            mp_bvhRenderPipeline = std::make_unique<Tasking::BvhRenderPipeline>(&m_vulkanContext, mp_VulkanManager, mp_ImguiSystem);
         };
 
-    auto SetupTexturePipeline = [this](const Tasking::PipelineInfo& pipelineInfo)
+    auto SetupTexturePipeline = [this]()
         {
-            mp_texturePipeline = std::make_unique<Tasking::TexturingPipeline>(pipelineInfo, mp_VulkanManager, mp_ImguiSystem, mp_materialManager.get(), mp_SceneManager);
+            mp_texturePipeline = std::make_unique<Tasking::TexturingPipeline>(&m_vulkanContext, mp_VulkanManager, mp_ImguiSystem, mp_materialManager.get(), mp_SceneManager);
         };
 
     auto SetupPipeline = [this, &info,
         &SetupWireframePipeline,
         &SetupBvhRenderPipeline,
-        &SetupTexturePipeline ](
+        &SetupTexturePipeline](
             const std::vector<Tasking::PipelineType>& pipelineTypes)
         {
             m_activePipeline = info.m_pipelines[0];
 
-            Tasking::PipelineInfo pipelineInfo{};
+            /*Tasking::PipelineInfo pipelineInfo{};
             pipelineInfo.m_computeQueue = mp_VulkanManager->GetComputeQueue();
             pipelineInfo.m_computeQueueFamilyIndex = mp_VulkanManager->GetQueueFamilyIndex();
             pipelineInfo.m_device = mp_VulkanManager->GetLogicalDevice();
@@ -138,22 +135,22 @@ Loops::EngineManager::EngineManager(const Loops::EngineInfo& info, const AppCall
             pipelineInfo.m_maxFrameInFlights = mp_VulkanManager->GetMaxFramesInFlight();
             pipelineInfo.m_physicalDevice = mp_VulkanManager->GetPhysicalDevice();
             pipelineInfo.m_screenDimensions = info.m_screenSize;
-            pipelineInfo.m_designDimensions = info.m_designSize;
+            pipelineInfo.m_designDimensions = info.m_designSize;*/
 
             for (auto& type : info.m_pipelines)
             {
                 switch (type)
                 {
                     case Tasking::PipelineType::WIREFRAME:
-                        SetupWireframePipeline(pipelineInfo);
+                        SetupWireframePipeline();
                         break;
 
                     case Tasking::PipelineType::BVH_RENDER:
-                        SetupBvhRenderPipeline(pipelineInfo);
+                        SetupBvhRenderPipeline();
                         break;
 
                     case Tasking::PipelineType::TEXTURED:
-                        SetupTexturePipeline(pipelineInfo);
+                        SetupTexturePipeline();
                         break;
 
                     default :

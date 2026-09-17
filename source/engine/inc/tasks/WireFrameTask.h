@@ -32,9 +32,9 @@ namespace Loops::Tasking
         void Init();
 
     public:
-        //WireFrameTask(const GraphicsTaskInfo& info);
+        //WireFrameTask(const VkUtils::VulkanContext * const vulkanContext);
 
-        WireFrameTask(const GraphicsTaskInfo& info, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
+        WireFrameTask(const VkUtils::VulkanContext * const vulkanContext, const std::vector<VkImageView>& colorViews, const VkFormat& colorFormat);
 
         void Update(const uint32_t& frameInFlight, const VkSemaphore& timelineSem, uint64_t signalValue, std::optional<uint64_t> waitValue,
             const Loops::RenderData& renderData, const Loops::SceneManager& sceneManager);

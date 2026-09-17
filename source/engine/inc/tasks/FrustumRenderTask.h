@@ -24,7 +24,7 @@ namespace Loops::Tasking
         size_t m_cameraUniformDataSizePerFrame;
 
     public:
-        FrustumRenderTask(const GraphicsTaskInfo& info, const VkPipelineRenderingCreateInfo& pipelineRenderingCreateInfo);
+        FrustumRenderTask(const VkUtils::VulkanContext * const vulkanContext, const VkPipelineRenderingCreateInfo& pipelineRenderingCreateInfo);
         void Update(VkCommandBuffer& commandBuffer, const uint32_t& frameInFlight, const glm::mat4& viewProjectionActiveCamera,
             const glm::mat4& viewMat, const glm::mat4& projectionMat);
 

@@ -126,6 +126,14 @@ public:
         camTransform.m_position = glm::vec3(-10, 5, 0);
         camTransform.m_eulerAngles = glm::vec3(glm::radians(-25.0f), glm::radians(89.9f), glm::radians(0.0f));
 
+        auto pawn = m_world.lookup("ABeautifulGame_Root::Pawn_Body_W4");//::Pawn_Top_W4");
+        if (pawn.is_valid())
+        {
+            auto& pawnTransform = pawn.get_mut<Loops::Transform>();
+            pawnTransform.m_scale = glm::vec3(2.8f);
+            //pawnTransform.m_position = glm::vec3(-2.5f, -2.0f, 2.5f);
+        }
+
 #endif
         m_orbitScript = std::make_unique<OrbitalCamera>(m_camera, camTransform, glm::vec3(0.0f),
             glm::abs(camTransform.m_position.x));

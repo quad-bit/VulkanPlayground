@@ -35,14 +35,17 @@ public:
         Loops::ASSERT_MSG(m_camera.is_valid(), "Camera not found");
 
         Loops::Transform& camTransform = m_camera.get_mut<Loops::Transform>();
-        //camTransform.m_position = glm::vec3(0, 5, -15);
-        //camTransform.m_eulerAngles = glm::vec3(glm::radians(20.0f), glm::radians(0.0f), 0);
-
+        
         //camTransform.m_position = glm::vec3(0, 0, 0);
         //camTransform.m_eulerAngles = glm::vec3(glm::radians(0.0f), glm::radians(0.0f), 0);
 
+#if SCENE_TYPE == DEMO_SCENE
+        camTransform.m_position = glm::vec3(0, 40, 0);
+        camTransform.m_eulerAngles = glm::vec3(glm::radians(-89.9f), glm::radians(0.0f), 0);
+#else
         camTransform.m_position = glm::vec3(0, 0, 0);
         camTransform.m_eulerAngles = glm::vec3(0.0f, glm::radians(-89.9), 0.0f);
+#endif
     }
 
     void Update(const double& deltaTime)
@@ -61,9 +64,9 @@ public:
             const float speed = 1.0f;
 #else
             const float speed = 0.10f;
-#endif
             Loops::Transform& t = m_camera.get_mut<Loops::Transform>();
             t.m_eulerAngles.y += deltaTime * speed;
+#endif
             //t.m_position = glm::vec3(5.0f, 4.0f, 0.0f);
         }
 

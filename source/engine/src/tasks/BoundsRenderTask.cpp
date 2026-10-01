@@ -440,7 +440,7 @@ void Loops::Tasking::BoundsRenderTask::Init()
     }
     */
 
-    const GraphicsTaskInfo& taskInfo = m_info;
+    //const GraphicsTaskInfo& taskInfo = m_info;
 
     std::vector<VkImageView> colorViews, depthViews;
     for (auto& target : std::get<TaskOwnedResource>(m_taskResource).m_colorTargets)
@@ -452,8 +452,8 @@ void Loops::Tasking::BoundsRenderTask::Init()
     {
         depthViews.push_back(target.m_vkImageView);
     }
-    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, colorViews, depthViews, m_colorFormat, m_depthFormat, std::nullopt, std::nullopt);
-    m_frustumRenderTaskPtr = std::make_unique<Loops::Tasking::FrustumRenderTask>(taskInfo, m_pipelineRenderingCreateInfo);
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(m_vulkanContext, colorViews, depthViews, m_colorFormat, m_depthFormat, std::nullopt, std::nullopt);
+    m_frustumRenderTaskPtr = std::make_unique<Loops::Tasking::FrustumRenderTask>(m_vulkanContext, m_pipelineRenderingCreateInfo);
 
     m_renderToTexture = std::make_unique<RenderToImguiImage>("SceneView", m_vulkanContext->m_logicalDevice, m_vulkanContext->m_maxFrameInFlights, colorViews,
         m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height);

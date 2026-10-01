@@ -5,7 +5,6 @@
 #include <stdint.h>
 #include <variant>
 
-//#define BVH_SCENE_VIEW_ENABLED
 
 namespace Loops
 {

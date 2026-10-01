@@ -22,7 +22,7 @@ Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const VkUtils::VulkanContext * co
 Loops::Tasking::ColorUnlitTask::ColorUnlitTask(const VkUtils::VulkanContext * const vulkanContext, const std::vector<VkImageView>& colorViews,
     const std::vector<VkImageView>& depthViews, const VkFormat& colorFormat, const VkFormat& depthFormat, 
     std::optional<const VkClearColorValue> clearColorValue, std::optional<const VkClearDepthStencilValue> depthStencilClearValue) :
-    GraphicsTask("ColorUnlitTask", m_vulkanContext, colorViews, depthViews, colorFormat, depthFormat)
+    GraphicsTask("ColorUnlitTask", vulkanContext, colorViews, depthViews, colorFormat, depthFormat)
 {
     Init(clearColorValue, depthStencilClearValue);
 }

@@ -65,7 +65,7 @@ Loops::Tasking::FrustumRenderTask::FrustumRenderTask(const VkUtils::VulkanContex
         pipelineRasterizationStateCreateInfo.depthClampEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.rasterizerDiscardEnable = VK_FALSE;
         pipelineRasterizationStateCreateInfo.depthBiasEnable = VK_FALSE;
-        pipelineRasterizationStateCreateInfo.lineWidth = 1.0f;
+        pipelineRasterizationStateCreateInfo.lineWidth = 3.0f;
 
         VkPipelineColorBlendAttachmentState pipelineColorBlendAttachmentState = {};
         pipelineColorBlendAttachmentState.colorWriteMask = 0xF;

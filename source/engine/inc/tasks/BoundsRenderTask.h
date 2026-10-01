@@ -9,6 +9,8 @@
 #include "SceneManager.h"
 #include "imgui/RenderToImguiTexture.h"
 
+#define BVH_SCENE_VIEW_ENABLED
+
 namespace Loops::Tasking
 {
     class ColorUnlitTask;

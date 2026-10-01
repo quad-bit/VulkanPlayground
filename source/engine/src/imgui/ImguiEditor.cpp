@@ -216,6 +216,7 @@ void Loops::ImguiEditor::Init(ImguiSystem* utilObj, SceneManager* sceneManager, 
                     ImGui::SetCursorPosX(currentCurPos.x + 10);
                     ImGui::BeginGroup();
                     //currentCurPos = ImGui::GetCursorPos();
+                    ImGui::SetWindowFontScale(2.0f);
                     if (ImGui::RadioButton("Equal count", splitMethod == SplitMethod::EQUAL_COUNT))
                     {
                         m_boundsManager->SetSplitType(SplitMethod::EQUAL_COUNT);
@@ -233,6 +234,7 @@ void Loops::ImguiEditor::Init(ImguiSystem* utilObj, SceneManager* sceneManager, 
 
                 auto pos = ImVec2(ImGui::GetWindowSize().x * 0.5f, currentCurPos.y);
                 ImGui::SetCursorPos(pos);
+                ImGui::SetWindowFontScale(2.0f);
                 if (ImGui::RadioButton("Linear Morton", !isRecursiveActive))
                 {
                     m_boundsManager->SetCreationMethod(BvhCreationMethod::LINEAR);

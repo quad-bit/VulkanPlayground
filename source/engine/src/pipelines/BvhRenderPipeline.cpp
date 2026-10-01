@@ -1,5 +1,6 @@
 #include "pipelines/BvhRenderPipeline.h"
 #include "BoundsManager.h"
+#include "TextureManager.h"
 #include <optional>
 #include <vk_mem_alloc.h>
 
@@ -12,20 +13,21 @@ Loops::Tasking::BvhRenderPipeline::BvhRenderPipeline(const VkUtils::VulkanContex
     }
 
     //VkFormat colorFormat{ VK_FORMAT_B8G8R8A8_UNORM };
-    VkFormat colorFormat{ pVulkanManager->GetSurfaceColorFormat()};
+    //VkFormat colorFormat{ pVulkanManager->GetSurfaceColorFormat()};
+    VkFormat colorFormat{ TextureManager::GetInstance()->GetBestFormat(TEXTURE_TYPE::FBO, false) };
 
 #ifdef BVH_SCENE_VIEW_ENABLED
-    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(taskInfo, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
+    m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(m_vulkanContext, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
 
-    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(taskInfo, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
+    m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(m_vulkanContext, m_vulkanContext->m_maxFrameInFlights, 1, colorFormat,
         pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue(), true);
     imguiUtil->CreateRenderingInfo(VkClearColorValue{0.0f, 0.0f, 0.0f, 1.0f});
 #else
     m_pBoundsRenderTask = std::make_unique<Loops::Tasking::BoundsRenderTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
-        pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat());
+        colorFormat, pVulkanManager->GetDepthFormat());
     m_colorUnlitTaskPtr = std::make_unique<Loops::Tasking::ColorUnlitTask>(m_vulkanContext, pVulkanManager->GetDefaultColorImageView(), pVulkanManager->GetDefaultDepthImageView(),
-        pVulkanManager->GetSurfaceColorFormat(), pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
+        colorFormat, pVulkanManager->GetDepthFormat(), pVulkanManager->GetDefaultClearColor(), pVulkanManager->GetDefaultDepthClearValue());
     imguiUtil->CreateRenderingInfo();
 #endif // BVH_SCENE_VIEW_ENABLED
 

@@ -1150,7 +1150,13 @@ namespace
 
                 view.m_firstIndex = firstIndex;
                 view.m_indexCount = indexCount;
-                view.m_materialIndex = materialIndexList[glTFPrimitive.material];
+                if(glTFPrimitive.material > 0)
+                    view.m_materialIndex = materialIndexList[glTFPrimitive.material];
+                else
+                {
+                    Loops::ASSERT_MSG_DEBUG(materialIndexList.size() > 0, "no materials created");
+                    view.m_materialIndex = materialIndexList[0];
+                }
 
                 {
                     boundsManager.AddBound(min, max, view.m_viewIndex, e.id());

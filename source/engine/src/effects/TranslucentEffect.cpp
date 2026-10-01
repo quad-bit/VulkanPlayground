@@ -367,9 +367,12 @@ Loops::TranslucentEffect::TranslucentEffect(
         // change layout opaque targets to Color and depth attachment
         // change layout of copy images to shader read only
 
-        auto OpaqueGrabTask = [this, &TransitionImageFromTransferSrc, &TransitionImageToTransferSrc,
-        &TransitionImageFromTransferDstToShaderRead, &TransitionImageFromShaderReadToTransferDst, 
-        &BlitImage]()
+        const bool submitToGpu{ false };
+
+        auto OpaqueGrabTask = [this,
+            &TransitionImageFromTransferSrc, &TransitionImageToTransferSrc,
+            &TransitionImageFromTransferDstToShaderRead, &TransitionImageFromShaderReadToTransferDst, 
+            &BlitImage, &submitToGpu]()
             {
                 const auto& currentFrameInFlight = m_frameData.m_currentFrameInFlight;
                 auto& taskData = m_frameData.m_taskDataList[currentFrameInFlight];
@@ -410,6 +413,7 @@ Loops::TranslucentEffect::TranslucentEffect(
 
                 Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(cmdBuf));
 
+                if(submitToGpu)
                 {
                     std::lock_guard lock(m_mutexList[currentFrameInFlight]);
 
@@ -464,13 +468,22 @@ Loops::TranslucentEffect::TranslucentEffect(
 
                 const uint64_t waitValue = m_frameData.m_waitValue;
 
-                mp_depthRenderTask->Update(currentFrameInFlight,
+                /*mp_depthRenderTask->Update(currentFrameInFlight,
                     m_frameData.m_semaphore,
                     waitValue,
                     pSceneManager->GetRenderData(currentFrameInFlight),
                     pSceneManager, pMaterialManager->GetSceneMaterials(),
                     pSceneManager->GetTransformDescriptorSet(currentFrameInFlight),
-                    m_mutexList[currentFrameInFlight], m_signalAtomics[currentFrameInFlight]);
+                    m_mutexList[currentFrameInFlight], m_signalAtomics[currentFrameInFlight]);*/
+
+                mp_depthRenderTask->Update(currentFrameInFlight,
+                    m_depthBackCommandBuffers[currentFrameInFlight],
+                    m_frameData.m_semaphore,
+                    waitValue,
+                    pSceneManager->GetRenderData(currentFrameInFlight),
+                    pSceneManager, pMaterialManager->GetSceneMaterials(),
+                    pSceneManager->GetTransformDescriptorSet(currentFrameInFlight)
+               );
             };
 
         // transmission volume render task
@@ -479,18 +492,53 @@ Loops::TranslucentEffect::TranslucentEffect(
                 const auto& currentFrameInFlight = m_frameData.m_currentFrameInFlight;
                 auto& taskData = m_frameData.m_taskDataList[currentFrameInFlight];
 
-                const uint64_t waitValue = m_frameData.m_waitValue + 2;
-                const uint64_t signalValue = m_frameData.m_waitValue + 3;
+                // submit opaqe grab and back depth command buffers
+                {
+                    const uint64_t waitValue = m_frameData.m_waitValue;
+                    const uint64_t signalValue = waitValue + 1;
 
-                /*
-                const uint32_t& frameInFlight, const VkSemaphore& timelineSem,
-                uint64_t signalValue, std::optional<uint64_t> waitValue,
-                const Loops::RenderData& renderData,
-                const Loops::SceneManager& sceneManager,
-                const std::unordered_map<uint32_t, Loops::Material>& materials,
-                const VkDescriptorSet& transformSet,
-                const VkDescriptorSet& sceneSet
-                */
+                    VkSemaphoreSubmitInfo waitInfo{};
+                    //if (waitValue.has_value())
+                    {
+                        waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+                        waitInfo.pNext = nullptr;
+                        waitInfo.semaphore = m_frameData.m_semaphore;
+                        waitInfo.stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                        waitInfo.deviceIndex = 0;
+                        waitInfo.value = waitValue;
+                    };
+
+                    VkSemaphoreSubmitInfo signalInfo
+                    { VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO, nullptr, m_frameData.m_semaphore, signalValue, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0 };
+
+                    const VkCommandBuffer& opaque = m_opaqueGrabCommandBuffers[currentFrameInFlight];
+                    const VkCommandBufferSubmitInfo bufInfo[2]{
+                        {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, opaque, 0},
+                        {VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, nullptr, m_depthBackCommandBuffers[currentFrameInFlight], 0}
+                    };
+                    
+                    VkSubmitInfo2 submitInfo{};
+                    submitInfo.commandBufferInfoCount = 2;
+                    submitInfo.pCommandBufferInfos = bufInfo;
+                    submitInfo.pSignalSemaphoreInfos = &signalInfo;
+                    submitInfo.signalSemaphoreInfoCount = 1;
+                    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+                    //if (waitValue.has_value())
+                    {
+                        submitInfo.waitSemaphoreInfoCount = 1;
+                        submitInfo.pWaitSemaphoreInfos = &waitInfo;
+                    }
+
+                    // If the threads are being killed, we need to skip the queue submission to allow the program to exit gracefully
+                    //if (m_alive)
+                    {
+                        Loops::VkUtils::ErrorCheck(vkQueueSubmit2(m_vulkanContext->m_graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE));
+                    }
+                }
+
+                const uint64_t waitValue = m_frameData.m_waitValue + 1;
+                const uint64_t signalValue = waitValue + 1;
+
                 mp_transmissionVolumeTask->Update(currentFrameInFlight,
                     m_frameData.m_semaphore,
                     signalValue, waitValue,
@@ -508,7 +556,7 @@ Loops::TranslucentEffect::TranslucentEffect(
             tf::Task transVolTfTask = taskflow.emplace(TransmissionTask).name("TransmissionTask");
             // NOTE: to make it serial uncomment the below
             //backFaceDepthTfTask.succeed(opqGrabTfTask);
-            transVolTfTask.succeed(backFaceDepthTfTask, backFaceDepthTfTask);
+            transVolTfTask.succeed(backFaceDepthTfTask, opqGrabTfTask);
         }
     }
 
@@ -518,16 +566,21 @@ Loops::TranslucentEffect::TranslucentEffect(
         createInfo.queueFamilyIndex = m_vulkanContext->m_graphicsQueueFamilyIndex;
         createInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 
-        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_commandPool));
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_opaqueGrabcommandPool));
+        Loops::VkUtils::ErrorCheck(vkCreateCommandPool(m_vulkanContext->m_logicalDevice, &createInfo, nullptr, &m_backDepthcommandPool));
 
         m_opaqueGrabCommandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
+        m_depthBackCommandBuffers.resize(m_vulkanContext->m_maxFrameInFlights);
         VkCommandBufferAllocateInfo alloc_info{};
         alloc_info.commandBufferCount = m_vulkanContext->m_maxFrameInFlights;
-        alloc_info.commandPool = m_commandPool;
+        alloc_info.commandPool = m_opaqueGrabcommandPool;
         alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
         Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_opaqueGrabCommandBuffers[0]));
+
+        alloc_info.commandPool = m_backDepthcommandPool;
+        Loops::VkUtils::ErrorCheck(vkAllocateCommandBuffers(m_vulkanContext->m_logicalDevice, &alloc_info, &m_depthBackCommandBuffers[0]));
     }
 }
 
@@ -550,12 +603,13 @@ uint64_t Loops::TranslucentEffect::Update(const uint32_t& frameInFlight,
 
     m_executor.run(m_taskflows[frameInFlight]).wait();
 
-    return waitValue.value() + 1;
+    return waitValue.value() + 2;
 }
 
 Loops::TranslucentEffect::~TranslucentEffect()
 {
-    vkDestroyCommandPool(m_vulkanContext->m_logicalDevice, m_commandPool, nullptr);
+    vkDestroyCommandPool(m_vulkanContext->m_logicalDevice, m_backDepthcommandPool, nullptr);
+    vkDestroyCommandPool(m_vulkanContext->m_logicalDevice, m_opaqueGrabcommandPool, nullptr);
 
     for (auto& image : m_opaquePassColorTargetCopy)
     {

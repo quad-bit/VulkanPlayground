@@ -52,6 +52,16 @@ namespace Loops::Tasking
             std::mutex& mutex, std::atomic_uint64_t& signalAtomic
         );
 
+        void Update(const uint32_t& frameInFlight,
+            VkCommandBuffer& commandBuffer,
+            const VkSemaphore& timelineSem,
+            std::optional<uint64_t> waitValue,
+            const Loops::RenderData& renderData,
+            const Loops::SceneManager* sceneManager,
+            const std::unordered_map<uint32_t, Loops::Material>& materials,
+            const VkDescriptorSet& transformSet
+        );
+
         // Case where submission is handled elsewhere
         void Update(VkCommandBuffer& commandBuffer, const uint32_t& frameInFlight,
             const Loops::RenderData& renderData,

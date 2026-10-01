@@ -147,7 +147,7 @@ void Loops::Tasking::TexturingPipeline::Update(uint32_t currentFrameInFlight,
     {
         uint64_t signalValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::GUI_FINISHED);
         //uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::OPAQUE_FINISHED);
-        uint64_t waitValue = m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::TRANSLUCENT_FINISHED);
+        uint64_t waitValue = translucentSignalValue;// m_timelineSemaphores[currentFrameInFlight]->GetTimelineValue(TimelineStages::TRANSLUCENT_FINISHED);
         imguiUtil->Render(currentFrameInFlight, m_timelineSemaphores[currentFrameInFlight]->GetSemaphore(), signalValue, waitValue);
     }
 

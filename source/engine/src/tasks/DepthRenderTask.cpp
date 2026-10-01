@@ -427,6 +427,212 @@ void Loops::Tasking::DepthRenderTask::Update(const uint32_t& frameInFlight,
     }
 }
 
+void Loops::Tasking::DepthRenderTask::Update(const uint32_t& frameInFlight,
+    VkCommandBuffer& commandBuffer,
+    const VkSemaphore& timelineSem, std::optional<uint64_t> waitValue,
+    const Loops::RenderData& renderData, const Loops::SceneManager* sceneManager,
+    const std::unordered_map<uint32_t, Loops::Material>& materials,
+    const VkDescriptorSet& transformSet)
+{
+    VkViewport viewport = { 0.0f, static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), static_cast<float>(m_vulkanContext->m_renderDimensions.m_width), -static_cast<float>(m_vulkanContext->m_renderDimensions.m_height), 0.0f, 1.0f };
+    VkRect2D scissor = { {0, 0}, {m_vulkanContext->m_renderDimensions.m_width, m_vulkanContext->m_renderDimensions.m_height} };
+    //VkCommandBuffer& commandBuffer = m_commandBuffers[frameInFlight];
+
+    auto RenderCommands = [this, &viewport, &scissor,
+        &renderData, &sceneManager, &commandBuffer](
+            uint32_t frameInFlight,
+            const Loops::EFFECT_TYPE& targetEffect,
+            const Loops::TECHNIQUE_TYPE& targetTech)
+        {
+
+            vkCmdBeginRendering(commandBuffer, &m_renderInfoList[frameInFlight]);
+            {
+                vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+                vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+                int boundVertexBuffer = -1, boundIndexBuffer = -1;
+                auto techIt = renderData.m_drawablesPerMaterial.find(targetEffect);
+                if (techIt != renderData.m_drawablesPerMaterial.end())
+                {
+                    // Bind descriptor sets
+                    // Scene set 0
+                    // Transform set 1
+                    VkDescriptorSet set[2]
+                    {
+                        m_sceneSet[frameInFlight],
+                        m_transformSet[frameInFlight],
+                    };
+
+                    VkBindDescriptorSetsInfo bindInfo = {};
+                    bindInfo.descriptorSetCount = 2;
+                    bindInfo.firstSet = 0;
+                    bindInfo.layout = m_pipelineLayout;
+                    bindInfo.pDescriptorSets = set;
+                    bindInfo.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                    bindInfo.sType = VK_STRUCTURE_TYPE_BIND_DESCRIPTOR_SETS_INFO;
+                    bindInfo.dynamicOffsetCount = 0;
+                    bindInfo.pDynamicOffsets = nullptr;
+                    vkCmdBindDescriptorSets2(commandBuffer, &bindInfo);
+
+                    auto RecordDraw = [&renderData, &boundIndexBuffer,
+                        &boundVertexBuffer, frameInFlight,
+                        &sceneManager, this,
+                        &commandBuffer](const std::vector<uint32_t>& drawableIndicies)
+                        {
+                            for (const auto& drawableIndex : drawableIndicies)
+                            {
+                                const Loops::Drawable& drawable = renderData.m_drawables[drawableIndex];
+
+                                // Bind vertex and index buffer
+                                if (boundVertexBuffer != drawable.m_vertexBufferId || boundIndexBuffer != drawable.m_indexBufferId)
+                                {
+                                    boundVertexBuffer = drawable.m_vertexBufferId;
+                                    boundIndexBuffer = drawable.m_indexBufferId;
+                                    auto& vertexBuffer = sceneManager->GetVertexBuffer(drawable.m_vertexBufferId);
+                                    auto& indexBuffer = sceneManager->GetIndexBuffer(drawable.m_indexBufferId);
+
+                                    VkDeviceSize offset{ 0 };
+                                    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, &offset);
+                                    vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VkIndexType::VK_INDEX_TYPE_UINT32);
+                                }
+
+                                // Push Constant 
+                                uint32_t matrixIndex = drawable.m_matrixIndex;
+
+                                // Launch draw
+                                for (uint32_t i = 0; i < drawable.m_numOfViews; i++)
+                                {
+                                    const Loops::MeshView& meshView = renderData.m_meshViews[drawable.m_viewStartIndex + i];
+                                    PushConsts pushConsts{ (int)matrixIndex };
+                                    VkPushConstantsInfo info{};
+                                    info.layout = m_pipelineLayout;
+                                    info.offset = 0;
+                                    info.pValues = &pushConsts;
+                                    info.size = sizeof(PushConsts);
+                                    info.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+                                    info.sType = VK_STRUCTURE_TYPE_PUSH_CONSTANTS_INFO;
+                                    vkCmdPushConstants2(commandBuffer, &info);
+
+                                    uint32_t numIndicies = meshView.m_indexCount;
+                                    uint32_t firstIndex = meshView.m_firstIndex;
+                                    vkCmdDrawIndexed(commandBuffer, numIndicies, 1, firstIndex, 0, 0);
+                                }
+                            }
+                        };
+
+                    auto pbrIt = techIt->second.find(targetTech);
+                    if (pbrIt != techIt->second.end())
+                    {
+                        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+                        const std::vector<uint32_t>& drawableIndicies = pbrIt->second;
+                        RecordDraw(drawableIndicies);
+                    }
+                }
+            }
+            vkCmdEndRendering(commandBuffer);
+
+        };
+
+    Loops::VkUtils::ErrorCheck(vkResetCommandBuffer(commandBuffer, 0));
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    Loops::VkUtils::ErrorCheck(vkBeginCommandBuffer(commandBuffer, &beginInfo));
+    {
+        VkImageMemoryBarrier2 imageBarrier{};
+        imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        imageBarrier.pNext = nullptr;
+
+        // Define the synchronization stages
+        imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; // Source: Transfer/Copy operation
+        imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT; // Destination: Shader reading (e.g., Fragment shader)
+
+        // Define the access masks (caches to flush/invalidate)
+        imageBarrier.srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT; // Flush transfer writes
+        imageBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; // Invalidate shader reads
+
+        // Layout transitions
+        imageBarrier.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        // Ownership queue family transfers (ignored if not changing queues)
+        imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        // Define the subresource range (which parts of the image to transition)
+        imageBarrier.image = std::get<TaskOwnedResource>(m_taskResource).m_depthTargets[frameInFlight].m_vkImage;
+        imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        imageBarrier.subresourceRange.baseMipLevel = 0;
+        imageBarrier.subresourceRange.levelCount = 1;
+        imageBarrier.subresourceRange.baseArrayLayer = 0;
+        imageBarrier.subresourceRange.layerCount = 1;
+
+        // Package the barrier into dependency info
+        VkDependencyInfo dependencyInfo{};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.pNext = nullptr;
+        dependencyInfo.dependencyFlags = 0;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &imageBarrier;
+
+        // Record the pipeline barrier
+        vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+    }
+
+    for (const auto& targetPass : m_targetPasses)
+    {
+        RenderCommands(frameInFlight, targetPass.first, targetPass.second);
+    }
+
+    {
+        VkImageMemoryBarrier2 imageBarrier{};
+        imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+        imageBarrier.pNext = nullptr;
+
+        // Define the synchronization stages
+        imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT; // Source: Transfer/Copy operation
+        imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT; // Destination: Shader reading (e.g., Fragment shader)
+
+        // Define the access masks (caches to flush/invalidate)
+        imageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT; // Flush transfer writes
+        imageBarrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT |
+            VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT; // Invalidate shader reads
+
+        // Layout transitions
+        imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        imageBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        // Ownership queue family transfers (ignored if not changing queues)
+        imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+        // Define the subresource range (which parts of the image to transition)
+        imageBarrier.image = std::get<TaskOwnedResource>(m_taskResource).m_depthTargets[frameInFlight].m_vkImage;
+        imageBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        imageBarrier.subresourceRange.baseMipLevel = 0;
+        imageBarrier.subresourceRange.levelCount = 1;
+        imageBarrier.subresourceRange.baseArrayLayer = 0;
+        imageBarrier.subresourceRange.layerCount = 1;
+
+        // Package the barrier into dependency info
+        VkDependencyInfo dependencyInfo{};
+        dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        dependencyInfo.pNext = nullptr;
+        dependencyInfo.dependencyFlags = 0;
+        dependencyInfo.imageMemoryBarrierCount = 1;
+        dependencyInfo.pImageMemoryBarriers = &imageBarrier;
+
+        // Record the pipeline barrier
+        vkCmdPipelineBarrier2(commandBuffer, &dependencyInfo);
+    }
+    Loops::VkUtils::ErrorCheck(vkEndCommandBuffer(commandBuffer));
+}
+
 void Loops::Tasking::DepthRenderTask::Update(VkCommandBuffer& commandBuffer,
     const uint32_t& frameInFlight, const Loops::RenderData& renderData,
     const Loops::SceneManager& sceneManager)

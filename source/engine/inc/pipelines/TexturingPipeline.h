@@ -24,12 +24,12 @@ namespace Loops::Tasking
             UNINITIALIZED = 0,
             SHADOW_PASS_FINISHED = 1,
             OPAQUE_FINISHED = 2,
-            TRANSLUCENT_COPY_FINISHED = 3,
-            TRANSLUCENT_BACK_DEPTH_FINISHED = 4,
-            TRANSLUCENT_FINISHED = 5,
-            GUI_FINISHED = 6,
-            SAFE_TO_PRESENT = 7,
-            NUM_STAGES = 8
+            //TRANSLUCENT_COPY_FINISHED = 3,
+            TRANSLUCENT_COPY_AND_BACK_DEPTH_FINISHED = 3,
+            TRANSLUCENT_FINISHED = 4,
+            GUI_FINISHED = 5,
+            SAFE_TO_PRESENT = 6,
+            NUM_STAGES = 7
         };
 
         //std::unique_ptr<TextureUnlitTask> mp_textureUnlitTask;

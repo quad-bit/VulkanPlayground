@@ -34,9 +34,11 @@ namespace Loops
         std::unique_ptr<Tasking::DepthRenderTask> mp_depthRenderTask;
         std::unique_ptr<Tasking::TransmissionVolumeTask> mp_transmissionVolumeTask;
 
-        VkCommandPool m_commandPool = VK_NULL_HANDLE;
+        VkCommandPool m_opaqueGrabcommandPool = VK_NULL_HANDLE;
+        VkCommandPool m_backDepthcommandPool = VK_NULL_HANDLE;
         //std::vector<VkCommandBuffer> m_commandBuffers;
         std::vector<VkCommandBuffer> m_opaqueGrabCommandBuffers;
+        std::vector<VkCommandBuffer> m_depthBackCommandBuffers;
 
         std::vector<VkDescriptorSet> m_sceneSets, m_transformSets;
         const VkUtils::VulkanContext * const m_vulkanContext = nullptr;
